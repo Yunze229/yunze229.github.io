@@ -1,0 +1,48 @@
+{{ define "main" }}
+<article>
+  <header class="article-header">
+    <h1 class="article-title">{{ .Title }}</h1>
+    <div class="article-meta">
+      <time>{{ .Date.Format "2006年01月02日" }}</time>
+      {{ with .Params.categories }}
+        {{ range . }}<span>{{ . }}</span>{{ end }}
+      {{ end }}
+      {{ if .Params.private }}
+      <span style="color:var(--fg-faint)">🔒
+        <span class="lang-zh-inline">私密</span>
+        <span class="lang-en-inline">Private</span>
+      </span>
+      {{ end }}
+    </div>
+  </header>
+
+  {{ if .Params.private }}
+  <div class="article-private-notice">
+    <span class="lang-zh">这篇文章仅自己可见。</span>
+    <span class="lang-en">This post is private.</span>
+  </div>
+  {{ end }}
+
+  <div class="article-content">
+    {{ .Content }}
+  </div>
+
+  {{ with .Params.tags }}
+  <div class="article-tags">
+    {{ range . }}
+    <a href="/tags/{{ . | urlize }}/" class="tag"># {{ . }}</a>
+    {{ end }}
+  </div>
+  {{ end }}
+</article>
+
+{{ if not .Params.private }}
+<div class="article-comments">
+  <div class="comments-title">
+    <span class="lang-zh">评论</span>
+    <span class="lang-en">Comments</span>
+  </div>
+  {{ partial "giscus.html" . }}
+</div>
+{{ end }}
+{{ end }}

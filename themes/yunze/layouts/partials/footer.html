@@ -1,0 +1,17 @@
+<footer class="site-footer">
+  <div class="site-container">
+    <div class="footer-inner">
+      <span>© {{ .Site.Params.since }}–{{ now.Year }} Yunze</span>
+      <div class="footer-links">
+        <a href="/index.xml">RSS</a>
+        <a href="https://github.com/Yunze229" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </div>
+</footer>
+{{ if .Site.Params.goatcounter }}
+<script data-goatcounter="https://{{ .Site.Params.goatcounter }}.goatcounter.com/count"
+  async src="//gc.zgo.at/count.js"></script>
+{{ end }}
+{{ $js := resources.Get "js/main.js" | minify | fingerprint }}
+<script src="{{ $js.Permalink }}" integrity="{{ $js.Data.Integrity }}" defer></script>

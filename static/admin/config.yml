@@ -1,0 +1,59 @@
+backend:
+  name: github
+  repo: Yunze229/yunze229.github.io
+  branch: main
+  base_url: https://yunze229.github.io
+
+media_folder: "static/images/uploads"
+public_folder: "/images/uploads"
+
+locale: zh_Hans
+
+collections:
+  - name: "posts"
+    label: "文章"
+    label_singular: "文章"
+    folder: "content/posts"
+    create: true
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    preview_path: "posts/{{slug}}"
+    fields:
+      - label: "标题"
+        name: "title"
+        widget: "string"
+        hint: "文章标题"
+      - label: "日期"
+        name: "date"
+        widget: "datetime"
+        format: "YYYY-MM-DD"
+        date_format: "YYYY-MM-DD"
+        time_format: false
+      - label: "分类"
+        name: "categories"
+        widget: "select"
+        multiple: true
+        options:
+          - { label: "日记", value: "日记" }
+          - { label: "学习笔记", value: "学习笔记" }
+          - { label: "技能笔记", value: "技能笔记" }
+          - { label: "旅行", value: "旅行" }
+          - { label: "书单", value: "书单" }
+        default: ["日记"]
+      - label: "标签"
+        name: "tags"
+        widget: "list"
+        allow_add: true
+        hint: "用回车添加标签"
+      - label: "🔒 私密文章（仅自己可见）"
+        name: "private"
+        widget: "boolean"
+        default: false
+        hint: "开启后文章不会在首页和分类页出现"
+      - label: "草稿"
+        name: "draft"
+        widget: "boolean"
+        default: false
+      - label: "正文"
+        name: "body"
+        widget: "markdown"
+        hint: "支持 Markdown 格式"

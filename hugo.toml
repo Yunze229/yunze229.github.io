@@ -1,0 +1,34 @@
+baseURL = "https://yunze229.github.io/"
+locale = "zh-CN"
+title = "Yunze"
+theme = "yunze"
+paginate = 10
+enableRobotsTXT = true
+enableEmoji = false
+
+[params]
+  description = "长期主义 · 数学 · 科学 · 辩论 · 行万里路"
+  author = "Yunze"
+  since = 2026
+  goatcounter = "yunze229"
+  giscus_repo = "Yunze229/yunze229.github.io"
+  giscus_repo_id = ""
+  giscus_category = "Announcements"
+  giscus_category_id = ""
+
+[taxonomies]
+  category = "categories"
+  tag = "tags"
+
+[outputs]
+  home = ["HTML", "RSS", "JSON"]
+  page = ["HTML"]
+  section = ["HTML", "RSS"]
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+  [markup.highlight]
+    style = "github"
+    noClasses = false

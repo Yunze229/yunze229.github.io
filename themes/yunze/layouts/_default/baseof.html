@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="{{ .Site.Language.Locale }}" data-theme="light">
+<head>
+  {{ partial "head.html" . }}
+</head>
+<body class="lang-root show-zh">
+  {{ partial "header.html" . }}
+  <main class="site-main">
+    <div class="site-container">
+      <div class="lang-toggle">
+        <button class="lang-btn active" data-lang="zh">中文</button>
+        <button class="lang-btn" data-lang="en">English</button>
+      </div>
+      {{ block "main" . }}{{ end }}
+    </div>
+  </main>
+  {{ partial "footer.html" . }}
+</body>
+</html>

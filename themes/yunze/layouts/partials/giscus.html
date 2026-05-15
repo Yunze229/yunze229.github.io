@@ -1,0 +1,22 @@
+{{ if .Site.Params.giscus_repo_id }}
+<script src="https://giscus.app/client.js"
+  data-repo="{{ .Site.Params.giscus_repo }}"
+  data-repo-id="{{ .Site.Params.giscus_repo_id }}"
+  data-category="{{ .Site.Params.giscus_category }}"
+  data-category-id="{{ .Site.Params.giscus_category_id }}"
+  data-mapping="pathname"
+  data-strict="0"
+  data-reactions-enabled="1"
+  data-emit-metadata="0"
+  data-input-position="bottom"
+  data-theme="preferred_color_scheme"
+  data-lang="zh-CN"
+  crossorigin="anonymous"
+  async>
+</script>
+{{ else }}
+<p style="color:var(--fg-faint);font-size:0.85rem;">
+  <span class="lang-zh">评论功能配置中，即将开放。</span>
+  <span class="lang-en">Comments coming soon.</span>
+</p>
+{{ end }}

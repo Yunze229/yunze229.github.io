@@ -1,0 +1,16 @@
+{{ define "main" }}
+<div style="margin-bottom:32px;">
+  <h1 style="font-size:1.4rem;font-weight:600;">
+    <span class="lang-zh">分类</span>
+    <span class="lang-en">Categories</span>
+  </h1>
+</div>
+<ul class="categories-list">
+  {{ range .Data.Terms.Alphabetical }}
+  <li class="category-item">
+    <a href="{{ .Page.Permalink }}" class="category-link">{{ .Page.Title }}</a>
+    <span class="category-count">{{ .Count }}</span>
+  </li>
+  {{ end }}
+</ul>
+{{ end }}

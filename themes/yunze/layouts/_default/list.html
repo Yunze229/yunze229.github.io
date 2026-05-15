@@ -1,0 +1,20 @@
+{{ define "main" }}
+<div class="section-header" style="margin-bottom:32px;">
+  <h1 style="font-size:1.4rem;font-weight:600;">
+    <span class="lang-zh">{{ .Title }}</span>
+    <span class="lang-en">{{ .Title }}</span>
+  </h1>
+</div>
+
+{{ $pages := where .Pages "Params.private" "ne" true }}
+{{ if $pages }}
+<ul class="post-list">
+  {{ range $pages }}
+  <li class="post-item">
+    <span class="post-date">{{ .Date.Format "2006-01-02" }}</span>
+    <a class="post-title-link" href="{{ .Permalink }}">{{ .Title }}</a>
+  </li>
+  {{ end }}
+</ul>
+{{ end }}
+{{ end }}
