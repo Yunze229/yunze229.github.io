@@ -1,0 +1,117 @@
+{{ define "main" }}
+{{ $travel := hugo.Data.travel }}
+<div>
+  <div style="margin-bottom:24px;">
+    <h1 style="font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;margin-bottom:6px;">
+      <span class="lang-zh">足迹</span>
+      <span class="lang-en">World Map</span>
+    </h1>
+    <p style="color:var(--fg-muted);font-size:0.9rem;">
+      <span class="lang-zh">行万里路 · 已探索 {{ len $travel.countries }} 个国家</span>
+      <span class="lang-en">{{ len $travel.countries }} countries explored</span>
+    </p>
+  </div>
+
+  <div id="world-map" style="width:100%;height:400px;border-radius:10px;border:1px solid var(--border);overflow:hidden;margin-bottom:32px;"></div>
+
+  <div class="countries-list">
+    {{ range $travel.countries }}
+    <div class="country-item">
+      <div class="country-name">
+        <span class="lang-zh">{{ .name_zh }}</span>
+        <span class="lang-en">{{ .name_en }}</span>
+      </div>
+      <div class="country-cities">
+        {{ range .cities_zh }}<span class="city-tag lang-zh">{{ . }}</span>{{ end }}
+        {{ range .cities_en }}<span class="city-tag lang-en">{{ . }}</span>{{ end }}
+      </div>
+      <div class="country-year">{{ .year }}</div>
+    </div>
+    {{ end }}
+  </div>
+</div>
+
+<style>
+.countries-list { display: flex; flex-direction: column; }
+.country-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.country-item:first-child { border-top: 1px solid var(--border); }
+.country-name { font-weight: 600; font-size: 1rem; min-width: 80px; }
+.country-cities { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; }
+.city-tag {
+  font-size: 0.78rem;
+  background: var(--tag-bg);
+  color: var(--tag-fg);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.country-year { font-size: 0.82rem; color: var(--fg-faint); }
+</style>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function() {
+  const visited = {{ $travel.countries | jsonify }};
+
+  const countryCoords = {
+    "CN": [35.86, 104.19],
+    "US": [37.09, -95.71],
+    "JP": [36.20, 138.25],
+    "GB": [55.37, -3.43],
+    "FR": [46.22, 2.21],
+    "DE": [51.16, 10.45],
+    "AU": [-25.27, 133.77],
+    "CA": [56.13, -106.34],
+    "BR": [-14.23, -51.92],
+    "IN": [20.59, 78.96],
+    "KR": [35.90, 127.76],
+    "IT": [41.87, 12.56],
+    "ES": [40.46, -3.74],
+    "MX": [23.63, -102.55],
+    "SG": [1.35, 103.82],
+    "TH": [15.87, 100.99],
+  };
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const tileUrl = isDark
+    ? 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png';
+
+  const map = L.map('world-map', {
+    zoomControl: true,
+    scrollWheelZoom: false,
+    minZoom: 1,
+    maxZoom: 6,
+  }).setView([20, 10], 1);
+
+  L.tileLayer(tileUrl, {
+    attribution: '© <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+  }).addTo(map);
+
+  const dotStyle = {
+    radius: 8,
+    fillColor: isDark ? '#e8e8e8' : '#1a1a1a',
+    color: isDark ? '#141414' : '#ffffff',
+    weight: 2,
+    opacity: 1,
+    fillOpacity: 0.9,
+  };
+
+  visited.forEach(function(c) {
+    const coords = countryCoords[c.code];
+    if (!coords) return;
+    const name = document.documentElement.classList.contains('show-en') ? c.name_en : c.name_zh;
+    L.circleMarker(coords, dotStyle)
+      .bindPopup('<strong>' + c.name_zh + ' / ' + c.name_en + '</strong>')
+      .addTo(map);
+  });
+})();
+</script>
+{{ end }}

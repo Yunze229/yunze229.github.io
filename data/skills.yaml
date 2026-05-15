@@ -1,0 +1,73 @@
+categories:
+  - name_zh: "数学"
+    name_en: "Math"
+    icon: "∑"
+    skills:
+      - name: "加减乘除"
+        level: 5
+        year: 2022
+      - name: "分数 / 小数"
+        level: 5
+        year: 2023
+      - name: "方程"
+        level: 4
+        year: 2024
+      - name: "几何"
+        level: 3
+        year: 2025
+      - name: "代数"
+        level: 2
+        year: 2026
+
+  - name_zh: "科学"
+    name_en: "Science"
+    icon: "⚗"
+    skills:
+      - name: "物理基础"
+        level: 3
+        year: 2025
+      - name: "化学基础"
+        level: 2
+        year: 2026
+      - name: "天文"
+        level: 4
+        year: 2024
+
+  - name_zh: "语言"
+    name_en: "Language"
+    icon: "文"
+    skills:
+      - name: "中文写作"
+        level: 4
+        year: 2023
+      - name: "英文阅读"
+        level: 4
+        year: 2024
+      - name: "英文写作"
+        level: 3
+        year: 2025
+
+  - name_zh: "辩论"
+    name_en: "Debate"
+    icon: "⚖"
+    skills:
+      - name: "论点构建"
+        level: 3
+        year: 2025
+      - name: "反驳技巧"
+        level: 3
+        year: 2026
+      - name: "公开演讲"
+        level: 2
+        year: 2026
+
+  - name_zh: "编程"
+    name_en: "Coding"
+    icon: "</>"
+    skills:
+      - name: "Scratch"
+        level: 3
+        year: 2025
+      - name: "Python 基础"
+        level: 1
+        year: 2026

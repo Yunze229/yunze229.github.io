@@ -1,0 +1,233 @@
+{{ define "main" }}
+<div class="birthday-page">
+
+  <div class="lang-zh">
+    <h1 class="birthday-title">我的生日</h1>
+    <p class="birthday-sub">2016年2月29日 · 闰年专属</p>
+  </div>
+  <div class="lang-en">
+    <h1 class="birthday-title">My Birthday</h1>
+    <p class="birthday-sub">February 29, 2016 · Leap Year Exclusive</p>
+  </div>
+
+  <div class="birthday-cards">
+    <div class="bday-card">
+      <div class="bday-label lang-zh">官方年龄</div>
+      <div class="bday-label lang-en">Official Age</div>
+      <div class="bday-number" id="official-age">—</div>
+      <div class="bday-desc lang-zh">按日历算</div>
+      <div class="bday-desc lang-en">By the calendar</div>
+    </div>
+    <div class="bday-card bday-card--special">
+      <div class="bday-label lang-zh">真实生日次数</div>
+      <div class="bday-label lang-en">Real Birthdays</div>
+      <div class="bday-number" id="real-birthdays">—</div>
+      <div class="bday-desc lang-zh">Feb 29 出现的次数</div>
+      <div class="bday-desc lang-en">Times Feb 29 existed</div>
+    </div>
+    <div class="bday-card">
+      <div class="bday-label lang-zh">下次真实生日</div>
+      <div class="bday-label lang-en">Next Real Birthday</div>
+      <div class="bday-number" id="next-birthday-year">—</div>
+      <div class="bday-desc lang-zh" id="next-birthday-desc-zh">还有 — 天</div>
+      <div class="bday-desc lang-en" id="next-birthday-desc-en">— days away</div>
+    </div>
+  </div>
+
+  <div class="birthday-countdown">
+    <div class="countdown-label lang-zh">距下次真实生日</div>
+    <div class="countdown-label lang-en">Until next real birthday</div>
+    <div class="countdown-blocks">
+      <div class="countdown-block">
+        <div class="countdown-num" id="cd-days">—</div>
+        <div class="countdown-unit lang-zh">天</div>
+        <div class="countdown-unit lang-en">days</div>
+      </div>
+      <div class="countdown-block">
+        <div class="countdown-num" id="cd-hours">—</div>
+        <div class="countdown-unit lang-zh">小时</div>
+        <div class="countdown-unit lang-en">hours</div>
+      </div>
+      <div class="countdown-block">
+        <div class="countdown-num" id="cd-minutes">—</div>
+        <div class="countdown-unit lang-zh">分钟</div>
+        <div class="countdown-unit lang-en">min</div>
+      </div>
+      <div class="countdown-block">
+        <div class="countdown-num" id="cd-seconds">—</div>
+        <div class="countdown-unit lang-zh">秒</div>
+        <div class="countdown-unit lang-en">sec</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="birthday-note">
+    <p class="lang-zh">全球只有约 0.07% 的人拥有闰年生日。<br>你是其中之一。</p>
+    <p class="lang-en">Only about 0.07% of people worldwide are born on Feb 29.<br>You are one of them.</p>
+  </div>
+
+</div>
+
+<style>
+.birthday-page { max-width: 560px; }
+.birthday-title {
+  font-size: 1.8rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.birthday-sub {
+  color: var(--fg-muted);
+  font-size: 0.9rem;
+  margin-bottom: 40px;
+}
+.birthday-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 40px;
+}
+.bday-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 16px;
+  text-align: center;
+}
+.bday-card--special {
+  border-color: var(--fg);
+  background: var(--code-bg);
+}
+.bday-label {
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.bday-number {
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.bday-desc {
+  font-size: 0.78rem;
+  color: var(--fg-faint);
+}
+.birthday-countdown {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px 24px;
+  margin-bottom: 32px;
+  text-align: center;
+}
+.countdown-label {
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.countdown-blocks {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+}
+.countdown-block { text-align: center; }
+.countdown-num {
+  font-size: 2.8rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.countdown-unit {
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.birthday-note {
+  color: var(--fg-muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  text-align: center;
+  padding: 20px;
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 480px) {
+  .birthday-cards { grid-template-columns: 1fr; }
+  .countdown-num { font-size: 2rem; }
+}
+</style>
+
+<script>
+(function() {
+  const BIRTH = new Date('2016-02-29T00:00:00');
+
+  function isLeapYear(y) {
+    return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  }
+
+  function nextLeapBirthday() {
+    const now = new Date();
+    let y = now.getFullYear();
+    while (true) {
+      if (isLeapYear(y)) {
+        const d = new Date(y + '-02-29T00:00:00');
+        if (d > now) return d;
+      }
+      y++;
+    }
+  }
+
+  function realBirthdays() {
+    const now = new Date();
+    let count = 0;
+    for (let y = 2016; y <= now.getFullYear(); y++) {
+      if (isLeapYear(y)) {
+        const d = new Date(y + '-02-29T00:00:00');
+        if (d <= now) count++;
+      }
+    }
+    return count;
+  }
+
+  function officialAge() {
+    const now = new Date();
+    let age = now.getFullYear() - 2016;
+    const bday = new Date(now.getFullYear(), 1, 28);
+    if (now < bday) age--;
+    return age;
+  }
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function update() {
+    const next = nextLeapBirthday();
+    const now = new Date();
+    const diff = next - now;
+
+    const days = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+
+    document.getElementById('official-age').textContent = officialAge();
+    document.getElementById('real-birthdays').textContent = realBirthdays();
+    document.getElementById('next-birthday-year').textContent = next.getFullYear();
+    document.getElementById('next-birthday-desc-zh').textContent = '还有 ' + days + ' 天';
+    document.getElementById('next-birthday-desc-en').textContent = days + ' days away';
+    document.getElementById('cd-days').textContent = days;
+    document.getElementById('cd-hours').textContent = pad(hours);
+    document.getElementById('cd-minutes').textContent = pad(mins);
+    document.getElementById('cd-seconds').textContent = pad(secs);
+  }
+
+  update();
+  setInterval(update, 1000);
+})();
+</script>
+{{ end }}

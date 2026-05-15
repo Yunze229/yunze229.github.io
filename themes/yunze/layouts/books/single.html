@@ -1,0 +1,90 @@
+{{ define "main" }}
+<div>
+  <div style="margin-bottom:32px;">
+    <h1 style="font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;margin-bottom:6px;">
+      <span class="lang-zh">书单</span>
+      <span class="lang-en">Books</span>
+    </h1>
+    <p style="color:var(--fg-muted);font-size:0.9rem;">
+      <span class="lang-zh">读万卷书 · 已读 {{ len hugo.Data.books }} 本</span>
+      <span class="lang-en">Read {{ len hugo.Data.books }} books so far</span>
+    </p>
+  </div>
+
+  <div class="books-list">
+    {{ range hugo.Data.books }}
+    <div class="book-item">
+      <div class="book-main">
+        <div class="book-title">{{ .title }}</div>
+        <div class="book-author">{{ .author }}</div>
+        <div class="book-note lang-zh">{{ .note_zh }}</div>
+        <div class="book-note lang-en">{{ .note_en }}</div>
+      </div>
+      <div class="book-meta">
+        <div class="book-rating">
+          {{ range seq .rating }}★{{ end }}{{ if lt .rating 5 }}{{ range seq (sub 5 .rating) }}☆{{ end }}{{ end }}
+        </div>
+        <div class="book-date">{{ .date_read }}</div>
+        <div class="book-category">{{ .category }}</div>
+      </div>
+    </div>
+    {{ end }}
+  </div>
+</div>
+
+<style>
+.books-list { display: flex; flex-direction: column; gap: 0; }
+.book-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+.book-item:first-child { border-top: 1px solid var(--border); }
+.book-main { flex: 1; }
+.book-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.book-author {
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  margin-bottom: 8px;
+}
+.book-note {
+  font-size: 0.88rem;
+  color: var(--fg-muted);
+  line-height: 1.6;
+}
+.book-meta {
+  text-align: right;
+  flex-shrink: 0;
+}
+.book-rating {
+  font-size: 0.85rem;
+  color: var(--fg);
+  margin-bottom: 4px;
+  letter-spacing: 1px;
+}
+.book-date {
+  font-size: 0.78rem;
+  color: var(--fg-faint);
+  margin-bottom: 4px;
+}
+.book-category {
+  font-size: 0.75rem;
+  background: var(--tag-bg);
+  color: var(--tag-fg);
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+@media (max-width: 480px) {
+  .book-item { flex-direction: column; gap: 12px; }
+  .book-meta { text-align: left; }
+}
+</style>
+{{ end }}

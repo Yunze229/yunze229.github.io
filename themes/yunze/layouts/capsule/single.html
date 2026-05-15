@@ -1,0 +1,103 @@
+{{ define "main" }}
+<div>
+  <div style="margin-bottom:32px;">
+    <h1 style="font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;margin-bottom:6px;">
+      <span class="lang-zh">时光胶囊</span>
+      <span class="lang-en">Time Capsule</span>
+    </h1>
+    <p style="color:var(--fg-muted);font-size:0.9rem;">
+      <span class="lang-zh">写给未来的自己</span>
+      <span class="lang-en">Letters to my future self</span>
+    </p>
+  </div>
+
+  <div class="capsules">
+    {{ range (where .Site.RegularPages "Section" "capsule") }}
+    {{ $unlock := .Params.unlock_date }}
+    {{ $unlockTime := time $unlock }}
+    {{ $now := now }}
+    {{ $locked := $unlockTime.After $now }}
+    <div class="capsule-item {{ if $locked }}capsule-locked{{ else }}capsule-open{{ end }}">
+      {{ if $locked }}
+        <div class="capsule-icon">🔒</div>
+        <div class="capsule-body">
+          <div class="capsule-title">
+            <span class="lang-zh">一封信，{{ $unlock }} 开封</span>
+            <span class="lang-en">A letter, opens {{ $unlock }}</span>
+          </div>
+          <div class="capsule-countdown" data-unlock="{{ $unlock }}">
+            <span class="lang-zh">计算中…</span>
+            <span class="lang-en">Calculating…</span>
+          </div>
+          <div class="capsule-written">
+            <span class="lang-zh">写于 {{ .Date.Format "2006年01月02日" }}</span>
+            <span class="lang-en">Written {{ .Date.Format "Jan 2, 2006" }}</span>
+          </div>
+        </div>
+      {{ else }}
+        <div class="capsule-icon">💌</div>
+        <div class="capsule-body">
+          <div class="capsule-title">
+            <a href="{{ .Permalink }}">{{ .Title }}</a>
+          </div>
+          <div class="capsule-written">
+            <span class="lang-zh">写于 {{ .Date.Format "2006年01月02日" }} · {{ $unlock }} 开封</span>
+            <span class="lang-en">Written {{ .Date.Format "Jan 2, 2006" }} · Opened {{ $unlock }}</span>
+          </div>
+        </div>
+      {{ end }}
+    </div>
+    {{ end }}
+  </div>
+</div>
+
+<style>
+.capsules { display: flex; flex-direction: column; gap: 0; }
+.capsule-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+.capsule-item:first-child { border-top: 1px solid var(--border); }
+.capsule-icon { font-size: 1.4rem; line-height: 1; padding-top: 2px; }
+.capsule-body { flex: 1; }
+.capsule-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.capsule-title a { border-bottom: none; }
+.capsule-title a:hover { opacity: 0.7; border-bottom: none; }
+.capsule-countdown {
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  margin-bottom: 4px;
+}
+.capsule-written {
+  font-size: 0.78rem;
+  color: var(--fg-faint);
+}
+.capsule-locked .capsule-countdown { color: var(--fg); font-weight: 500; }
+</style>
+
+<script>
+document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el) {
+  function update() {
+    const unlock = new Date(el.dataset.unlock + 'T00:00:00');
+    const diff = unlock - new Date();
+    if (diff <= 0) { el.textContent = '已开封'; return; }
+    const days = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    const isZh = document.querySelector('.lang-root').classList.contains('show-zh');
+    el.innerHTML = isZh
+      ? '<span class="lang-zh">还有 ' + days + ' 天 ' + hours + ' 小时 ' + mins + ' 分钟</span>'
+      : '<span class="lang-en">' + days + 'd ' + hours + 'h ' + mins + 'm remaining</span>';
+  }
+  update();
+  setInterval(update, 60000);
+});
+</script>
+{{ end }}

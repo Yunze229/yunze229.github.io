@@ -1,0 +1,102 @@
+{{ define "main" }}
+{{ $skills := hugo.Data.skills }}
+<div>
+  <div style="margin-bottom:32px;">
+    <h1 style="font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;margin-bottom:6px;">
+      <span class="lang-zh">技能树</span>
+      <span class="lang-en">Skill Tree</span>
+    </h1>
+    <p style="color:var(--fg-muted);font-size:0.9rem;">
+      <span class="lang-zh">持续学习中 · ★ 表示掌握程度</span>
+      <span class="lang-en">Always learning · ★ shows proficiency</span>
+    </p>
+  </div>
+
+  <div class="skills-grid">
+    {{ range $skills.categories }}
+    <div class="skill-category">
+      <div class="skill-cat-header">
+        <span class="skill-cat-icon">{{ .icon }}</span>
+        <span class="skill-cat-name lang-zh">{{ .name_zh }}</span>
+        <span class="skill-cat-name lang-en">{{ .name_en }}</span>
+      </div>
+      <div class="skill-list">
+        {{ range .skills }}
+        <div class="skill-row">
+          <div class="skill-name">{{ .name }}</div>
+          <div class="skill-stars">
+            {{ range seq .level }}<span class="star star-filled">★</span>{{ end }}
+            {{ if lt .level 5 }}{{ range seq (sub 5 .level) }}<span class="star star-empty">★</span>{{ end }}{{ end }}
+          </div>
+          <div class="skill-year">{{ .year }}</div>
+        </div>
+        {{ end }}
+      </div>
+    </div>
+    {{ end }}
+  </div>
+</div>
+
+<style>
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+.skill-category {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+}
+.skill-cat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.skill-cat-icon {
+  font-size: 1.1rem;
+  font-style: normal;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tag-bg);
+  border-radius: 6px;
+  font-family: monospace;
+}
+.skill-cat-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.skill-list { display: flex; flex-direction: column; gap: 10px; }
+.skill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.skill-name {
+  flex: 1;
+  font-size: 0.88rem;
+}
+.skill-stars { display: flex; gap: 1px; }
+.star {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+.star-filled { color: var(--fg); }
+.star-empty { color: var(--border); }
+.skill-year {
+  font-size: 0.72rem;
+  color: var(--fg-faint);
+  min-width: 32px;
+  text-align: right;
+}
+@media (max-width: 560px) {
+  .skills-grid { grid-template-columns: 1fr; }
+}
+</style>
+{{ end }}

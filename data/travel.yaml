@@ -1,0 +1,13 @@
+countries:
+  - code: "CN"
+    name_zh: "中国"
+    name_en: "China"
+    cities_zh: ["浙江", "上海", "北京"]
+    cities_en: ["Zhejiang", "Shanghai", "Beijing"]
+    year: 2016
+  - code: "US"
+    name_zh: "美国"
+    name_en: "United States"
+    cities_zh: ["加州尔湾"]
+    cities_en: ["Irvine, CA"]
+    year: 2020
