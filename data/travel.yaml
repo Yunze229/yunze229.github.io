@@ -11,3 +11,9 @@ countries:
     cities_zh: ["加州尔湾"]
     cities_en: ["Irvine, CA"]
     year: 2020
+  - code: "SG"
+    name_zh: "新加坡"
+    name_en: "Singapore"
+    cities_zh: ["新加坡"]
+    cities_en: ["Singapore"]
+    year: 2024

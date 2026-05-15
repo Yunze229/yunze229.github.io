@@ -133,17 +133,22 @@ a:hover {
 .nav-dropdown {
   display: none;
   position: absolute;
-  top: calc(100% + 10px);
+  top: 100%;
   right: 0;
+  padding-top: 10px;
+  z-index: 100;
+}
+.nav-dropdown-inner {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 6px;
   min-width: 120px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-  z-index: 100;
+  display: flex;
+  flex-direction: column;
 }
-.nav-more:hover .nav-dropdown { display: flex; flex-direction: column; }
+.nav-more:hover .nav-dropdown { display: block; }
 .nav-dropdown a {
   font-size: 0.88rem;
   color: var(--fg-muted);
