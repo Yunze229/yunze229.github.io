@@ -2,60 +2,56 @@
   <div class="site-container">
     <div class="header-inner">
       <a href="/" class="site-logo">Yunze</a>
-      <div class="header-right">
-        <nav class="site-nav">
-          <a href="/" {{ if .IsHome }}class="active"{{ end }}>
-            <span class="lang-zh-inline">首页</span>
-            <span class="lang-en-inline">Home</span>
-          </a>
-          <a href="/categories/" {{ if eq .Section "categories" }}class="active"{{ end }}>
-            <span class="lang-zh-inline">分类</span>
-            <span class="lang-en-inline">Categories</span>
-          </a>
-          <a href="/search/">
-            <span class="lang-zh-inline">搜索</span>
-            <span class="lang-en-inline">Search</span>
-          </a>
-          <a href="/about/">
-            <span class="lang-zh-inline">关于</span>
-            <span class="lang-en-inline">About</span>
-          </a>
-          <div class="nav-more">
-            <span class="nav-more-trigger">
-              <span class="lang-zh-inline">更多</span>
-              <span class="lang-en-inline">More</span>
-            </span>
-            <div class="nav-dropdown">
-              <div class="nav-dropdown-inner">
-                <a href="/map/">
-                  <span class="lang-zh-inline">足迹</span>
-                  <span class="lang-en-inline">World Map</span>
-                </a>
-                <a href="/books/">
-                  <span class="lang-zh-inline">书单</span>
-                  <span class="lang-en-inline">Books</span>
-                </a>
-                <a href="/skills/">
-                  <span class="lang-zh-inline">技能树</span>
-                  <span class="lang-en-inline">Skills</span>
-                </a>
-                <a href="/capsule/">
-                  <span class="lang-zh-inline">时光胶囊</span>
-                  <span class="lang-en-inline">Time Capsule</span>
-                </a>
-                <a href="/birthday/">
-                  <span class="lang-zh-inline">生日</span>
-                  <span class="lang-en-inline">Birthday</span>
-                </a>
-              </div>
+
+      <nav class="site-nav">
+        {{/* 铸魂 BEING */}}
+        <a href="/being/" class="nav-item {{ if eq .Section "being" }}nav-item--active{{ end }}">
+          <span class="nav-en">BEING</span>
+          <span class="nav-zh">铸魂</span>
+        </a>
+
+        {{/* 造物 DOING — dropdown */}}
+        <div class="nav-more">
+          <div class="nav-item {{ if or (eq .Section "projects") (eq .Section "posts") (eq .Section "map") }}nav-item--active{{ end }}">
+            <span class="nav-en">DOING</span>
+            <span class="nav-zh">造物</span>
+          </div>
+          <div class="nav-dropdown">
+            <div class="nav-dropdown-inner">
+              <a href="/projects/">
+                <span class="drop-zh">作品</span><span class="drop-sep">|</span><span class="drop-en">PROJECTS</span>
+              </a>
+              <a href="/">
+                <span class="drop-zh">日志</span><span class="drop-sep">|</span><span class="drop-en">LOGBOOK</span>
+              </a>
+              <a href="/map/">
+                <span class="drop-zh">履迹</span><span class="drop-sep">|</span><span class="drop-en">TRAJECTORY</span>
+              </a>
             </div>
           </div>
-        </nav>
-        <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
-          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </div>
+
+        {{/* 致远 BECOMING */}}
+        <a href="/capsule/" class="nav-item {{ if eq .Section "capsule" }}nav-item--active{{ end }}">
+          <span class="nav-en">BECOMING</span>
+          <span class="nav-zh">致远</span>
+        </a>
+      </nav>
+
+      <div class="header-icons">
+        <a href="/search/" class="icon-btn" aria-label="Search">
+          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </a>
+        <button class="icon-btn theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         </button>
+        <div class="lang-toggle-header">
+          <button class="lang-btn active" data-lang="zh">中</button>
+          <button class="lang-btn" data-lang="en">EN</button>
+        </div>
       </div>
+
     </div>
   </div>
 </header>

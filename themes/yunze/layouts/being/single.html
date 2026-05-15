@@ -1,0 +1,144 @@
+{{ define "main" }}
+
+{{/* ── About ── */}}
+<div class="about-content" style="margin-bottom:56px;">
+  <div class="lang-zh">
+    <p>你好，我是 Yunze。</p>
+    <p>我出生于 2016 年 2 月 29 日——闰年生日，每四年才有一次真正的生日。所以当同龄人已经过了大约十个生日时，我只过了两个半。这让我觉得：时间很奇怪，重要的不是你拥有多少，而是你怎么用它。</p>
+    <p>我相信长期主义。美好的事情需要时间——学习、理解、成长，都是如此。我不着急。</p>
+    <p>我喜欢数学，因为它诚实。喜欢科学，因为它提出好问题。喜欢辩论，因为它逼着你从对方的角度思考。</p>
+    <p>除了读书，我也想走遍世界。</p>
+    <p>这个博客是我写东西的地方——学到了什么，去过哪里，在想什么。有些认真写，有些随手记。都算数。</p>
+  </div>
+  <div class="lang-en">
+    <p>Hi, I'm Yunze.</p>
+    <p>I was born on February 29, 2016 — a leap year birthday. That means I only get a real birthday once every four years. While most people my age have had around ten birthdays, I've had about two and a half. I think that's a good reminder: time is strange, and how you spend it matters more than how much of it you have.</p>
+    <p>I believe in the long game. Beautiful things take time — learning, understanding, growing. I'm not in a hurry.</p>
+    <p>I like math because it's honest. I like science because it asks good questions. I like debate because it forces you to think from the other side.</p>
+    <p>I also want to see the world.</p>
+    <p>This is where I write things down — what I'm learning, where I've been, what I'm thinking about. Some posts are carefully written. Some are just notes. Both count.</p>
+  </div>
+</div>
+
+{{/* ── Birthday ── */}}
+<div style="border-top:1px solid var(--border);padding-top:48px;">
+  <div style="margin-bottom:32px;">
+    <h2 style="font-size:1.2rem;font-weight:600;letter-spacing:-0.01em;margin-bottom:4px;">
+      <span class="lang-zh">我的生日</span>
+      <span class="lang-en">My Birthday</span>
+    </h2>
+    <p style="color:var(--fg-muted);font-size:0.85rem;">
+      <span class="lang-zh">2016年2月29日 · 闰年专属</span>
+      <span class="lang-en">February 29, 2016 · Leap Year Exclusive</span>
+    </p>
+  </div>
+
+  <div class="birthday-cards">
+    <div class="bday-card">
+      <div class="bday-label lang-zh">官方年龄</div>
+      <div class="bday-label lang-en">Official Age</div>
+      <div class="bday-number" id="official-age">—</div>
+      <div class="bday-desc lang-zh">按日历算</div>
+      <div class="bday-desc lang-en">By the calendar</div>
+    </div>
+    <div class="bday-card bday-card--special">
+      <div class="bday-label lang-zh">真实生日次数</div>
+      <div class="bday-label lang-en">Real Birthdays</div>
+      <div class="bday-number" id="real-birthdays">—</div>
+      <div class="bday-desc lang-zh">Feb 29 出现的次数</div>
+      <div class="bday-desc lang-en">Times Feb 29 existed</div>
+    </div>
+    <div class="bday-card">
+      <div class="bday-label lang-zh">下次真实生日</div>
+      <div class="bday-label lang-en">Next Real Birthday</div>
+      <div class="bday-number" id="next-birthday-year">—</div>
+      <div class="bday-desc lang-zh" id="next-birthday-desc-zh">还有 — 天</div>
+      <div class="bday-desc lang-en" id="next-birthday-desc-en">— days away</div>
+    </div>
+  </div>
+
+  <div class="birthday-countdown">
+    <div class="countdown-label lang-zh">距下次真实生日</div>
+    <div class="countdown-label lang-en">Until next real birthday</div>
+    <div class="countdown-blocks">
+      <div class="countdown-block">
+        <div class="countdown-num" id="cd-days">—</div>
+        <div class="countdown-unit lang-zh">天</div>
+        <div class="countdown-unit lang-en">days</div>
+      </div>
+      <div class="countdown-block">
+        <div class="countdown-num" id="cd-hours">—</div>
+        <div class="countdown-unit lang-zh">小时</div>
+        <div class="countdown-unit lang-en">hours</div>
+      </div>
+      <div class="countdown-block">
+        <div class="countdown-num" id="cd-minutes">—</div>
+        <div class="countdown-unit lang-zh">分钟</div>
+        <div class="countdown-unit lang-en">min</div>
+      </div>
+      <div class="countdown-block">
+        <div class="countdown-num" id="cd-seconds">—</div>
+        <div class="countdown-unit lang-zh">秒</div>
+        <div class="countdown-unit lang-en">sec</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="birthday-note">
+    <p class="lang-zh">全球只有约 0.07% 的人拥有闰年生日。你是其中之一。</p>
+    <p class="lang-en">Only about 0.07% of people worldwide are born on Feb 29. You are one of them.</p>
+  </div>
+</div>
+
+<style>
+.birthday-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:32px;}
+.bday-card{border:1px solid var(--border);border-radius:10px;padding:20px 16px;text-align:center;}
+.bday-card--special{border-color:var(--fg);background:var(--code-bg);}
+.bday-label{font-size:.78rem;color:var(--fg-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;}
+.bday-number{font-size:2.4rem;font-weight:700;letter-spacing:-.03em;line-height:1;margin-bottom:8px;}
+.bday-desc{font-size:.78rem;color:var(--fg-faint);}
+.birthday-countdown{border:1px solid var(--border);border-radius:10px;padding:28px 24px;margin-bottom:24px;text-align:center;}
+.countdown-label{font-size:.85rem;color:var(--fg-muted);margin-bottom:20px;text-transform:uppercase;letter-spacing:.05em;}
+.countdown-blocks{display:flex;justify-content:center;gap:24px;}
+.countdown-block{text-align:center;}
+.countdown-num{font-size:2.8rem;font-weight:700;letter-spacing:-.03em;line-height:1;margin-bottom:6px;font-variant-numeric:tabular-nums;}
+.countdown-unit{font-size:.75rem;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.05em;}
+.birthday-note{color:var(--fg-muted);font-size:.88rem;line-height:1.7;text-align:center;padding:16px 0;}
+@media(max-width:480px){.birthday-cards{grid-template-columns:1fr;}.countdown-num{font-size:2rem;}}
+</style>
+
+<script>
+(function(){
+  function isLeap(y){return(y%4===0&&y%100!==0)||y%400===0;}
+  function nextLeap(){
+    const now=new Date();let y=now.getFullYear();
+    while(true){if(isLeap(y)){const d=new Date(y+'-02-29T00:00:00');if(d>now)return d;}y++;}
+  }
+  function realBdays(){
+    const now=new Date();let c=0;
+    for(let y=2016;y<=now.getFullYear();y++){if(isLeap(y)){const d=new Date(y+'-02-29T00:00:00');if(d<=now)c++;}}
+    return c;
+  }
+  function officialAge(){
+    const now=new Date();let age=now.getFullYear()-2016;
+    if(now<new Date(now.getFullYear(),1,28))age--;return age;
+  }
+  function pad(n){return String(n).padStart(2,'0');}
+  function update(){
+    const next=nextLeap(),now=new Date(),diff=next-now;
+    const days=Math.floor(diff/86400000),hours=Math.floor((diff%86400000)/3600000),
+          mins=Math.floor((diff%3600000)/60000),secs=Math.floor((diff%60000)/1000);
+    document.getElementById('official-age').textContent=officialAge();
+    document.getElementById('real-birthdays').textContent=realBdays();
+    document.getElementById('next-birthday-year').textContent=next.getFullYear();
+    document.getElementById('next-birthday-desc-zh').textContent='还有 '+days+' 天';
+    document.getElementById('next-birthday-desc-en').textContent=days+' days away';
+    document.getElementById('cd-days').textContent=days;
+    document.getElementById('cd-hours').textContent=pad(hours);
+    document.getElementById('cd-minutes').textContent=pad(mins);
+    document.getElementById('cd-seconds').textContent=pad(secs);
+  }
+  update();setInterval(update,1000);
+})();
+</script>
+{{ end }}

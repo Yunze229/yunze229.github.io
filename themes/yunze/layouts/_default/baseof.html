@@ -7,10 +7,6 @@
   {{ partial "header.html" . }}
   <main class="site-main">
     <div class="site-container">
-      <div class="lang-toggle">
-        <button class="lang-btn active" data-lang="zh">中文</button>
-        <button class="lang-btn" data-lang="en">English</button>
-      </div>
       {{ block "main" . }}{{ end }}
     </div>
   </main>
