@@ -7,7 +7,7 @@ enableRobotsTXT = true
 enableEmoji = false
 
 [params]
-  description = "长期主义 · 数学 · 科学 · 辩论 · 行万里路"
+  description = "以逻辑解构世界，以创造交付结果"
   author = "Yunze"
   since = 2026
   goatcounter = "yunze229"
