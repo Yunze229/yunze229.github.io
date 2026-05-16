@@ -1,5 +1,5 @@
 ---
-title: I Made 3 Stained Glass Pieces Today (And Almost Burned My Mom)
+title: I Made 3 Stained Glass Pieces Today
 date: 2026-05-16
 categories:
   - 日记
