@@ -12,9 +12,9 @@ enableEmoji = false
   since = 2026
   goatcounter = "yunze229"
   giscus_repo = "Yunze229/yunze229.github.io"
-  giscus_repo_id = ""
+  giscus_repo_id = "R_kgDOSeGgnQ"
   giscus_category = "Announcements"
-  giscus_category_id = ""
+  giscus_category_id = "DIC_kwDOSeGgnc4C9NIx"
 
 [taxonomies]
   category = "categories"
