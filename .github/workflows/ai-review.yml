@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: write
 
     steps:
       - uses: actions/checkout@v4
@@ -34,8 +33,7 @@ jobs:
         if: steps.drafts.outputs.files != ''
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           DRAFT_FILES: ${{ steps.drafts.outputs.files }}
         run: |
           python3 << 'PYEOF'
@@ -50,7 +48,6 @@ jobs:
             with open(filepath, 'r', encoding='utf-8') as f:
               content = f.read()
 
-            # Extract title
             title = filepath
             for line in content.splitlines():
               if line.startswith('title:'):
@@ -95,31 +92,32 @@ jobs:
             except Exception as e:
               suggestion = f"API 调用失败：{e}"
 
-            # Create GitHub Issue
-            body = f"""## 文件
-`{filepath}`
+            # Send email via Resend
+            suggestion_html = suggestion.replace('\n', '<br>')
+            email_payload = json.dumps({
+              "from": "Yunze Blog <onboarding@resend.dev>",
+              "to": ["hxz49@hotmail.com"],
+              "subject": f"📝 AI 草稿建议：{title}",
+              "html": f"""<h2>文件：{filepath}</h2>
+<h3>Claude 的建议</h3>
+<p>{suggestion_html}</p>
+<hr>
+<p><em>这是自动生成的写作建议，仅供参考。</em></p>"""
+            }).encode()
 
-## Claude 的建议
-
-{suggestion}
-
----
-*这是自动生成的写作建议，仅供参考。修改完成后可关闭此 Issue。*"""
-
-            issue_payload = json.dumps({"title": f"📝 AI 草稿建议：{title}", "body": body}).encode()
-            repo = os.environ['REPO']
-            token = os.environ['GH_TOKEN']
             req2 = urllib.request.Request(
-              f'https://api.github.com/repos/{repo}/issues',
-              data=issue_payload,
+              'https://api.resend.com/emails',
+              data=email_payload,
               headers={
-                'Authorization': f'token {token}',
+                'Authorization': f'Bearer {os.environ["RESEND_API_KEY"]}',
                 'Content-Type': 'application/json',
-                'Accept': 'application/vnd.github+json',
               }
             )
-            with urllib.request.urlopen(req2) as resp:
-              result = json.loads(resp.read())
-              print(f"Issue created: {result['html_url']}")
+            try:
+              with urllib.request.urlopen(req2) as resp:
+                result = json.loads(resp.read())
+                print(f"Email sent: {result.get('id')}")
+            except Exception as e:
+              print(f"Email failed: {e}")
 
           PYEOF
