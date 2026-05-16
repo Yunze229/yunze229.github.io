@@ -2,7 +2,8 @@ backend:
   name: github
   repo: Yunze229/yunze229.github.io
   branch: main
-  base_url: https://yunze229.github.io
+  auth_type: implicit
+  app_id: Ov23libVHZUemiraJHc7
 
 media_folder: "static/images/uploads"
 public_folder: "/images/uploads"

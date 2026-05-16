@@ -1,0 +1,82 @@
+name: AI Draft Review
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'content/posts/**.md'
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Find changed draft posts
+        id: drafts
+        run: |
+          changed=$(git diff --name-only HEAD~1 HEAD -- 'content/posts/*.md' 2>/dev/null || echo "")
+          drafts=""
+          for f in $changed; do
+            if [ -f "$f" ]; then
+              if grep -q "^draft: true" "$f"; then
+                drafts="$drafts $f"
+              fi
+            fi
+          done
+          echo "files=$drafts" >> $GITHUB_OUTPUT
+
+      - name: AI review drafts
+        if: steps.drafts.outputs.files != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          for file in ${{ steps.drafts.outputs.files }}; do
+            echo "Reviewing: $file"
+
+            # Extract title and content
+            title=$(grep "^title:" "$file" | head -1 | sed 's/title: *"//' | sed 's/"//')
+            content=$(cat "$file")
+
+            # Call Claude API
+            response=$(curl -s https://api.anthropic.com/v1/messages \
+              -H "x-api-key: $ANTHROPIC_API_KEY" \
+              -H "anthropic-version: 2023-06-01" \
+              -H "content-type: application/json" \
+              -d "{
+                \"model\": \"claude-sonnet-4-6\",
+                \"max_tokens\": 1024,
+                \"messages\": [{
+                  \"role\": \"user\",
+                  \"content\": \"你是一个友善的写作助手，帮助一个10岁的孩子改善他的博客文章。请用简单易懂的语言给出3-5条具体的改进建议，包括：内容是否清晰、表达是否准确、有没有可以展开的地方。用中文回复，语气要鼓励。\n\n文章内容：\n\n$content\"
+                }]
+              }")
+
+            suggestion=$(echo "$response" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          print(data.get('content', [{}])[0].get('text', '无法获取建议'))
+          " 2>/dev/null || echo "无法解析回复")
+
+            # Create GitHub Issue with suggestions
+            gh issue create \
+              --repo "$REPO" \
+              --title "📝 AI 草稿建议：$title" \
+              --body "## 文件
+          \`$file\`
+
+          ## Claude 的建议
+
+          $suggestion
+
+          ---
+          *这是自动生成的写作建议，仅供参考。修改完成后可关闭此 Issue。*"
+          done
