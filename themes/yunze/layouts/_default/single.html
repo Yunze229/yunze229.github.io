@@ -1,7 +1,16 @@
 {{ define "main" }}
+{{ $slug := .File.ContentBaseName }}
+{{ $trans := index hugo.Data.translations $slug }}
 <article>
   <header class="article-header">
-    <h1 class="article-title">{{ .Title }}</h1>
+    <h1 class="article-title">
+      {{ if $trans }}
+        <span class="post-en">{{ .Title }}</span>
+        <span class="post-zh">{{ $trans.title }}</span>
+      {{ else }}
+        {{ .Title }}
+      {{ end }}
+    </h1>
     <div class="article-meta">
       <time>{{ .Date.Format "2006年01月02日" }}</time>
       {{ with .Params.categories }}
@@ -24,7 +33,12 @@
   {{ end }}
 
   <div class="article-content">
+    {{ if $trans }}
+    <div class="post-en">{{ .Content }}</div>
+    <div class="post-zh">{{ $trans.content | markdownify }}</div>
+    {{ else }}
     {{ .Content }}
+    {{ end }}
   </div>
 
   {{ with .Params.tags }}

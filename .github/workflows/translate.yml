@@ -1,0 +1,137 @@
+name: Translate Posts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'content/posts/**.md'
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Translate English posts to Chinese
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 << 'PYEOF'
+          import os, json, urllib.request, re
+
+          posts_dir = 'content/posts'
+          trans_dir = 'data/translations'
+          os.makedirs(trans_dir, exist_ok=True)
+
+          for filename in sorted(os.listdir(posts_dir)):
+            if not filename.endswith('.md'):
+              continue
+
+            filepath = os.path.join(posts_dir, filename)
+            with open(filepath, 'r', encoding='utf-8') as f:
+              content = f.read()
+
+            if 'draft: true' in content or 'private: true' in content:
+              continue
+
+            slug = filename.replace('.md', '')
+            trans_file = os.path.join(trans_dir, slug + '.yaml')
+
+            if os.path.exists(trans_file):
+              print(f'Already translated: {slug}')
+              continue
+
+            chinese_chars = len(re.findall(r'[一-鿿]', content))
+            if chinese_chars > 30:
+              print(f'Already Chinese, skipping: {slug}')
+              continue
+
+            # Parse frontmatter
+            lines = content.splitlines()
+            title = slug
+            body_start = 0
+            if lines and lines[0].strip() == '---':
+              for i, line in enumerate(lines[1:], 1):
+                if line.strip() == '---':
+                  body_start = i + 1
+                  break
+                if line.startswith('title:'):
+                  title = line[6:].strip().strip('"\'')
+            body = '\n'.join(lines[body_start:]).strip()
+
+            print(f'Translating: {slug}')
+
+            payload = {
+              'model': 'claude-sonnet-4-6',
+              'max_tokens': 4096,
+              'messages': [{
+                'role': 'user',
+                'content': f'''请将以下英文博客文章翻译成中文。博客作者是一个10岁的孩子，翻译要自然、符合小孩说话方式。
+
+严格按以下格式返回，保留分隔符，不要添加其他内容：
+
+TITLE: [翻译后的标题]
+
+---BODY---
+[翻译后的正文，保持所有Markdown格式不变：**粗体**、*斜体*、## 标题、图片链接等原样保留]
+---END---
+
+原文标题: {title}
+
+原文正文:
+{body}'''
+              }]
+            }
+
+            req = urllib.request.Request(
+              'https://api.anthropic.com/v1/messages',
+              data=json.dumps(payload).encode(),
+              headers={
+                'x-api-key': os.environ['ANTHROPIC_API_KEY'],
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json',
+              }
+            )
+
+            try:
+              with urllib.request.urlopen(req, timeout=90) as resp:
+                result = json.loads(resp.read())
+                response_text = result['content'][0]['text']
+            except Exception as e:
+              print(f'API error for {slug}: {e}')
+              continue
+
+            title_match = re.search(r'TITLE:\s*(.+)', response_text)
+            body_match = re.search(r'---BODY---\s*(.*?)\s*---END---', response_text, re.DOTALL)
+
+            if not title_match or not body_match:
+              print(f'Parse failed for {slug}, response: {response_text[:300]}')
+              continue
+
+            translated_title = title_match.group(1).strip()
+            translated_body = body_match.group(1).strip()
+
+            indented = '\n'.join(('  ' + l) if l.strip() else '' for l in translated_body.splitlines())
+            yaml_out = f'title: {json.dumps(translated_title, ensure_ascii=False)}\ncontent: |\n{indented}\n'
+
+            with open(trans_file, 'w', encoding='utf-8') as f:
+              f.write(yaml_out)
+
+            print(f'Saved: {trans_file}')
+
+          PYEOF
+
+      - name: Commit translations
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/translations/
+          if git diff --staged --quiet; then
+            echo "No new translations to commit"
+          else
+            git commit -m "Auto-translate: add Chinese translations"
+            git push
+          fi

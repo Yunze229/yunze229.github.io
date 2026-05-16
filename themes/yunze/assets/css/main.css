@@ -271,6 +271,10 @@ a:hover {
 .show-zh .lang-zh-inline { display: inline; }
 .show-en .lang-en-inline { display: inline; }
 
+/* Post content translation */
+.show-zh .post-en { display: none; }
+.show-en .post-zh { display: none; }
+
 /* Home intro */
 .home-intro {
   margin-bottom: 56px;
