@@ -96,7 +96,7 @@ jobs:
             suggestion_html = suggestion.replace('\n', '<br>')
             email_payload = json.dumps({
               "from": "Yunze Blog <onboarding@resend.dev>",
-              "to": ["hxz49@hotmail.com"],
+              "to": ["dyz229@outlook.com"],
               "subject": f"📝 AI 草稿建议：{title}",
               "html": f"""<h2>文件：{filepath}</h2>
 <h3>Claude 的建议</h3>
