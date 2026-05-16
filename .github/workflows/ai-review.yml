@@ -36,12 +36,12 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          DRAFT_FILES: ${{ steps.drafts.outputs.files }}
         run: |
           python3 << 'PYEOF'
-          import os, json, urllib.request, subprocess
+          import os, json, urllib.request
 
-          files = os.environ.get('GITHUB_OUTPUT', '')
-          draft_files = "${{ steps.drafts.outputs.files }}".strip().split()
+          draft_files = os.environ.get('DRAFT_FILES', '').strip().split()
 
           for filepath in draft_files:
             if not filepath or not os.path.exists(filepath):
