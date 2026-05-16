@@ -6,7 +6,7 @@ categories:
   - 技能笔记
 tags:
   - Stained Glass\skill
-private: false
+private: true
 draft: true
 ---
 
@@ -44,17 +44,25 @@ If you skip a step, nothing works.
 
 ## 🎨 How I Made My Three Pieces
 
+![](/images/uploads/IMG_6223.jpeg)
+
 Okay, now let me tell you about the whole process!
 
 **Step 1 — Tracing.** First, we used a marker to trace the shapes onto the glass. The studio had really nice glass — all different colors, kind of swirly and shiny. I picked light blue for my clam because it looked like the ocean.
 
 **Step 2 — Cutting.** Then I cut the glass into pieces. We didn't use scissors — we used a special tool that scores a line on the glass, and then you snap the glass along the line. **Snap!** It was kind of scary the first time, but after a few tries I got the hang of it.
 
+![](/images/uploads/IMG_6227.jpeg)
+
 **Step 3 — Grinding.** After cutting, I had to grind the rough edges down on a little grinding wheel.
 
 **Step 4 — Washing & Copper Taping.** Then wash the pieces, dry them, and wrap every edge with copper tape. The copper tape part took FOREVER. My fingers were tired.
 
 **Step 5 — Flux & Solder.** Then came the fun part — the hot pen (the soldering iron). I painted flux on the copper, then melted solder along all the lines. The solder turned silvery and shiny when it cooled. It looked like the glass had a metal skeleton holding it together.
+
+![](/images/uploads/IMG_6229.jpeg)
+
+![](/images/uploads/IMG_6230.jpeg)
 
 ***
 
@@ -68,6 +76,8 @@ I made:
 They were tiny, but I was really happy. I was so tired when I finished — I think I worked for like **3 hours**. But when I held them up to the light and saw them shine, it was 100% worth it.
 
 I was very happy after I had done it.
+
+![](/images/uploads/IMG_6222.jpeg)
 
 ***
 
