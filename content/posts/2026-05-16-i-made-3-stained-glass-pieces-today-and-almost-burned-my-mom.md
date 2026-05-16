@@ -5,7 +5,7 @@ categories:
   - 日记
   - 技能笔记
 tags:
-  - Stained Glass
+  - Stained Glass\skill
 private: false
 draft: true
 ---
