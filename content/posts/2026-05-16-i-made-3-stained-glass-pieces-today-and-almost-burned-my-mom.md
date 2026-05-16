@@ -6,8 +6,8 @@ categories:
   - 技能笔记
 tags:
   - Stained Glass\skill
-private: true
-draft: true
+private: false
+draft: false
 ---
 
 Today I went to a stained glass class. I made **two fish and one clam** — three projects! They were kind of tiny, but it was really, really fun.
