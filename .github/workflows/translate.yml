@@ -83,7 +83,7 @@ jobs:
             )
             payload = {
               'model': 'claude-sonnet-4-6',
-              'max_tokens': 4096,
+              'max_tokens': 8192,
               'messages': [{'role': 'user', 'content': prompt}]
             }
 
@@ -107,6 +107,9 @@ jobs:
 
             title_match = re.search(r'TITLE:\s*(.+)', response_text)
             body_match = re.search(r'---BODY---\s*(.*?)\s*---END---', response_text, re.DOTALL)
+            if not body_match:
+              # Truncated response: take everything after ---BODY---
+              body_match = re.search(r'---BODY---\s*(.*)', response_text, re.DOTALL)
 
             if not title_match or not body_match:
               print(f'Parse failed for {slug}, response: {response_text[:300]}')
