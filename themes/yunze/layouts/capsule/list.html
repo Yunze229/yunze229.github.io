@@ -92,14 +92,13 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
   function update() {
     const unlock = new Date(el.dataset.unlock + 'T00:00:00');
     const diff = unlock - new Date();
-    if (diff <= 0) { el.textContent = '已到达'; return; }
+    if (diff <= 0) { el.innerHTML = '<span class="lang-zh">已到达</span><span class="lang-en">Now open</span>'; return; }
     const days = Math.floor(diff / 86400000);
     const hours = Math.floor((diff % 86400000) / 3600000);
     const mins = Math.floor((diff % 3600000) / 60000);
-    const isZh = document.querySelector('.lang-root').classList.contains('show-zh');
-    el.innerHTML = isZh
-      ? '<span class="lang-zh">还有 ' + days + ' 天 ' + hours + ' 小时 ' + mins + ' 分钟</span>'
-      : '<span class="lang-en">' + days + 'd ' + hours + 'h ' + mins + 'm remaining</span>';
+    el.innerHTML =
+      '<span class="lang-zh">还有 ' + days + ' 天 ' + hours + ' 小时 ' + mins + ' 分钟</span>' +
+      '<span class="lang-en">' + days + 'd ' + hours + 'h ' + mins + 'm remaining</span>';
   }
   update();
   setInterval(update, 60000);
