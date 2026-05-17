@@ -1,93 +1,81 @@
 {{ define "main" }}
-<div>
-  <div style="margin-bottom:32px;">
-    <h1 style="font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;margin-bottom:6px;">
-      <span class="lang-zh">时光胶囊</span>
-      <span class="lang-en">Time Capsule</span>
-    </h1>
-    <p style="color:var(--fg-muted);font-size:0.9rem;">
-      <span class="lang-zh">写给未来的自己</span>
-      <span class="lang-en">Letters to my future self</span>
+{{ $unlock := .Params.unlock_date }}
+{{ $unlockTime := time $unlock }}
+{{ $locked := $unlockTime.After now }}
+{{ $revealed := .Params.revealed | default false }}
+{{ $from := .Params.from | default "Yunze" }}
+
+<article>
+  <header class="article-header">
+    <h1 class="article-title">{{ .Title }}</h1>
+    <div class="article-meta">
+      <time>{{ .Date.Format "2006年01月02日" }}</time>
+      <span>
+        <span class="lang-zh-inline">来自{{ $from }}的信</span>
+        <span class="lang-en-inline">Letter from {{ $from }}</span>
+      </span>
+      {{ with .Params.tags }}
+        {{ range . }}<span class="post-private-badge">{{ . }}</span>{{ end }}
+      {{ end }}
+    </div>
+  </header>
+
+  {{ if $locked }}
+  <div class="capsule-single-state">
+    <div class="capsule-state-icon">🔒</div>
+    <p class="capsule-state-msg">
+      <span class="lang-zh">这封信还没到开封的时候。</span>
+      <span class="lang-en">This letter hasn't reached its opening date yet.</span>
+    </p>
+    <div class="capsule-countdown capsule-single-countdown" data-unlock="{{ $unlock }}">
+      <span class="lang-zh">计算中…</span>
+      <span class="lang-en">Calculating…</span>
+    </div>
+    <p class="capsule-unlock-hint">
+      <span class="lang-zh">开封日：{{ $unlock }}</span>
+      <span class="lang-en">Opens: {{ $unlock }}</span>
     </p>
   </div>
 
-  <div class="capsules">
-    {{ range (where .Site.RegularPages "Section" "capsule") }}
-    {{ $unlock := .Params.unlock_date }}
-    {{ $unlockTime := time $unlock }}
-    {{ $now := now }}
-    {{ $locked := $unlockTime.After $now }}
-    <div class="capsule-item {{ if $locked }}capsule-locked{{ else }}capsule-open{{ end }}">
-      {{ if $locked }}
-        <div class="capsule-icon">🔒</div>
-        <div class="capsule-body">
-          <div class="capsule-title">
-            <span class="lang-zh">一封信，{{ $unlock }} 开封</span>
-            <span class="lang-en">A letter, opens {{ $unlock }}</span>
-          </div>
-          <div class="capsule-countdown" data-unlock="{{ $unlock }}">
-            <span class="lang-zh">计算中…</span>
-            <span class="lang-en">Calculating…</span>
-          </div>
-          <div class="capsule-written">
-            <span class="lang-zh">写于 {{ .Date.Format "2006年01月02日" }}</span>
-            <span class="lang-en">Written {{ .Date.Format "Jan 2, 2006" }}</span>
-          </div>
-        </div>
-      {{ else }}
-        <div class="capsule-icon">💌</div>
-        <div class="capsule-body">
-          <div class="capsule-title">
-            <a href="{{ .Permalink }}">{{ .Title }}</a>
-          </div>
-          <div class="capsule-written">
-            <span class="lang-zh">写于 {{ .Date.Format "2006年01月02日" }} · {{ $unlock }} 开封</span>
-            <span class="lang-en">Written {{ .Date.Format "Jan 2, 2006" }} · Opened {{ $unlock }}</span>
-          </div>
-        </div>
-      {{ end }}
-    </div>
-    {{ end }}
+  {{ else if not $revealed }}
+  <div class="capsule-single-state">
+    <div class="capsule-state-icon">⏳</div>
+    <p class="capsule-state-msg">
+      <span class="lang-zh">这封信已经到了开封的时候，Yunze 还在决定要不要公开。</span>
+      <span class="lang-en">This letter has reached its opening date. Yunze is deciding whether to share it.</span>
+    </p>
   </div>
-</div>
 
-<style>
-.capsules { display: flex; flex-direction: column; gap: 0; }
-.capsule-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 20px 0;
-  border-bottom: 1px solid var(--border);
-}
-.capsule-item:first-child { border-top: 1px solid var(--border); }
-.capsule-icon { font-size: 1.4rem; line-height: 1; padding-top: 2px; }
-.capsule-body { flex: 1; }
-.capsule-title {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-.capsule-title a { border-bottom: none; }
-.capsule-title a:hover { opacity: 0.7; border-bottom: none; }
-.capsule-countdown {
-  font-size: 0.85rem;
-  color: var(--fg-muted);
-  margin-bottom: 4px;
-}
-.capsule-written {
-  font-size: 0.78rem;
-  color: var(--fg-faint);
-}
-.capsule-locked .capsule-countdown { color: var(--fg); font-weight: 500; }
-</style>
+  {{ else }}
+  <div class="article-content">
+    {{ .Content }}
+  </div>
+
+  <div class="share-bar">
+    <span class="share-label">
+      <span class="lang-zh-inline">分享</span>
+      <span class="lang-en-inline">Share</span>
+    </span>
+    <button class="share-btn" id="share-copy">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      <span class="lang-zh-inline">复制链接</span>
+      <span class="lang-en-inline">Copy Link</span>
+    </button>
+    <a class="share-btn" id="share-twitter" href="#" target="_blank" rel="noopener">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.738l7.726-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      X / Twitter
+    </a>
+  </div>
+  {{ end }}
+
+</article>
 
 <script>
 document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el) {
   function update() {
     const unlock = new Date(el.dataset.unlock + 'T00:00:00');
     const diff = unlock - new Date();
-    if (diff <= 0) { el.textContent = '已开封'; return; }
+    if (diff <= 0) { el.textContent = '已到达'; return; }
     const days = Math.floor(diff / 86400000);
     const hours = Math.floor((diff % 86400000) / 3600000);
     const mins = Math.floor((diff % 3600000) / 60000);

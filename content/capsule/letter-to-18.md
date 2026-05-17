@@ -2,7 +2,9 @@
 title: "写给18岁的自己"
 date: 2026-05-15
 unlock_date: "2034-02-28"
-private: true
+from: "Yunze"
+tags: ["成长"]
+revealed: false
 ---
 
 这封信在你18岁生日那天才能打开。

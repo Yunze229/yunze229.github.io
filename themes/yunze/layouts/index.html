@@ -10,7 +10,8 @@
   </div>
 </div>
 
-{{ $pages := where .Site.RegularPages "Params.private" "ne" true }}
+{{ $pages := where .Site.RegularPages "Section" "posts" }}
+{{ $pages = where $pages "Params.private" "ne" true }}
 {{ $pages = $pages | first 50 }}
 
 {{ if $pages }}
