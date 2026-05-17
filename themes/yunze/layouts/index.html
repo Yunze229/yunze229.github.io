@@ -21,10 +21,24 @@
     <ul class="post-list">
       {{ range .Pages }}
       <li class="post-item">
-        <span class="post-date">{{ .Date.Format "01-02" }}</span>
-        <a class="post-title-link" href="{{ .Permalink }}">{{ .Title }}</a>
+        <span class="post-date">
+          <span class="lang-zh-inline">{{ .Date.Format "01月02日" }}</span>
+          <span class="lang-en-inline">{{ .Date.Format "Jan 02" }}</span>
+        </span>
+        <a class="post-title-link" href="{{ .Permalink }}">
+          {{ if $trans := index hugo.Data.translations .File.ContentBaseName }}
+            <span class="lang-zh-inline">{{ $trans.title }}</span>
+            <span class="lang-en-inline">{{ .Title }}</span>
+          {{ else }}
+            {{ .Title }}
+          {{ end }}
+        </a>
         {{ with .Params.categories }}
-        <span class="post-private-badge">{{ index . 0 }}</span>
+        {{ $catEn := dict "作品" "Projects" "日记" "Journal" "技能笔记" "Skills" "手册" "Manual" "旅行" "Travel" "随想" "Thoughts" "读书" "Reading" "学习笔记" "Study Notes" }}
+        <span class="post-private-badge">
+          <span class="lang-zh-inline">{{ index . 0 }}</span>
+          <span class="lang-en-inline">{{ index $catEn (index . 0) | default (index . 0) }}</span>
+        </span>
         {{ end }}
       </li>
       {{ end }}

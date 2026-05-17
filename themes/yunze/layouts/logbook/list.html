@@ -1,17 +1,18 @@
 {{ define "main" }}
 <div class="section-header">
   <h1 class="section-title">
-    <span class="lang-zh">手册</span>
-    <span class="lang-en">Manuals</span>
+    <span class="lang-zh">日志</span>
+    <span class="lang-en">Logbook</span>
   </h1>
 </div>
 
 {{ $posts := where site.RegularPages "Section" "posts" }}
 {{ $posts = where $posts ".Params.private" "ne" true }}
-{{ $manuals := where $posts ".Params.categories" "intersect" (slice "手册") }}
+{{ $posts = where $posts ".Params.draft" "ne" true }}
+{{ $logbook := where $posts ".Params.categories" "intersect" (slice "日记") }}
 
-{{ if $manuals }}
-  {{ range $manuals.GroupByDate "2006" }}
+{{ if $logbook }}
+  {{ range $logbook.GroupByDate "2006" }}
   <div class="year-group">
     <div class="year-label">{{ .Key }}</div>
     <ul class="post-list">
@@ -36,8 +37,8 @@
   {{ end }}
 {{ else }}
 <p class="section-empty">
-  <span class="lang-zh">还没有手册，敬请期待。</span>
-  <span class="lang-en">No manuals yet. Stay tuned!</span>
+  <span class="lang-zh">还没有日记，敬请期待。</span>
+  <span class="lang-en">No logbook entries yet. Stay tuned!</span>
 </p>
 {{ end }}
 {{ end }}
