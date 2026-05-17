@@ -16,7 +16,8 @@
       <span class="lang-en-inline">{{ .Date.Format "Jan 02" }}</span>
     </span>
     <a class="post-title-link" href="{{ .Permalink }}">
-      {{ $slug := .File.ContentBaseName }}
+      {{ $slug := "" }}
+      {{ with .File }}{{ $slug = .ContentBaseName }}{{ end }}
       {{ $trans := index hugo.Data.translations $slug }}
       {{ if and (not $trans) .Params.title_zh }}
         {{ $trans = dict "title" .Params.title_zh }}
