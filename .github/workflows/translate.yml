@@ -64,15 +64,22 @@ jobs:
 
             print(f'Translating: {slug}')
 
+            # Replace image markdown with placeholders so Claude never drops them
+            img_pattern = re.compile(r'!\[[^\]]*\]\([^)]+\)')
+            images = img_pattern.findall(body)
+            body_for_claude = body
+            for i, img in enumerate(images):
+              body_for_claude = body_for_claude.replace(img, f'IMAGE_{i}_PLACEHOLDER', 1)
+
             prompt = (
               "请将以下英文博客文章翻译成中文。博客作者是一个10岁的孩子，翻译要自然、符合小孩说话方式。\n\n"
               "严格按以下格式返回，保留分隔符，不要添加其他内容：\n\n"
               "TITLE: [翻译后的标题]\n\n"
               "---BODY---\n"
-              "[翻译后的正文，保持所有Markdown格式不变：**粗体**、*斜体*、## 标题、图片链接等原样保留]\n"
+              "[翻译后的正文，保持所有Markdown格式不变：**粗体**、*斜体*、## 标题。IMAGE_N_PLACEHOLDER 占位符原样保留，不要翻译。]\n"
               "---END---\n\n"
               f"原文标题: {title}\n\n"
-              f"原文正文:\n{body}"
+              f"原文正文:\n{body_for_claude}"
             )
             payload = {
               'model': 'claude-sonnet-4-6',
@@ -107,6 +114,10 @@ jobs:
 
             translated_title = title_match.group(1).strip()
             translated_body = body_match.group(1).strip()
+
+            # Restore image placeholders with original image markdown
+            for i, img in enumerate(images):
+              translated_body = translated_body.replace(f'IMAGE_{i}_PLACEHOLDER', img)
 
             indented = '\n'.join(('  ' + l) if l.strip() else '' for l in translated_body.splitlines())
             yaml_out = f'title: {json.dumps(translated_title, ensure_ascii=False)}\ncontent: |\n{indented}\n'
