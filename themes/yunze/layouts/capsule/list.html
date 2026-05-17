@@ -39,7 +39,7 @@
           <span class="lang-zh">来自{{ $from }} · 写于{{ .Date.Format "2006年01月02日" }} · {{ $unlock }} 开封</span>
           <span class="lang-en">From {{ $from }} · Written {{ .Date.Format "Jan 2, 2006" }} · Opens {{ $unlock }}</span>
           {{ with .Params.tags }}
-          <span class="capsule-tags lang-zh-inline">{{ range . }}<span class="capsule-tag">{{ . }}</span>{{ end }}</span>
+          <div class="lang-zh"><span class="capsule-tags">{{ range . }}<span class="capsule-tag">{{ . }}</span>{{ end }}</span></div>
           {{ end }}
         </div>
       </div>
@@ -57,7 +57,7 @@
           <span class="lang-zh">来自{{ $from }} · 写于{{ .Date.Format "2006年01月02日" }} · {{ $unlock }} 开封</span>
           <span class="lang-en">From {{ $from }} · Written {{ .Date.Format "Jan 2, 2006" }} · Opened {{ $unlock }}</span>
           {{ with .Params.tags }}
-          <span class="capsule-tags lang-zh-inline">{{ range . }}<span class="capsule-tag">{{ . }}</span>{{ end }}</span>
+          <div class="lang-zh"><span class="capsule-tags">{{ range . }}<span class="capsule-tag">{{ . }}</span>{{ end }}</span></div>
           {{ end }}
         </div>
       </div>
@@ -77,7 +77,7 @@
           <span class="lang-zh">来自{{ $from }} · 写于{{ .Date.Format "2006年01月02日" }}</span>
           <span class="lang-en">From {{ $from }} · Written {{ .Date.Format "Jan 2, 2006" }}</span>
           {{ with .Params.tags }}
-          <span class="capsule-tags lang-zh-inline">{{ range . }}<span class="capsule-tag">{{ . }}</span>{{ end }}</span>
+          <div class="lang-zh"><span class="capsule-tags">{{ range . }}<span class="capsule-tag">{{ . }}</span>{{ end }}</span></div>
           {{ end }}
         </div>
       </div>

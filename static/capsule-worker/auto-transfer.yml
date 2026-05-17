@@ -86,6 +86,16 @@ jobs:
               delta = TZ_MAP.get(tz_name, timedelta(hours=8))
               return (datetime.now(timezone.utc) + delta).date().isoformat()
 
+          def get_existing_title_en(path):
+              url = f'https://api.github.com/repos/{MAIN_REPO}/contents/{path}'
+              status, data = gh_request('GET', url)
+              if status == 200 and 'content' in data:
+                  existing = base64.b64decode(data['content']).decode()
+                  m = re.search(r'^title_en:\s*["\']?(.*?)["\']?\s*$', existing, re.MULTILINE)
+                  if m:
+                      return m.group(1).strip()
+              return None
+
           letters_dir = 'letters'
           if not os.path.isdir(letters_dir):
               print('No letters directory found.')
@@ -131,18 +141,19 @@ jobs:
 
               if is_unlocked:
                   # Full transfer: include body content
-                  new_content = '\n'.join([
-                      '---',
-                      f'title: "{title}"',
+                  title_en = get_existing_title_en(target_path)
+                  fm_lines = ['---', f'title: "{title}"']
+                  if title_en:
+                      fm_lines.append(f'title_en: "{title_en}"')
+                  fm_lines += [
                       f'date: {date_written}',
                       f'unlock_date: "{unlock_date}"',
                       f'from: "{from_person}"',
                       f'tags: [{tags}]',
                       'revealed: false',
-                      '---',
-                      '',
-                      body,
-                  ])
+                      '---', '', body,
+                  ]
+                  new_content = '\n'.join(fm_lines)
                   status = gh_put_file(
                       target_path, new_content,
                       f'capsule: transfer letter from {from_person} (unlocks {unlock_date})'
@@ -159,16 +170,18 @@ jobs:
 
               elif show_preview:
                   # Stub only: title/sender/dates visible, no body content
-                  stub_content = '\n'.join([
-                      '---',
-                      f'title: "{title}"',
+                  title_en = get_existing_title_en(target_path)
+                  stub_lines = ['---', f'title: "{title}"']
+                  if title_en:
+                      stub_lines.append(f'title_en: "{title_en}"')
+                  stub_lines += [
                       f'date: {date_written}',
                       f'unlock_date: "{unlock_date}"',
                       f'from: "{from_person}"',
                       'revealed: false',
-                      '---',
-                      '',
-                  ])
+                      '---', '',
+                  ]
+                  stub_content = '\n'.join(stub_lines)
                   status = gh_put_file(
                       target_path, stub_content,
                       f'capsule: add locked stub — {from_person} → {unlock_date}'
