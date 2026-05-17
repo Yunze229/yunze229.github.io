@@ -7,5 +7,51 @@
 </head>
 <body>
   <script src="https://unpkg.com/@sveltia/cms/dist/sveltia-cms.js"></script>
+  <script>
+    CMS.registerPreviewStyle('/admin/preview.css');
+
+    const catEn = {
+      '作品': 'Projects', '日记': 'Journal', '技能笔记': 'Skills',
+      '手册': 'Manual', '旅行': 'Travel', '随想': 'Thoughts',
+      '读书': 'Reading', '学习笔记': 'Study Notes', '书单': 'Reading List'
+    };
+
+    const PostPreview = ({ entry, widgetFor }) => {
+      const data     = entry.get('data');
+      const title    = data.get('title') || '';
+      const date     = data.get('date');
+      const cats     = data.get('categories');
+      const tags     = data.get('tags');
+      const isPriv   = data.get('private');
+
+      const fmtDate = d => {
+        if (!d) return '';
+        const dt = new Date(d);
+        return isNaN(dt) ? d : dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      };
+
+      return h('div', { className: 'preview-wrap' },
+        h('article', {},
+          h('header', { className: 'article-header' },
+            h('h1', { className: 'article-title' }, title),
+            h('div', { className: 'article-meta' },
+              h('time', {}, fmtDate(date)),
+              cats && cats.map(c =>
+                h('span', { key: c }, catEn[c] || c)
+              ),
+              isPriv && h('span', { className: 'article-private-badge' }, '🔒 Private')
+            )
+          ),
+          isPriv && h('div', { className: 'private-notice' }, 'This post is private.'),
+          h('div', { className: 'article-content' }, widgetFor('body')),
+          tags && tags.size > 0 && h('div', { className: 'article-tags' },
+            tags.map(t => h('span', { key: t, className: 'tag' }, '# ' + t))
+          )
+        )
+      );
+    };
+
+    CMS.registerPreviewTemplate('posts', PostPreview);
+  </script>
 </body>
 </html>
