@@ -1,5 +1,5 @@
 ---
-title: 001/100 How to make stained glass ?
+title: 001/100 How to make stained glass
 date: 2026-05-15
 categories:
   - 手册
@@ -8,6 +8,8 @@ tags:
   - MANUALS
 private: false
 draft: false
+title_zh: 001/100 如何制作玻璃锡焊
+body_zh: ''
 ---
 
 # 🪟 The Complete Beginner's Guide to Stained Glass Soldering
@@ -254,4 +256,3 @@ Non-negotiable rules for working with glass and 400°C tools:
 _Tutorial compiled from a real first-time workshop experience. Whether you're a parent looking for a meaningful weekend activity with your child, or an adult who's always been quietly mesmerized by light coming through colored glass — this craft welcomes you. Start small. Be patient. Wear your goggles._
 
 ✨ **Now go make something beautiful.**
-
