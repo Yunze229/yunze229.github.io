@@ -10,7 +10,5 @@ private: false
 draft: false
 ---
 
-![](/images/uploads/IMG_6222.jpeg)
-
-- 🐚 **One clam**
-- 🐠 **Two small fish**
+- 🐚 **One clam**
+- 🐠 **Two small fish**
