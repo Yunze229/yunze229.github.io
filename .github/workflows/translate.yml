@@ -64,26 +64,20 @@ jobs:
 
             print(f'Translating: {slug}')
 
+            prompt = (
+              "请将以下英文博客文章翻译成中文。博客作者是一个10岁的孩子，翻译要自然、符合小孩说话方式。\n\n"
+              "严格按以下格式返回，保留分隔符，不要添加其他内容：\n\n"
+              "TITLE: [翻译后的标题]\n\n"
+              "---BODY---\n"
+              "[翻译后的正文，保持所有Markdown格式不变：**粗体**、*斜体*、## 标题、图片链接等原样保留]\n"
+              "---END---\n\n"
+              f"原文标题: {title}\n\n"
+              f"原文正文:\n{body}"
+            )
             payload = {
               'model': 'claude-sonnet-4-6',
               'max_tokens': 4096,
-              'messages': [{
-                'role': 'user',
-                'content': f'''请将以下英文博客文章翻译成中文。博客作者是一个10岁的孩子，翻译要自然、符合小孩说话方式。
-
-严格按以下格式返回，保留分隔符，不要添加其他内容：
-
-TITLE: [翻译后的标题]
-
----BODY---
-[翻译后的正文，保持所有Markdown格式不变：**粗体**、*斜体*、## 标题、图片链接等原样保留]
----END---
-
-原文标题: {title}
-
-原文正文:
-{body}'''
-              }]
+              'messages': [{'role': 'user', 'content': prompt}]
             }
 
             req = urllib.request.Request(
