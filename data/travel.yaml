@@ -16,4 +16,10 @@ countries:
     name_en: "Singapore"
     cities_zh: ["新加坡"]
     cities_en: ["Singapore"]
+    year: 2019
+  - code: "ES"
+    name_zh: "西班牙"
+    name_en: "Spain"
+    cities_zh: ["西班牙"]
+    cities_en: ["Spain"]
     year: 2024
