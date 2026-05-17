@@ -6,29 +6,33 @@
       <nav class="site-nav">
         {{/* 铸魂 BEING */}}
         <a href="/being/" class="nav-item {{ if eq .Section "being" }}nav-item--active{{ end }}">
-          <span class="nav-en">BEING</span>
-          <span class="nav-zh">铸魂</span>
+          <span class="lang-en-inline">BEING</span>
+          <span class="lang-zh-inline">铸魂</span>
         </a>
 
         {{/* 造物 DOING — dropdown */}}
         <div class="nav-more">
           <div class="nav-item {{ if or (eq .Section "projects") (eq .Section "posts") (eq .Section "map") (eq .Section "manual") }}nav-item--active{{ end }}">
-            <span class="nav-en">DOING</span>
-            <span class="nav-zh">造物</span>
+            <span class="lang-en-inline">DOING</span>
+            <span class="lang-zh-inline">造物</span>
           </div>
           <div class="nav-dropdown">
             <div class="nav-dropdown-inner">
               <a href="/projects/">
-                <span class="drop-zh">作品</span><span class="drop-sep">|</span><span class="drop-en">PROJECTS</span>
+                <span class="lang-zh-inline">作品</span>
+                <span class="lang-en-inline">PROJECTS</span>
               </a>
               <a href="/">
-                <span class="drop-zh">日志</span><span class="drop-sep">|</span><span class="drop-en">LOGBOOK</span>
+                <span class="lang-zh-inline">日志</span>
+                <span class="lang-en-inline">LOGBOOK</span>
               </a>
               <a href="/manual/">
-                <span class="drop-zh">手册</span><span class="drop-sep">|</span><span class="drop-en">MANUALS</span>
+                <span class="lang-zh-inline">手册</span>
+                <span class="lang-en-inline">MANUALS</span>
               </a>
               <a href="/map/">
-                <span class="drop-zh">履迹</span><span class="drop-sep">|</span><span class="drop-en">TRAJECTORY</span>
+                <span class="lang-zh-inline">履迹</span>
+                <span class="lang-en-inline">TRAJECTORY</span>
               </a>
             </div>
           </div>
@@ -36,8 +40,8 @@
 
         {{/* 致远 BECOMING */}}
         <a href="/capsule/" class="nav-item {{ if eq .Section "capsule" }}nav-item--active{{ end }}">
-          <span class="nav-en">BECOMING</span>
-          <span class="nav-zh">致远</span>
+          <span class="lang-en-inline">BECOMING</span>
+          <span class="lang-zh-inline">致远</span>
         </a>
       </nav>
 

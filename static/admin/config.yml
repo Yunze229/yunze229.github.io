@@ -69,60 +69,13 @@ collections:
     label: "时光胶囊"
     label_singular: "胶囊信件"
     folder: "content/capsule"
-    create: true
-    slug: "{{slug}}"
-    filter:
-      field: "layout"
-      value: ""
+    create: false
     fields:
       - label: "标题"
         name: "title"
         widget: "string"
-        hint: "比如：写给18岁的你"
-      - label: "日期"
-        name: "date"
-        widget: "datetime"
-        format: "YYYY-MM-DD"
-        date_format: "YYYY-MM-DD"
-        time_format: false
-      - label: "发件人"
-        name: "from"
-        widget: "select"
-        options:
-          - { label: "妈妈", value: "妈妈" }
-          - { label: "爸爸", value: "爸爸" }
-          - { label: "外公", value: "外公" }
-          - { label: "外婆", value: "外婆" }
-          - { label: "Yunze（写给未来的自己）", value: "Yunze" }
-        default: "妈妈"
-      - label: "几岁时打开"
-        name: "unlock_date"
-        widget: "select"
-        options:
-          - { label: "12岁生日（2028-02-29）", value: "2028-02-29" }
-          - { label: "13岁生日（2029-02-28）", value: "2029-02-28" }
-          - { label: "14岁生日（2030-02-28）", value: "2030-02-28" }
-          - { label: "15岁生日（2031-02-28）", value: "2031-02-28" }
-          - { label: "16岁生日（2032-02-29）", value: "2032-02-29" }
-          - { label: "17岁生日（2033-02-28）", value: "2033-02-28" }
-          - { label: "18岁生日（2034-02-28）", value: "2034-02-28" }
-          - { label: "19岁生日（2035-02-28）", value: "2035-02-28" }
-          - { label: "20岁生日（2036-02-29）", value: "2036-02-29" }
-          - { label: "21岁生日（2037-02-28）", value: "2037-02-28" }
-          - { label: "25岁生日（2041-02-28）", value: "2041-02-28" }
-          - { label: "30岁生日（2046-02-28）", value: "2046-02-28" }
-          - { label: "40岁生日（2056-02-29）", value: "2056-02-29" }
-      - label: "主题标签"
-        name: "tags"
-        widget: "list"
-        allow_add: true
-        hint: "从建议中选：成长、梦想、纪念、建议、秘密；也可自己加"
       - label: "公开内容（Yunze 解锁后决定）"
         name: "revealed"
         widget: "boolean"
         default: false
-        hint: "到了开封日后，Yunze 打开此开关，信的内容才对外可见"
-      - label: "正文"
-        name: "body"
-        widget: "markdown"
-        hint: "支持 Markdown 格式"
+        hint: "时间到了之后，打开此开关，信的内容才对外可见"

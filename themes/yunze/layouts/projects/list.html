@@ -23,7 +23,10 @@
     {{ end }}
     <div class="project-card-body">
       <h2 class="project-card-title">{{ .Title }}</h2>
-      <time class="project-card-date">{{ .Date.Format "2006-01-02" }}</time>
+      <time class="project-card-date">
+        <span class="lang-zh-inline">{{ .Date.Format "2006年01月02日" }}</span>
+        <span class="lang-en-inline">{{ .Date.Format "January 2, 2006" }}</span>
+      </time>
       {{ with .Summary }}<p class="project-card-excerpt">{{ . }}</p>{{ end }}
     </div>
   </a>

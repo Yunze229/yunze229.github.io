@@ -12,7 +12,10 @@
       {{ end }}
     </h1>
     <div class="article-meta">
-      <time>{{ .Date.Format "2006年01月02日" }}</time>
+      <time>
+        <span class="lang-zh-inline">{{ .Date.Format "2006年01月02日" }}</span>
+        <span class="lang-en-inline">{{ .Date.Format "January 2, 2006" }}</span>
+      </time>
       {{ with .Params.categories }}
         {{ range . }}<span>{{ . }}</span>{{ end }}
       {{ end }}
