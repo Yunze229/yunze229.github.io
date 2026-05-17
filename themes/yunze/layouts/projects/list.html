@@ -22,7 +22,19 @@
     <div class="project-card-cover project-card-placeholder"></div>
     {{ end }}
     <div class="project-card-body">
-      <h2 class="project-card-title">{{ .Title }}</h2>
+      <h2 class="project-card-title">
+        {{ $slug := .File.ContentBaseName }}
+        {{ $trans := index hugo.Data.translations $slug }}
+        {{ if and (not $trans) .Params.title_zh }}
+          {{ $trans = dict "title" .Params.title_zh }}
+        {{ end }}
+        {{ if $trans }}
+          <span class="lang-zh-inline">{{ $trans.title }}</span>
+          <span class="lang-en-inline">{{ .Title }}</span>
+        {{ else }}
+          {{ .Title }}
+        {{ end }}
+      </h2>
       <time class="project-card-date">
         <span class="lang-zh-inline">{{ .Date.Format "2006年01月02日" }}</span>
         <span class="lang-en-inline">{{ .Date.Format "January 2, 2006" }}</span>

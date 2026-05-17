@@ -11,8 +11,23 @@
 <ul class="post-list">
   {{ range $pages }}
   <li class="post-item">
-    <span class="post-date">{{ .Date.Format "2006-01-02" }}</span>
-    <a class="post-title-link" href="{{ .Permalink }}">{{ .Title }}</a>
+    <span class="post-date">
+      <span class="lang-zh-inline">{{ .Date.Format "01月02日" }}</span>
+      <span class="lang-en-inline">{{ .Date.Format "Jan 02" }}</span>
+    </span>
+    <a class="post-title-link" href="{{ .Permalink }}">
+      {{ $slug := .File.ContentBaseName }}
+      {{ $trans := index hugo.Data.translations $slug }}
+      {{ if and (not $trans) .Params.title_zh }}
+        {{ $trans = dict "title" .Params.title_zh }}
+      {{ end }}
+      {{ if $trans }}
+        <span class="lang-zh-inline">{{ $trans.title }}</span>
+        <span class="lang-en-inline">{{ .Title }}</span>
+      {{ else }}
+        {{ .Title }}
+      {{ end }}
+    </a>
   </li>
   {{ end }}
 </ul>
