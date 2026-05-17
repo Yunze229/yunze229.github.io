@@ -1,0 +1,36 @@
+{{ define "main" }}
+<div class="section-header">
+  <h1 class="section-title">
+    <span class="lang-zh">手册</span>
+    <span class="lang-en">Manuals</span>
+  </h1>
+</div>
+
+{{ $posts := where site.RegularPages "Section" "posts" }}
+{{ $posts = where $posts ".Params.private" "ne" true }}
+{{ $manuals := where $posts ".Params.categories" "intersect" (slice "手册") }}
+
+{{ if $manuals }}
+  {{ range $manuals.GroupByDate "2006" }}
+  <div class="year-group">
+    <div class="year-label">{{ .Key }}</div>
+    <ul class="post-list">
+      {{ range .Pages }}
+      <li class="post-item">
+        <span class="post-date">{{ .Date.Format "01-02" }}</span>
+        <a class="post-title-link" href="{{ .Permalink }}">{{ .Title }}</a>
+        {{ with .Params.categories }}
+        <span class="post-private-badge">{{ index . 0 }}</span>
+        {{ end }}
+      </li>
+      {{ end }}
+    </ul>
+  </div>
+  {{ end }}
+{{ else }}
+<p class="section-empty">
+  <span class="lang-zh">还没有手册，敬请期待。</span>
+  <span class="lang-en">No manuals yet. Stay tuned!</span>
+</p>
+{{ end }}
+{{ end }}

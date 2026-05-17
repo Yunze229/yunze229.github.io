@@ -38,7 +38,14 @@ collections:
           - { label: "技能笔记", value: "技能笔记" }
           - { label: "旅行", value: "旅行" }
           - { label: "书单", value: "书单" }
+          - { label: "作品 | PROJECTS", value: "作品" }
+          - { label: "手册 | MANUALS", value: "手册" }
         default: ["日记"]
+      - label: "封面图片（作品页专用）"
+        name: "cover"
+        widget: "image"
+        required: false
+        hint: "仅作品页显示，推荐 16:9 比例"
       - label: "标签"
         name: "tags"
         widget: "list"

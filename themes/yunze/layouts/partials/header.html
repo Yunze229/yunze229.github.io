@@ -12,7 +12,7 @@
 
         {{/* 造物 DOING — dropdown */}}
         <div class="nav-more">
-          <div class="nav-item {{ if or (eq .Section "projects") (eq .Section "posts") (eq .Section "map") }}nav-item--active{{ end }}">
+          <div class="nav-item {{ if or (eq .Section "projects") (eq .Section "posts") (eq .Section "map") (eq .Section "manual") }}nav-item--active{{ end }}">
             <span class="nav-en">DOING</span>
             <span class="nav-zh">造物</span>
           </div>
@@ -23,6 +23,9 @@
               </a>
               <a href="/">
                 <span class="drop-zh">日志</span><span class="drop-sep">|</span><span class="drop-en">LOGBOOK</span>
+              </a>
+              <a href="/manual/">
+                <span class="drop-zh">手册</span><span class="drop-sep">|</span><span class="drop-en">MANUALS</span>
               </a>
               <a href="/map/">
                 <span class="drop-zh">履迹</span><span class="drop-sep">|</span><span class="drop-en">TRAJECTORY</span>

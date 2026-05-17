@@ -1,0 +1,38 @@
+{{ define "main" }}
+<div class="section-header">
+  <h1 class="section-title">
+    <span class="lang-zh">作品</span>
+    <span class="lang-en">Projects</span>
+  </h1>
+</div>
+
+{{ $posts := where site.RegularPages "Section" "posts" }}
+{{ $posts = where $posts ".Params.private" "ne" true }}
+{{ $projects := where $posts ".Params.categories" "intersect" (slice "作品") }}
+
+{{ if $projects }}
+<div class="projects-grid">
+  {{ range $projects }}
+  <a href="{{ .RelPermalink }}" class="project-card">
+    {{ with .Params.cover }}
+    <div class="project-card-cover">
+      <img src="{{ . }}" alt="{{ $.Title }}" loading="lazy">
+    </div>
+    {{ else }}
+    <div class="project-card-cover project-card-placeholder"></div>
+    {{ end }}
+    <div class="project-card-body">
+      <h2 class="project-card-title">{{ .Title }}</h2>
+      <time class="project-card-date">{{ .Date.Format "2006-01-02" }}</time>
+      {{ with .Summary }}<p class="project-card-excerpt">{{ . }}</p>{{ end }}
+    </div>
+  </a>
+  {{ end }}
+</div>
+{{ else }}
+<p class="section-empty">
+  <span class="lang-zh">还没有作品，敬请期待。</span>
+  <span class="lang-en">No projects yet. Stay tuned!</span>
+</p>
+{{ end }}
+{{ end }}
