@@ -1,0 +1,203 @@
+# Place this file at: hxz49/yunze-letters/.github/workflows/auto-transfer.yml
+# Secrets needed in hxz49/yunze-letters:
+#   MAIN_REPO_TOKEN  – PAT with contents:write on Yunze229/yunze229.github.io
+#   RESEND_API_KEY   – for notification emails
+
+name: Auto Transfer Unlocked Letters
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'letters/**.md'   # triggers immediately when Worker adds a new letter
+  schedule:
+    - cron: '0 16 * * *'   # 16:00 UTC = midnight Asia/Shanghai
+  workflow_dispatch:
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout private repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync letters to main site
+        env:
+          MAIN_REPO_TOKEN: ${{ secrets.MAIN_REPO_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          python3 << 'PYEOF'
+          import os, re, json, base64, urllib.request, urllib.error
+          from datetime import datetime, timezone, timedelta
+
+          MAIN_REPO  = 'Yunze229/yunze229.github.io'
+          NOTIFY_TO  = 'hxz49@hotmail.com'
+          FROM_EMAIL = 'onboarding@resend.dev'
+
+          main_token = os.environ['MAIN_REPO_TOKEN']
+          resend_key = os.environ['RESEND_API_KEY']
+
+          TZ_MAP = {
+              'Asia/Shanghai':       timedelta(hours=8),
+              'America/Los_Angeles': timedelta(hours=-7),
+          }
+
+          def gh_request(method, url, data=None):
+              req = urllib.request.Request(url, method=method)
+              req.add_header('Authorization', f'Bearer {main_token}')
+              req.add_header('Content-Type', 'application/json')
+              req.add_header('User-Agent', 'yunze-capsule-transfer')
+              body = json.dumps(data).encode() if data else None
+              try:
+                  with urllib.request.urlopen(req, body) as r:
+                      return r.status, json.loads(r.read())
+              except urllib.error.HTTPError as e:
+                  return e.code, json.loads(e.read())
+
+          def gh_put_file(path, content_str, message):
+              url = f'https://api.github.com/repos/{MAIN_REPO}/contents/{path}'
+              status, existing = gh_request('GET', url)
+              sha = existing.get('sha') if status == 200 else None
+              encoded = base64.b64encode(content_str.encode()).decode()
+              payload = {'message': message, 'content': encoded}
+              if sha:
+                  payload['sha'] = sha
+              status, result = gh_request('PUT', url, payload)
+              return status
+
+          def send_email(subject, html):
+              req = urllib.request.Request('https://api.resend.com/emails', method='POST')
+              req.add_header('Authorization', f'Bearer {resend_key}')
+              req.add_header('Content-Type', 'application/json')
+              try:
+                  urllib.request.urlopen(req, json.dumps({
+                      'from': FROM_EMAIL, 'to': NOTIFY_TO,
+                      'subject': subject, 'html': html
+                  }).encode())
+              except Exception as e:
+                  print(f'Email error: {e}')
+
+          def today_for_tz(tz_name):
+              delta = TZ_MAP.get(tz_name, timedelta(hours=8))
+              return (datetime.now(timezone.utc) + delta).date().isoformat()
+
+          letters_dir = 'letters'
+          if not os.path.isdir(letters_dir):
+              print('No letters directory found.')
+              exit(0)
+
+          full_transfers = []
+          any_private_changes = False
+
+          for fname in sorted(os.listdir(letters_dir)):
+              if not fname.endswith('.md') or fname == '.gitkeep':
+                  continue
+              fpath = os.path.join(letters_dir, fname)
+              with open(fpath) as f:
+                  raw = f.read()
+
+              m = re.match(r'^---\n(.*?)\n---\n?(.*)', raw, re.DOTALL)
+              if not m:
+                  continue
+              fm_text, body = m.group(1), m.group(2).strip()
+
+              def fm_get(key):
+                  r = re.search(rf'^{key}:\s*["\']?(.*?)["\']?\s*$', fm_text, re.MULTILINE)
+                  return r.group(1).strip() if r else ''
+
+              if fm_get('transferred') == 'true':
+                  continue
+
+              title        = fm_get('title')
+              from_person  = fm_get('from')
+              unlock_date  = fm_get('unlock_date')
+              date_written = fm_get('date')
+              tz_name      = fm_get('tz') or 'Asia/Shanghai'
+              show_preview = fm_get('show_preview') != 'false'
+              tags_m       = re.search(r'^tags:\s*\[(.*?)\]', fm_text, re.MULTILINE)
+              tags         = tags_m.group(1) if tags_m else ''
+
+              today      = today_for_tz(tz_name)
+              is_unlocked = unlock_date <= today
+
+              # Use private-repo filename as slug so stub and full transfer use the same path
+              slug        = fname[:-3]
+              target_path = f'content/capsule/{slug}.md'
+
+              if is_unlocked:
+                  # Full transfer: include body content
+                  new_content = '\n'.join([
+                      '---',
+                      f'title: "{title}"',
+                      f'date: {date_written}',
+                      f'unlock_date: "{unlock_date}"',
+                      f'from: "{from_person}"',
+                      f'tags: [{tags}]',
+                      'revealed: false',
+                      '---',
+                      '',
+                      body,
+                  ])
+                  status = gh_put_file(
+                      target_path, new_content,
+                      f'capsule: transfer letter from {from_person} (unlocks {unlock_date})'
+                  )
+                  if status in (200, 201):
+                      print(f'  [TRANSFER] {fname}')
+                      full_transfers.append({'from': from_person, 'title': title, 'unlock_date': unlock_date})
+                      # Mark as transferred in private repo
+                      with open(fpath, 'w') as f:
+                          f.write(raw.replace('transferred: false', 'transferred: true'))
+                      any_private_changes = True
+                  else:
+                      print(f'  [ERROR] full transfer {fname}: HTTP {status}')
+
+              elif show_preview:
+                  # Stub only: title/sender/dates visible, no body content
+                  stub_content = '\n'.join([
+                      '---',
+                      f'title: "{title}"',
+                      f'date: {date_written}',
+                      f'unlock_date: "{unlock_date}"',
+                      f'from: "{from_person}"',
+                      'revealed: false',
+                      '---',
+                      '',
+                  ])
+                  status = gh_put_file(
+                      target_path, stub_content,
+                      f'capsule: add locked stub — {from_person} → {unlock_date}'
+                  )
+                  if status in (200, 201):
+                      print(f'  [STUB] {fname}')
+                  else:
+                      print(f'  [ERROR] stub {fname}: HTTP {status}')
+
+              else:
+                  print(f'  [SKIP] {fname}: locked, show_preview=false')
+
+          # Commit private repo changes (transferred: true marks)
+          if any_private_changes:
+              os.system('git config user.name "yunze-capsule-bot"')
+              os.system('git config user.email "bot@yunze229.github.io"')
+              os.system('git add letters/')
+              os.system('git commit -m "mark letters as transferred" || true')
+              os.system('git push')
+
+              items = ''.join(
+                  f"<li>{t['from']} → {t['title']} (开封日 {t['unlock_date']})</li>"
+                  for t in full_transfers
+              )
+              send_email(
+                  f'📬 时光胶囊：{len(full_transfers)} 封信已自动转移到主站',
+                  f'<p>以下信件已到达开封日，自动转移到主站：</p><ul>{items}</ul>'
+                  f'<p>Yunze 可以登录 CMS 后台开启"公开内容"开关。</p>'
+              )
+
+          print(f'Done. {len(full_transfers)} full transfers, stubs synced.')
+          PYEOF
