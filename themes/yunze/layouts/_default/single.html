@@ -1,6 +1,10 @@
 {{ define "main" }}
 {{ $slug := .File.ContentBaseName }}
 {{ $trans := index hugo.Data.translations $slug }}
+{{/* Frontmatter zh fields take priority over AI translation file */}}
+{{ if and (not $trans) .Params.title_zh }}
+  {{ $trans = dict "title" .Params.title_zh "content" (.Params.body_zh | default "") }}
+{{ end }}
 <article>
   <header class="article-header">
     <h1 class="article-title">

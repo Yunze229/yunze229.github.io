@@ -64,6 +64,16 @@ collections:
         name: "body"
         widget: "markdown"
         hint: "支持 Markdown 格式"
+      - label: "中文标题（可选）"
+        name: "title_zh"
+        widget: "string"
+        required: false
+        hint: "不填则由 AI 自动翻译；填了直接用，不再调用 AI"
+      - label: "中文正文（可选）"
+        name: "body_zh"
+        widget: "markdown"
+        required: false
+        hint: "不填则由 AI 自动翻译；填了直接用，不再调用 AI"
 
   - name: "capsule"
     label: "时光胶囊"

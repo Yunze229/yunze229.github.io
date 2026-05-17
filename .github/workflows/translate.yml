@@ -38,6 +38,10 @@ jobs:
             if 'draft: true' in content or 'private: true' in content:
               continue
 
+            if 'title_zh:' in content:
+              print(f'Has title_zh, skipping AI translation: {slug}')
+              continue
+
             slug = filename.replace('.md', '')
             trans_file = os.path.join(trans_dir, slug + '.yaml')
 

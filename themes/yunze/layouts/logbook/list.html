@@ -23,7 +23,12 @@
           <span class="lang-en-inline">{{ .Date.Format "Jan 02" }}</span>
         </span>
         <a class="post-title-link" href="{{ .Permalink }}">
-          {{ if $trans := index hugo.Data.translations .File.ContentBaseName }}
+          {{ $slug := .File.ContentBaseName }}
+          {{ $trans := index hugo.Data.translations $slug }}
+          {{ if and (not $trans) .Params.title_zh }}
+            {{ $trans = dict "title" .Params.title_zh }}
+          {{ end }}
+          {{ if $trans }}
             <span class="lang-zh-inline">{{ $trans.title }}</span>
             <span class="lang-en-inline">{{ .Title }}</span>
           {{ else }}
