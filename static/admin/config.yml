@@ -89,8 +89,3 @@ collections:
         widget: "string"
         required: false
         hint: "不填则中英文都显示中文标题"
-      - label: "公开内容（Yunze 解锁后决定）"
-        name: "revealed"
-        widget: "boolean"
-        default: false
-        hint: "时间到了之后，打开此开关，信的内容才对外可见"
