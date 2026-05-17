@@ -1,4 +1,5 @@
 {{ define "main" }}
+{{ $catEn := dict "作品" "Projects" "日记" "Journal" "技能笔记" "Skills" "手册" "Manual" "旅行" "Travel" "随想" "Thoughts" "读书" "Reading" "学习笔记" "Study Notes" "书单" "Reading List" }}
 <div style="margin-bottom:32px;">
   <h1 style="font-size:1.4rem;font-weight:600;">
     <span class="lang-zh">分类</span>
@@ -8,7 +9,10 @@
 <ul class="categories-list">
   {{ range .Data.Terms.Alphabetical }}
   <li class="category-item">
-    <a href="{{ .Page.Permalink }}" class="category-link">{{ .Page.Title }}</a>
+    <a href="{{ .Page.Permalink }}" class="category-link">
+      <span class="lang-zh-inline">{{ .Page.Title }}</span>
+      <span class="lang-en-inline">{{ index $catEn .Page.Title | default .Page.Title }}</span>
+    </a>
     <span class="category-count">{{ .Count }}</span>
   </li>
   {{ end }}

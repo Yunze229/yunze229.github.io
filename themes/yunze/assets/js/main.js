@@ -37,6 +37,13 @@ function setLang(l) {
   langBtns.forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === l);
   });
+  const giscusFrame = document.querySelector('iframe.giscus-frame');
+  if (giscusFrame) {
+    giscusFrame.contentWindow.postMessage(
+      { giscus: { setConfig: { lang: l === 'zh' ? 'zh-CN' : 'en' } } },
+      'https://giscus.app'
+    );
+  }
 }
 
 if (langRoot) setLang(getLang());
