@@ -81,9 +81,14 @@ collections:
     folder: "content/capsule"
     create: false
     fields:
-      - label: "标题"
+      - label: "标题（中文）"
         name: "title"
         widget: "string"
+      - label: "标题（英文，可选）"
+        name: "title_en"
+        widget: "string"
+        required: false
+        hint: "不填则中英文都显示中文标题"
       - label: "公开内容（Yunze 解锁后决定）"
         name: "revealed"
         widget: "boolean"

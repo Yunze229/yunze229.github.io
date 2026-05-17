@@ -1,5 +1,6 @@
 ---
 title: "写给18岁的自己"
+title_en: "To My 18-Year-Old Self"
 date: 2026-05-15
 unlock_date: "2034-02-28"
 from: "Yunze"

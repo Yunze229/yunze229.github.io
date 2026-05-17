@@ -7,15 +7,25 @@
 
 <article>
   <header class="article-header">
-    <h1 class="article-title">{{ .Title }}</h1>
+    <h1 class="article-title">
+      {{ if .Params.title_en }}
+        <span class="lang-zh-inline">{{ .Title }}</span>
+        <span class="lang-en-inline">{{ .Params.title_en }}</span>
+      {{ else }}
+        {{ .Title }}
+      {{ end }}
+    </h1>
     <div class="article-meta">
-      <time>{{ .Date.Format "2006年01月02日" }}</time>
+      <time>
+        <span class="lang-zh-inline">{{ .Date.Format "2006年01月02日" }}</span>
+        <span class="lang-en-inline">{{ .Date.Format "January 2, 2006" }}</span>
+      </time>
       <span>
         <span class="lang-zh-inline">来自{{ $from }}的信</span>
         <span class="lang-en-inline">Letter from {{ $from }}</span>
       </span>
       {{ with .Params.tags }}
-        {{ range . }}<span class="post-private-badge">{{ . }}</span>{{ end }}
+        {{ range . }}<span class="post-private-badge lang-zh-inline">{{ . }}</span>{{ end }}
       {{ end }}
     </div>
   </header>

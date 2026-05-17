@@ -20,10 +20,17 @@
 
   <div class="capsule-item {{ if $locked }}capsule-locked{{ else if $revealed }}capsule-open{{ else }}capsule-pending{{ end }}">
 
+    {{/* Bilingual title helper */}}
+    {{ $titleZh := .Title }}
+    {{ $titleEn := .Params.title_en | default .Title }}
+
     {{ if $locked }}
       <div class="capsule-icon">🔒</div>
       <div class="capsule-body">
-        <div class="capsule-title">{{ .Title }}</div>
+        <div class="capsule-title">
+          <span class="lang-zh-inline">{{ $titleZh }}</span>
+          <span class="lang-en-inline">{{ $titleEn }}</span>
+        </div>
         <div class="capsule-countdown" data-unlock="{{ $unlock }}">
           <span class="lang-zh">计算中…</span>
           <span class="lang-en">Calculating…</span>
@@ -32,7 +39,7 @@
           <span class="lang-zh">来自{{ $from }} · 写于{{ .Date.Format "2006年01月02日" }} · {{ $unlock }} 开封</span>
           <span class="lang-en">From {{ $from }} · Written {{ .Date.Format "Jan 2, 2006" }} · Opens {{ $unlock }}</span>
           {{ with .Params.tags }}
-          <span class="capsule-tags">{{ range . }}<span class="capsule-tag">{{ . }}</span>{{ end }}</span>
+          <span class="capsule-tags lang-zh-inline">{{ range . }}<span class="capsule-tag">{{ . }}</span>{{ end }}</span>
           {{ end }}
         </div>
       </div>
@@ -40,12 +47,17 @@
     {{ else if $revealed }}
       <div class="capsule-icon">💌</div>
       <div class="capsule-body">
-        <div class="capsule-title"><a href="{{ .Permalink }}">{{ .Title }}</a></div>
+        <div class="capsule-title">
+          <a href="{{ .Permalink }}">
+            <span class="lang-zh-inline">{{ $titleZh }}</span>
+            <span class="lang-en-inline">{{ $titleEn }}</span>
+          </a>
+        </div>
         <div class="capsule-meta">
           <span class="lang-zh">来自{{ $from }} · 写于{{ .Date.Format "2006年01月02日" }} · {{ $unlock }} 开封</span>
           <span class="lang-en">From {{ $from }} · Written {{ .Date.Format "Jan 2, 2006" }} · Opened {{ $unlock }}</span>
           {{ with .Params.tags }}
-          <span class="capsule-tags">{{ range . }}<span class="capsule-tag">{{ . }}</span>{{ end }}</span>
+          <span class="capsule-tags lang-zh-inline">{{ range . }}<span class="capsule-tag">{{ . }}</span>{{ end }}</span>
           {{ end }}
         </div>
       </div>
@@ -53,7 +65,10 @@
     {{ else }}
       <div class="capsule-icon">⏳</div>
       <div class="capsule-body">
-        <div class="capsule-title">{{ .Title }}</div>
+        <div class="capsule-title">
+          <span class="lang-zh-inline">{{ $titleZh }}</span>
+          <span class="lang-en-inline">{{ $titleEn }}</span>
+        </div>
         <div class="capsule-pending">
           <span class="lang-zh">已到达开封日，Yunze 还在决定是否公开</span>
           <span class="lang-en">Unlocked — Yunze hasn't decided to share yet</span>
@@ -62,7 +77,7 @@
           <span class="lang-zh">来自{{ $from }} · 写于{{ .Date.Format "2006年01月02日" }}</span>
           <span class="lang-en">From {{ $from }} · Written {{ .Date.Format "Jan 2, 2006" }}</span>
           {{ with .Params.tags }}
-          <span class="capsule-tags">{{ range . }}<span class="capsule-tag">{{ . }}</span>{{ end }}</span>
+          <span class="capsule-tags lang-zh-inline">{{ range . }}<span class="capsule-tag">{{ . }}</span>{{ end }}</span>
           {{ end }}
         </div>
       </div>
