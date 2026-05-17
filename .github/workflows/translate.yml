@@ -99,7 +99,7 @@ jobs:
             )
 
             try:
-              with urllib.request.urlopen(req, timeout=90) as resp:
+              with urllib.request.urlopen(req, timeout=180) as resp:
                 result = json.loads(resp.read())
                 response_text = result['content'][0]['text']
             except Exception as e:
