@@ -17,7 +17,13 @@
         <span class="lang-en-inline">{{ .Date.Format "January 2, 2006" }}</span>
       </time>
       {{ with .Params.categories }}
-        {{ range . }}<span>{{ . }}</span>{{ end }}
+        {{ $catEn := dict "作品" "Projects" "日记" "Journal" "技能笔记" "Skills" "手册" "Manual" "旅行" "Travel" "随想" "Thoughts" "读书" "Reading" }}
+        {{ range . }}
+        <span>
+          <span class="lang-zh-inline">{{ . }}</span>
+          <span class="lang-en-inline">{{ index $catEn . | default . }}</span>
+        </span>
+        {{ end }}
       {{ end }}
       {{ if .Params.private }}
       <span style="color:var(--fg-faint)">🔒
