@@ -17,16 +17,16 @@
   <div class="gear-grid">
     {{ range .items }}
     <div class="gear-card">
-
+      {{ $itemName := .name }}
       <div class="gear-icon">
         {{ if eq .icon_type "emoji" }}
           <span class="gear-emoji">{{ .icon_emoji }}</span>
         {{ else if eq .icon_type "upload" }}
-          {{ with .icon_image }}<img src="{{ . }}" alt="{{ $.name }}">{{ end }}
+          {{ with .icon_image }}<img src="{{ . }}" alt="{{ $itemName }}">{{ end }}
         {{ else }}
           {{ with .url }}
           <img src="https://www.google.com/s2/favicons?domain={{ . }}&sz=64"
-               alt="{{ $.name }}" onerror="this.style.display='none'">
+               alt="{{ $itemName }}" onerror="this.style.display='none'">
           {{ else }}
           <span class="gear-emoji">🔧</span>
           {{ end }}
