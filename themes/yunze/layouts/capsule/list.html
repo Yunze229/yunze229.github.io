@@ -262,7 +262,8 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sender, title, unlock_date: unlock, body, lang }),
       });
-      const data = await res.json();
+      let data;
+      try { data = await res.json(); } catch { data = {}; }
       if (res.ok) {
         showMsg('ok',
           '信已寄出，将于 ' + unlock + ' 开封。',

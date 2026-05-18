@@ -30,13 +30,11 @@ async function checkRateLimit(kv, ip) {
   const window = 60;
   const limit  = 5;
 
-  const raw   = await kv.get(key);
-  const entry = raw ? JSON.parse(raw) : { count: 0, reset: now + window };
+  const raw = await kv.get(key);
+  let entry;
+  try { entry = raw ? JSON.parse(raw) : null; } catch {}
+  if (!entry || now > entry.reset) { entry = { count: 0, reset: now + window }; }
 
-  if (now > entry.reset) {
-    entry.count = 0;
-    entry.reset = now + window;
-  }
   entry.count += 1;
   await kv.put(key, JSON.stringify(entry), { expirationTtl: window });
 
@@ -97,8 +95,21 @@ async function sendEmail(apiKey, subject, html) {
 
 export default {
   async fetch(request, env) {
-    const { pathname } = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
+    try {
+      return await handleRequest(request, env, origin);
+    } catch (err) {
+      console.error('Unhandled Worker error:', err?.stack || err);
+      return Response.json(
+        { error: `服务器错误，请稍后再试 / Server error (${err?.message || 'unknown'})` },
+        { status: 500, headers: corsHeaders(origin) }
+      );
+    }
+  },
+};
+
+async function handleRequest(request, env, origin) {
+    const { pathname } = new URL(request.url);
 
     if (pathname === '/submit' && request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -199,5 +210,4 @@ export default {
     }
 
     return new Response('Not Found', { status: 404 });
-  },
-};
+}
