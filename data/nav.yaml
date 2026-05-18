@@ -3,48 +3,50 @@ items:
     name_en: BEING
     url: /being/
     section: being
-    desc_zh: ""
-    desc_en: ""
+    desc_zh: ''
+    desc_en: ''
     children: []
   - name_zh: 造物
     name_en: DOING
     url: ''
     section: ''
+    desc_zh: ''
+    desc_en: ''
     children:
       - name_zh: 日志
         name_en: LOGBOOK
         url: /logbook/
         section: logbook
-        desc_zh: ""
-        desc_en: ""
+        desc_zh: ''
+        desc_en: ''
       - name_zh: 作品
         name_en: PROJECTS
         url: /projects/
         section: projects
-        desc_zh: ""
-        desc_en: ""
+        desc_zh: ''
+        desc_en: ''
       - name_zh: 装备
         name_en: GEARS
         url: /gears/
         section: gears
-        desc_zh: ""
-        desc_en: ""
+        desc_zh: 工欲善其事，必先利其器
+        desc_en: Sharp Tools for Mind and Making
       - name_zh: 手册
         name_en: MANUALS
         url: /manual/
         section: manual
-        desc_zh: ""
-        desc_en: ""
+        desc_zh: ''
+        desc_en: ''
       - name_zh: 履迹
         name_en: TRAJECTORY
         url: /map/
         section: map
-        desc_zh: ""
-        desc_en: ""
+        desc_zh: ''
+        desc_en: ''
   - name_zh: 致远
     name_en: BECOMING
     url: /capsule/
     section: capsule
-    desc_zh: ""
-    desc_en: ""
+    desc_zh: ''
+    desc_en: ''
     children: []
