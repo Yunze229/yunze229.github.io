@@ -8,6 +8,7 @@ enableRobotsTXT = true
 enableEmoji = false
 
 [params]
+  capsule_api = "https://yunze-capsule.dyz229.workers.dev"
   description = "以逻辑解构世界，以创造交付结果"
   author = "Yunze"
   since = 2026
