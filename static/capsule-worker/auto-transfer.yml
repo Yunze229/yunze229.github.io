@@ -68,7 +68,7 @@ jobs:
               if sha:
                   payload['sha'] = sha
               status, result = gh_request('PUT', url, payload)
-              return status
+              return status, result
 
           def send_email(subject, html):
               req = urllib.request.Request('https://api.resend.com/emails', method='POST')
@@ -86,15 +86,18 @@ jobs:
               delta = TZ_MAP.get(tz_name, timedelta(hours=8))
               return (datetime.now(timezone.utc) + delta).date().isoformat()
 
-          def get_existing_title_en(path):
+          def get_existing_fields(path):
+              """Return dict with title_en and revealed from the existing main-repo file."""
               url = f'https://api.github.com/repos/{MAIN_REPO}/contents/{path}'
               status, data = gh_request('GET', url)
+              result = {'title_en': None, 'revealed': False}
               if status == 200 and 'content' in data:
                   existing = base64.b64decode(data['content']).decode()
                   m = re.search(r'^title_en:\s*["\']?(.*?)["\']?\s*$', existing, re.MULTILINE)
                   if m:
-                      return m.group(1).strip()
-              return None
+                      result['title_en'] = m.group(1).strip()
+                  result['revealed'] = bool(re.search(r'^revealed:\s*true\s*$', existing, re.MULTILINE))
+              return result
 
           letters_dir = 'letters'
           if not os.path.isdir(letters_dir):
@@ -103,6 +106,7 @@ jobs:
 
           full_transfers = []
           any_private_changes = False
+          had_transfer_errors = False
 
           for fname in sorted(os.listdir(letters_dir)):
               if not fname.endswith('.md') or fname == '.gitkeep':
@@ -141,7 +145,10 @@ jobs:
 
               if is_unlocked:
                   # Full transfer: include body content
-                  title_en = get_existing_title_en(target_path)
+                  existing = get_existing_fields(target_path)
+                  title_en = existing['title_en']
+                  # Preserve revealed:true if yunze already revealed it via CMS
+                  revealed_val = 'true' if existing['revealed'] else 'false'
                   fm_lines = ['---', f'title: "{title}"']
                   if title_en:
                       fm_lines.append(f'title_en: "{title_en}"')
@@ -150,11 +157,11 @@ jobs:
                       f'unlock_date: "{unlock_date}"',
                       f'from: "{from_person}"',
                       f'tags: [{tags}]',
-                      'revealed: false',
+                      f'revealed: {revealed_val}',
                       '---', '', body,
                   ]
                   new_content = '\n'.join(fm_lines)
-                  status = gh_put_file(
+                  status, result = gh_put_file(
                       target_path, new_content,
                       f'capsule: transfer letter from {from_person} (unlocks {unlock_date})'
                   )
@@ -166,11 +173,13 @@ jobs:
                           f.write(raw.replace('transferred: false', 'transferred: true'))
                       any_private_changes = True
                   else:
-                      print(f'  [ERROR] full transfer {fname}: HTTP {status}')
+                      print(f'  [ERROR] full transfer {fname}: HTTP {status} — {result}')
+                      had_transfer_errors = True
 
               elif show_preview:
                   # Stub only: title/sender/dates visible, no body content
-                  title_en = get_existing_title_en(target_path)
+                  existing = get_existing_fields(target_path)
+                  title_en = existing['title_en']
                   stub_lines = ['---', f'title: "{title}"']
                   if title_en:
                       stub_lines.append(f'title_en: "{title_en}"')
@@ -182,14 +191,14 @@ jobs:
                       '---', '',
                   ]
                   stub_content = '\n'.join(stub_lines)
-                  status = gh_put_file(
+                  status, result = gh_put_file(
                       target_path, stub_content,
                       f'capsule: add locked stub — {from_person} → {unlock_date}'
                   )
                   if status in (200, 201):
                       print(f'  [STUB] {fname}')
                   else:
-                      print(f'  [ERROR] stub {fname}: HTTP {status}')
+                      print(f'  [ERROR] stub {fname}: HTTP {status} — {result}')
 
               else:
                   print(f'  [SKIP] {fname}: locked, show_preview=false')
@@ -213,4 +222,6 @@ jobs:
               )
 
           print(f'Done. {len(full_transfers)} full transfers, stubs synced.')
+          if had_transfer_errors:
+              import sys; sys.exit(1)
           PYEOF
