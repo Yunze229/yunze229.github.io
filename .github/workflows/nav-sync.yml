@@ -1,0 +1,91 @@
+name: Sync Nav — Auto-create Section Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/nav.yaml'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create missing section pages and fill empty URLs
+        run: |
+          python3 << 'PYEOF'
+          import os, re
+
+          # Read raw YAML (use regex to avoid yaml.dump reformatting)
+          with open('data/nav.yaml', 'r', encoding='utf-8') as f:
+              raw = f.read()
+
+          def slugify(s):
+              return re.sub(r'[^a-z0-9]+', '-', s.lower()).strip('-')
+
+          def ensure_index(section, name_zh, name_en):
+              if not section:
+                  return False
+              path = f'content/{section}/_index.md'
+              if os.path.exists(path):
+                  return False
+              os.makedirs(f'content/{section}', exist_ok=True)
+              title = name_zh or name_en or section.capitalize()
+              with open(path, 'w', encoding='utf-8') as f:
+                  f.write(f'---\ntitle: "{title}"\n---\n')
+              print(f'  [CREATED] {path}')
+              return True
+
+          # Parse items with simple regex (preserve YAML formatting)
+          import yaml
+          nav = yaml.safe_load(raw)
+          nav_changed = False
+
+          for item in nav.get('items', []):
+              for entry in ([item] + item.get('children', [])):
+                  url     = (entry.get('url') or '').strip()
+                  section = (entry.get('section') or '').strip()
+                  name_en = (entry.get('name_en') or '').strip()
+                  name_zh = (entry.get('name_zh') or '').strip()
+
+                  # Auto-derive missing url/section from each other or name_en
+                  if not url and section:
+                      url = f'/{section}/'
+                      entry['url'] = url
+                      nav_changed = True
+                  elif not url and name_en:
+                      url = f'/{slugify(name_en)}/'
+                      entry['url'] = url
+                      nav_changed = True
+
+                  if not section and url:
+                      section = url.strip('/')
+                      entry['section'] = section
+                      nav_changed = True
+
+                  ensure_index(section, name_zh, name_en)
+
+          if nav_changed:
+              # Write back using yaml.dump (preserves all values, may reformat slightly)
+              with open('data/nav.yaml', 'w', encoding='utf-8') as f:
+                  yaml.dump(nav, f, allow_unicode=True,
+                            default_flow_style=False, sort_keys=False)
+              print('  [UPDATED] data/nav.yaml (auto-filled urls)')
+
+          PYEOF
+
+      - name: Commit new pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add content/ data/nav.yaml
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "auto: create placeholder pages for new nav items"
+            git push
+          fi
