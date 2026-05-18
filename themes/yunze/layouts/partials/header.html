@@ -4,45 +4,37 @@
       <a href="/" class="site-logo">Yunze</a>
 
       <nav class="site-nav">
-        {{/* 铸魂 BEING */}}
-        <a href="/being/" class="nav-item {{ if eq .Section "being" }}nav-item--active{{ end }}">
-          <span class="lang-en-inline">BEING</span>
-          <span class="lang-zh-inline">铸魂</span>
-        </a>
-
-        {{/* 造物 DOING — dropdown */}}
-        <div class="nav-more">
-          <div class="nav-item {{ if or (eq .Section "projects") (eq .Section "logbook") (eq .Section "map") (eq .Section "manual") }}nav-item--active{{ end }}">
-            <span class="lang-en-inline">DOING</span>
-            <span class="lang-zh-inline">造物</span>
-          </div>
-          <div class="nav-dropdown">
-            <div class="nav-dropdown-inner">
-              <a href="/projects/">
-                <span class="lang-zh-inline">作品</span>
-                <span class="lang-en-inline">PROJECTS</span>
-              </a>
-              <a href="/logbook/">
-                <span class="lang-zh-inline">日志</span>
-                <span class="lang-en-inline">LOGBOOK</span>
-              </a>
-              <a href="/manual/">
-                <span class="lang-zh-inline">手册</span>
-                <span class="lang-en-inline">MANUALS</span>
-              </a>
-              <a href="/map/">
-                <span class="lang-zh-inline">履迹</span>
-                <span class="lang-en-inline">TRAJECTORY</span>
-              </a>
+        {{ range .Site.Data.nav.items }}
+          {{ if .children }}
+            {{/* Dropdown item */}}
+            {{ $isActive := false }}
+            {{ range .children }}
+              {{ if eq $.Section .section }}{{ $isActive = true }}{{ end }}
+            {{ end }}
+            <div class="nav-more">
+              <div class="nav-item {{ if $isActive }}nav-item--active{{ end }}">
+                <span class="lang-en-inline">{{ .name_en }}</span>
+                <span class="lang-zh-inline">{{ .name_zh }}</span>
+              </div>
+              <div class="nav-dropdown">
+                <div class="nav-dropdown-inner">
+                  {{ range .children }}
+                  <a href="{{ .url }}">
+                    <span class="lang-zh-inline">{{ .name_zh }}</span>
+                    <span class="lang-en-inline">{{ .name_en }}</span>
+                  </a>
+                  {{ end }}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-
-        {{/* 致远 BECOMING */}}
-        <a href="/capsule/" class="nav-item {{ if eq .Section "capsule" }}nav-item--active{{ end }}">
-          <span class="lang-en-inline">BECOMING</span>
-          <span class="lang-zh-inline">致远</span>
-        </a>
+          {{ else }}
+            {{/* Direct link item */}}
+            <a href="{{ .url }}" class="nav-item {{ if eq $.Section .section }}nav-item--active{{ end }}">
+              <span class="lang-en-inline">{{ .name_en }}</span>
+              <span class="lang-zh-inline">{{ .name_zh }}</span>
+            </a>
+          {{ end }}
+        {{ end }}
       </nav>
 
       <div class="header-icons">

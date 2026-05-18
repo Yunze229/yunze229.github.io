@@ -119,3 +119,51 @@ collections:
         widget: "boolean"
         default: false
         hint: "开启后信的内容会出现在博客上"
+
+  - name: "settings"
+    label: "网站设置"
+    files:
+      - name: "nav"
+        label: "导航菜单"
+        file: "data/nav.yaml"
+        fields:
+          - label: "菜单项"
+            name: "items"
+            widget: "list"
+            label_singular: "菜单项"
+            fields:
+              - label: "中文名"
+                name: "name_zh"
+                widget: "string"
+              - label: "英文名"
+                name: "name_en"
+                widget: "string"
+              - label: "链接"
+                name: "url"
+                widget: "string"
+                required: false
+                hint: "有子菜单时留空"
+              - label: "Section（高亮检测）"
+                name: "section"
+                widget: "string"
+                required: false
+                hint: "页面的 section 名，如 being / capsule，有子菜单时留空"
+              - label: "子菜单项"
+                name: "children"
+                widget: "list"
+                required: false
+                label_singular: "子菜单项"
+                fields:
+                  - label: "中文名"
+                    name: "name_zh"
+                    widget: "string"
+                  - label: "英文名"
+                    name: "name_en"
+                    widget: "string"
+                  - label: "链接"
+                    name: "url"
+                    widget: "string"
+                  - label: "Section（高亮检测）"
+                    name: "section"
+                    widget: "string"
+                    required: false
