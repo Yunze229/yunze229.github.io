@@ -29,6 +29,27 @@ function corsHeaders(origin) {
   };
 }
 
+// Rate limit: max 5 requests per IP per 60-second window.
+async function checkRateLimit(kv, ip) {
+  const key     = `rl:${ip}`;
+  const now     = Math.floor(Date.now() / 1000);
+  const window  = 60;
+  const limit   = 5;
+
+  const raw   = await kv.get(key);
+  const entry = raw ? JSON.parse(raw) : { count: 0, reset: now + window };
+
+  if (now > entry.reset) {
+    entry.count = 0;
+    entry.reset = now + window;
+  }
+
+  entry.count += 1;
+  await kv.put(key, JSON.stringify(entry), { expirationTtl: window });
+
+  return { allowed: entry.count <= limit, retryAfter: entry.reset - now };
+}
+
 const HTML_PAGE = `<!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -257,6 +278,15 @@ export default {
     }
 
     if (pathname === '/submit' && request.method === 'POST') {
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const rl = await checkRateLimit(env.RATE_LIMIT, ip);
+      if (!rl.allowed) {
+        return Response.json(
+          { error: `请求过于频繁，请 ${rl.retryAfter} 秒后再试` },
+          { status: 429, headers: { ...corsHeaders(origin), 'Retry-After': String(rl.retryAfter) } }
+        );
+      }
+
       let body;
       try { body = await request.json(); } catch {
         return Response.json({ error: '请求格式错误' }, { status: 400, headers: corsHeaders(origin) });

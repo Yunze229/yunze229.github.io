@@ -1,3 +1,7 @@
 name = "yunze-capsule"
 main = "worker.js"
 compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "e7b601c5751b41d4afe7e2bab4360f17"
