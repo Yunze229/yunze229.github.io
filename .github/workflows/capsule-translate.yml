@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'content/capsule/**.md'
+  workflow_dispatch:
 
 jobs:
   translate:
@@ -26,7 +27,7 @@ jobs:
 
           capsule_dir = 'content/capsule'
 
-          # Find changed capsule files in this push
+          # Find changed capsule files — fall back to all files if manually triggered
           import subprocess
           result = subprocess.run(
             ['git', 'diff', '--name-only', 'HEAD~1', 'HEAD', '--', 'content/capsule/'],
@@ -35,8 +36,12 @@ jobs:
           changed = [f.strip() for f in result.stdout.splitlines() if f.strip().endswith('.md')]
 
           if not changed:
-            print('No capsule files changed.')
-            exit(0)
+            print('No diff found — scanning all capsule files (workflow_dispatch).')
+            changed = [
+              os.path.join(capsule_dir, f)
+              for f in os.listdir(capsule_dir)
+              if f.endswith('.md') and f != '_index.md'
+            ]
 
           def fm_get(fm_text, key):
             m = re.search(rf'^{key}:\s*["\']?(.*?)["\']?\s*$', fm_text, re.MULTILINE)
