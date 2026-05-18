@@ -91,7 +91,8 @@ collections:
         hint: "不填则中英文都显示中文标题"
       - label: "写信日期"
         name: "date"
-        widget: "date"
+        widget: "datetime"
+        type: date
         format: "YYYY-MM-DD"
       - label: "开封日"
         name: "unlock_date"
