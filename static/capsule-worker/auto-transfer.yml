@@ -87,16 +87,17 @@ jobs:
               return (datetime.now(timezone.utc) + delta).date().isoformat()
 
           def get_existing_fields(path):
-              """Return dict with title_en and revealed from the existing main-repo file."""
+              """Return dict with title_en, revealed, read_by_admin from the existing main-repo file."""
               url = f'https://api.github.com/repos/{MAIN_REPO}/contents/{path}'
               status, data = gh_request('GET', url)
-              result = {'title_en': None, 'revealed': False}
+              result = {'title_en': None, 'revealed': False, 'read_by_admin': False}
               if status == 200 and 'content' in data:
                   existing = base64.b64decode(data['content']).decode()
                   m = re.search(r'^title_en:\s*["\']?(.*?)["\']?\s*$', existing, re.MULTILINE)
                   if m:
                       result['title_en'] = m.group(1).strip()
-                  result['revealed'] = bool(re.search(r'^revealed:\s*true\s*$', existing, re.MULTILINE))
+                  result['revealed']      = bool(re.search(r'^revealed:\s*true\s*$', existing, re.MULTILINE))
+                  result['read_by_admin'] = bool(re.search(r'^read_by_admin:\s*true\s*$', existing, re.MULTILINE))
               return result
 
           letters_dir = 'letters'
@@ -147,8 +148,9 @@ jobs:
                   # Full transfer: include body content
                   existing = get_existing_fields(target_path)
                   title_en = existing['title_en']
-                  # Preserve revealed:true if yunze already revealed it via CMS
-                  revealed_val = 'true' if existing['revealed'] else 'false'
+                  # Preserve revealed/read_by_admin if already set via CMS
+                  revealed_val     = 'true' if existing['revealed'] else 'false'
+                  read_admin_val   = 'true' if existing.get('read_by_admin') else 'false'
                   fm_lines = ['---', f'title: "{title}"']
                   if title_en:
                       fm_lines.append(f'title_en: "{title_en}"')
@@ -157,6 +159,7 @@ jobs:
                       f'unlock_date: "{unlock_date}"',
                       f'from: "{from_person}"',
                       f'tags: [{tags}]',
+                      f'read_by_admin: {read_admin_val}',
                       f'revealed: {revealed_val}',
                       '---', '', body,
                   ]
@@ -167,11 +170,24 @@ jobs:
                   )
                   if status in (200, 201):
                       print(f'  [TRANSFER] {fname}')
-                      full_transfers.append({'from': from_person, 'title': title, 'unlock_date': unlock_date})
+                      full_transfers.append({'from': from_person, 'title': title, 'unlock_date': unlock_date, 'body': body})
                       # Mark as transferred in private repo
                       with open(fpath, 'w') as f:
                           f.write(raw.replace('transferred: false', 'transferred: true'))
                       any_private_changes = True
+                      # Send individual email with full body so admin can read before revealing
+                      body_html = body.replace('\n', '<br>')
+                      send_email(
+                          f'📬 时光胶囊开封：{from_person}写给Yunze — {title}',
+                          f'<p>一封写给 Yunze 的信已到达开封日。</p>'
+                          f'<p><strong>来自：</strong>{from_person}<br>'
+                          f'<strong>标题：</strong>{title}<br>'
+                          f'<strong>开封日：</strong>{unlock_date}</p>'
+                          f'<hr>'
+                          f'<div style="white-space:pre-wrap;font-family:serif;font-size:1rem;line-height:1.8">{body_html}</div>'
+                          f'<hr>'
+                          f'<p style="color:#888;font-size:0.9em">读完信件内容后，请登录 <a href="https://yunze229.github.io/admin/">CMS 后台</a> 勾选「确认已读」，再决定是否公开到博客。</p>'
+                      )
                   else:
                       print(f'  [ERROR] full transfer {fname}: HTTP {status} — {result}')
                       had_transfer_errors = True
@@ -210,16 +226,6 @@ jobs:
               os.system('git add letters/')
               os.system('git commit -m "mark letters as transferred" || true')
               os.system('git push')
-
-              items = ''.join(
-                  f"<li>{t['from']} → {t['title']} (开封日 {t['unlock_date']})</li>"
-                  for t in full_transfers
-              )
-              send_email(
-                  f'📬 时光胶囊：{len(full_transfers)} 封信已自动转移到主站',
-                  f'<p>以下信件已到达开封日，自动转移到主站：</p><ul>{items}</ul>'
-                  f'<p>Yunze 可以登录 CMS 后台开启"公开内容"开关。</p>'
-              )
 
           print(f'Done. {len(full_transfers)} full transfers, stubs synced.')
           if had_transfer_errors:
