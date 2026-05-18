@@ -21,7 +21,7 @@
 
   <div class="capsule-item {{ if $locked }}capsule-locked{{ else if $revealed }}capsule-open{{ else }}capsule-pending{{ end }}">
 
-    {{/* Bilingual title helper */}}
+    {{/* Bilingual title */}}
     {{ $titleZh := .Title }}
     {{ $titleEn := .Params.title_en | default .Title }}
 
@@ -94,9 +94,9 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
     const unlock = new Date(el.dataset.unlock + 'T00:00:00');
     const diff = unlock - new Date();
     if (diff <= 0) { el.innerHTML = '<span class="lang-zh">已到达</span><span class="lang-en">Now open</span>'; return; }
-    const days = Math.floor(diff / 86400000);
+    const days  = Math.floor(diff / 86400000);
     const hours = Math.floor((diff % 86400000) / 3600000);
-    const mins = Math.floor((diff % 3600000) / 60000);
+    const mins  = Math.floor((diff % 3600000) / 60000);
     el.innerHTML =
       '<span class="lang-zh">还有 ' + days + ' 天 ' + hours + ' 小时 ' + mins + ' 分钟</span>' +
       '<span class="lang-en">' + days + 'd ' + hours + 'h ' + mins + 'm remaining</span>';
@@ -106,54 +106,57 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
 });
 </script>
 
-<!-- ═══ Time-Space Letter Terminal ═══ -->
+<!-- Letter submission form -->
 <div class="ct-wrap" id="ct-wrap">
   <button class="ct-toggle" id="ct-toggle" onclick="ctToggle()" aria-expanded="false">
-    <span class="ct-bracket">[</span><span id="ct-toggle-icon">+</span><span class="ct-bracket">]</span>
-    注入一封信 / TRANSMIT LETTER
+    <span class="lang-zh">✉ 写一封信</span>
+    <span class="lang-en">✉ Write a Letter</span>
   </button>
 
   <div class="ct-panel" id="ct-panel" hidden>
-    <div class="ct-header">
-      <div class="ct-title">🛠 时空信件注入协议 <span class="ct-title-sub">Time-Space Letter Protocol</span></div>
-      <div class="ct-status-line">[ 系统状态：<span id="ct-status">待机 STANDBY</span> ]</div>
-      <div class="ct-desc">
-        <span class="lang-zh">本信件在设定的「开封日」到达前，任何终端无权解密。到达开封日后由 Yunze 决定是否公开。</span>
-        <span class="lang-en">This payload is encrypted and locked until its unlock date. Yunze decides whether to make it public.</span>
-      </div>
-    </div>
+    <p class="ct-desc">
+      <span class="lang-zh">信件将被加密保存，到了开封日才会解锁。届时由 Yunze 决定是否公开。</span>
+      <span class="lang-en">Your letter is sealed until the unlock date. Yunze decides whether to share it then.</span>
+    </p>
 
     <div class="ct-fields">
       <div class="ct-field">
-        <label class="ct-label">── 发起源 | Sender ID</label>
-        <select class="ct-input" id="ct-username">
-          <option value="">▌ 选择发起源 / Select sender…</option>
-          <option value="爷爷">爷爷 — Grandpa (paternal)</option>
-          <option value="奶奶">奶奶 — Grandma (paternal)</option>
-          <option value="爸爸">爸爸 — Dad</option>
-          <option value="妈妈">妈妈 — Mom</option>
-          <option value="Yunze">Yunze — 写给未来自己 / To Future Self</option>
-        </select>
+        <label class="ct-label" for="ct-sender">
+          <span class="lang-zh">你是谁</span>
+          <span class="lang-en">Your name</span>
+        </label>
+        <input class="ct-input" type="text" id="ct-sender"
+          placeholder-zh="例：妈妈、爷爷、Yunze……"
+          placeholder-en="e.g. Mom, Grandpa, Yunze…">
       </div>
 
       <div class="ct-field">
-        <label class="ct-label">── 访问密钥 | Auth Key</label>
-        <input class="ct-input" type="password" id="ct-password" placeholder="▌ 4位数字 / 4-digit code" maxlength="4" inputmode="numeric" autocomplete="off">
+        <label class="ct-label" for="ct-title">
+          <span class="lang-zh">信的标题</span>
+          <span class="lang-en">Letter title</span>
+        </label>
+        <input class="ct-input" type="text" id="ct-title"
+          placeholder-zh="例：写给18岁的你"
+          placeholder-en="e.g. To My 18-Year-Old Self">
       </div>
 
       <div class="ct-field">
-        <label class="ct-label">── 载荷标题 | Subject Line</label>
-        <input class="ct-input" type="text" id="ct-title" placeholder="▌ 例：写给18岁的你 / e.g. To My 18-Year-Old Self">
-      </div>
-
-      <div class="ct-field">
-        <label class="ct-label">── 解密时间戳 | Decryption Timestamp</label>
+        <label class="ct-label">
+          <span class="lang-zh">什么时候打开</span>
+          <span class="lang-en">Unlock date</span>
+        </label>
         <div class="ct-tabs">
-          <button type="button" class="ct-tab ct-tab--active" id="ct-tab-age" onclick="ctMode('age')">按年龄 BY AGE</button>
-          <button type="button" class="ct-tab" id="ct-tab-date" onclick="ctMode('date')">自定义 CUSTOM</button>
+          <button type="button" class="ct-tab ct-tab--active" id="ct-tab-age" onclick="ctMode('age')">
+            <span class="lang-zh">按年龄选</span>
+            <span class="lang-en">By age</span>
+          </button>
+          <button type="button" class="ct-tab" id="ct-tab-date" onclick="ctMode('date')">
+            <span class="lang-zh">自定义日期</span>
+            <span class="lang-en">Custom date</span>
+          </button>
         </div>
         <select class="ct-input" id="ct-unlock-age">
-          <option value="2028-02-29">12岁生日 — 2028-02-29</option>
+          <option value="2028-02-29"><span class="lang-zh">12岁生日</span><span class="lang-en">12th birthday</span> — 2028-02-29</option>
           <option value="2029-02-28">13岁生日 — 2029-02-28</option>
           <option value="2030-02-28">14岁生日 — 2030-02-28</option>
           <option value="2031-02-28">15岁生日 — 2031-02-28</option>
@@ -171,19 +174,19 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
       </div>
 
       <div class="ct-field">
-        <label class="ct-label">── 信件载荷 | Letter Payload</label>
-        <textarea class="ct-input ct-textarea" id="ct-body" placeholder="▌ 写入数据… / Input payload…" rows="8"></textarea>
+        <label class="ct-label" for="ct-body">
+          <span class="lang-zh">信的内容</span>
+          <span class="lang-en">Letter</span>
+        </label>
+        <textarea class="ct-input ct-textarea" id="ct-body" rows="9"
+          placeholder-zh="想对 Yunze 说的话……"
+          placeholder-en="What would you like to say to Yunze…"></textarea>
       </div>
     </div>
 
-    <div class="ct-footer-note">
-      [ 🔒 数据安全协议 / SECURITY PROTOCOL ]
-      <span class="lang-zh">信件内容全程加密存储，开封日前连管理员也无法读取正文。</span>
-      <span class="lang-en">Content is encrypted in transit. Even the admin cannot read body before unlock.</span>
-    </div>
-
     <button type="button" class="ct-submit" id="ct-submit" onclick="ctSubmit()">
-      封存并投递 | SEAL &amp; TRANSMIT &gt;&gt;
+      <span class="lang-zh">寄出这封信</span>
+      <span class="lang-en">Send this letter</span>
     </button>
 
     <div class="ct-msg" id="ct-msg" role="alert" aria-live="polite"></div>
@@ -195,15 +198,25 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
   const API = {{ .Site.Params.capsule_api | jsonify }};
   let ctModeVal = 'age';
 
+  function currentLang() {
+    return document.body.classList.contains('show-en') ? 'en' : 'zh';
+  }
+
+  // Sync placeholder text to current language
+  function syncPlaceholders() {
+    const lang = currentLang();
+    document.querySelectorAll('#ct-panel [placeholder-zh]').forEach(function(el) {
+      el.placeholder = el.getAttribute('placeholder-' + lang) || '';
+    });
+  }
+
   window.ctToggle = function() {
     const panel = document.getElementById('ct-panel');
-    const icon  = document.getElementById('ct-toggle-icon');
     const btn   = document.getElementById('ct-toggle');
     const open  = panel.hidden;
     panel.hidden = !open;
-    icon.textContent = open ? '−' : '+';
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (open) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (open) { syncPlaceholders(); panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
   };
 
   window.ctMode = function(m) {
@@ -212,78 +225,73 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
     document.getElementById('ct-tab-date').className = 'ct-tab' + (m === 'date' ? ' ct-tab--active' : '');
     document.getElementById('ct-unlock-age').style.display  = m === 'age'  ? '' : 'none';
     document.getElementById('ct-unlock-date').style.display = m === 'date' ? '' : 'none';
-    document.getElementById('ct-unlock-age').setAttribute('aria-hidden',  m !== 'age'  ? 'true' : 'false');
-    document.getElementById('ct-unlock-date').setAttribute('aria-hidden', m !== 'date' ? 'true' : 'false');
   };
 
-  function ctSetStatus(text) {
-    document.getElementById('ct-status').textContent = text;
-  }
-
-  function ctShowMsg(type, html) {
+  function showMsg(type, zh, en) {
     const el = document.getElementById('ct-msg');
     el.className = 'ct-msg ct-msg--' + type;
-    el.innerHTML = html;
+    el.innerHTML =
+      '<span class="lang-zh">' + zh + '</span>' +
+      '<span class="lang-en">' + en + '</span>';
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   window.ctSubmit = async function() {
-    const btn      = document.getElementById('ct-submit');
-    const username = document.getElementById('ct-username').value;
-    const password = document.getElementById('ct-password').value.trim();
-    const title    = document.getElementById('ct-title').value.trim();
-    const body     = document.getElementById('ct-body').value.trim();
-    const unlock   = ctModeVal === 'age'
+    const btn    = document.getElementById('ct-submit');
+    const sender = document.getElementById('ct-sender').value.trim();
+    const title  = document.getElementById('ct-title').value.trim();
+    const body   = document.getElementById('ct-body').value.trim();
+    const unlock = ctModeVal === 'age'
       ? document.getElementById('ct-unlock-age').value
       : document.getElementById('ct-unlock-date').value;
+    const lang   = currentLang();
 
     document.getElementById('ct-msg').className = 'ct-msg';
     document.getElementById('ct-msg').innerHTML = '';
 
-    if (!username) return ctShowMsg('err', '// ERROR: 请选择发起源 / Select sender');
-    if (!password) return ctShowMsg('err', '// ERROR: 请输入访问密钥 / Enter auth key');
-    if (!title)    return ctShowMsg('err', '// ERROR: 请填写载荷标题 / Enter subject');
-    if (!body)     return ctShowMsg('err', '// ERROR: 请写入信件载荷 / Enter payload');
-    if (!unlock)   return ctShowMsg('err', '// ERROR: 请设定解密时间戳 / Set timestamp');
+    if (!sender) return showMsg('err', '请填写你是谁', 'Please enter your name');
+    if (!title)  return showMsg('err', '请填写信的标题', 'Please enter a letter title');
+    if (!body)   return showMsg('err', '请写一些内容', 'Please write something');
+    if (!unlock) return showMsg('err', '请选择开封日期', 'Please select an unlock date');
 
     btn.disabled = true;
-    ctSetStatus('加密传输中… ENCRYPTING & TRANSMITTING…');
 
     try {
-      const res = await fetch(API + '/submit', {
+      const res  = await fetch(API + '/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, title, unlock_date: unlock, body, show_preview: true })
+        body: JSON.stringify({ sender, title, unlock_date: unlock, body, lang }),
       });
       const data = await res.json();
       if (res.ok) {
-        ctSetStatus('信号已锁定 SIGNAL LOCKED ✓');
-        ctShowMsg('ok',
-          '// 信号已锁定 // SIGNAL LOCKED //<br>' +
-          '<span class="lang-zh">信件已加密封存，将于 <strong>' + unlock + '</strong> 解密。</span>' +
-          '<span class="lang-en">Payload sealed. Decrypts on <strong>' + unlock + '</strong>.</span>'
+        showMsg('ok',
+          '信已寄出，将于 ' + unlock + ' 开封。',
+          'Letter sealed. Opens on ' + unlock + '.'
         );
-        document.getElementById('ct-title').value    = '';
-        document.getElementById('ct-body').value     = '';
-        document.getElementById('ct-password').value = '';
-        document.getElementById('ct-username').value = '';
+        document.getElementById('ct-sender').value = '';
+        document.getElementById('ct-title').value  = '';
+        document.getElementById('ct-body').value   = '';
       } else {
-        ctSetStatus('传输中止 TRANSMISSION ABORTED');
-        ctShowMsg('err', '// ERROR: ' + (data.error || '传输失败 / Transmission failed'));
+        showMsg('err', data.error || '提交失败，请稍后再试', data.error || 'Submission failed, please try again');
       }
     } catch (e) {
-      ctSetStatus('连接失败 CONNECTION FAILED');
-      ctShowMsg('err', '// ERROR: 网络连接中断 / Network error — check connection and retry');
+      showMsg('err',
+        '网络错误，请检查网络后重试（' + e.message + '）',
+        'Network error — check your connection and retry (' + e.message + ')'
+      );
     }
 
     btn.disabled = false;
-    if (!document.getElementById('ct-msg').className.includes('ok')) {
-      ctSetStatus('待机 STANDBY');
-    }
   };
 
+  // Initialize
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
   document.getElementById('ct-unlock-date').min = tomorrow.toISOString().slice(0, 10);
+  syncPlaceholders();
+
+  // Re-sync placeholders when language is toggled
+  const observer = new MutationObserver(syncPlaceholders);
+  observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 })();
 </script>
 {{ end }}
