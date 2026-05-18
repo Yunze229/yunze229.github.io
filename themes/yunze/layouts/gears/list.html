@@ -1,0 +1,79 @@
+{{ define "main" }}
+<div class="section-header">
+  <h1 class="section-title">
+    <span class="lang-zh">装备</span>
+    <span class="lang-en">Gears</span>
+  </h1>
+  {{ partial "section-tagline.html" . }}
+</div>
+
+{{ range .Site.Data.gears.categories }}
+{{ if .items }}
+<section class="gear-category">
+  <h2 class="gear-cat-title">
+    <span class="lang-zh">{{ .name_zh }}</span>
+    <span class="lang-en">{{ .name_en }}</span>
+  </h2>
+  <div class="gear-grid">
+    {{ range .items }}
+    <div class="gear-card">
+
+      <div class="gear-icon">
+        {{ if eq .icon_type "emoji" }}
+          <span class="gear-emoji">{{ .icon_emoji }}</span>
+        {{ else if eq .icon_type "upload" }}
+          {{ with .icon_image }}<img src="{{ . }}" alt="{{ $.name }}">{{ end }}
+        {{ else }}
+          {{ with .url }}
+          <img src="https://www.google.com/s2/favicons?domain={{ . }}&sz=64"
+               alt="{{ $.name }}" onerror="this.style.display='none'">
+          {{ else }}
+          <span class="gear-emoji">🔧</span>
+          {{ end }}
+        {{ end }}
+      </div>
+
+      <div class="gear-body">
+        <div class="gear-name-row">
+          {{ if .url }}
+            <a class="gear-name" href="{{ .url }}" target="_blank" rel="noopener noreferrer">{{ .name }}</a>
+          {{ else }}
+            <span class="gear-name">{{ .name }}</span>
+          {{ end }}
+          {{ with .status }}
+          <span class="gear-status gear-status--{{ . | urlize }}">
+            <span class="lang-zh">{{ . }}</span>
+            <span class="lang-en">{{ if eq . "在用" }}Active{{ else if eq . "曾经用过" }}Past{{ else if eq . "想试试" }}Wishlist{{ else }}{{ . }}{{ end }}</span>
+          </span>
+          {{ end }}
+        </div>
+
+        {{ with .rating }}
+        <div class="gear-rating" aria-label="{{ . }} out of 5 stars">
+          {{ $r := . }}
+          {{ range seq 5 }}
+            {{ if le . $r }}<span class="star star-full">★</span>{{ else }}<span class="star star-empty">☆</span>{{ end }}
+          {{ end }}
+        </div>
+        {{ end }}
+
+        {{ with .desc }}
+        <p class="gear-desc">{{ . }}</p>
+        {{ end }}
+      </div>
+
+    </div>
+    {{ end }}
+  </div>
+</section>
+{{ end }}
+{{ end }}
+
+{{ if not .Site.Data.gears.categories }}
+<p class="section-empty">
+  <span class="lang-zh">暂无内容</span>
+  <span class="lang-en">Nothing here yet.</span>
+</p>
+{{ end }}
+
+{{ end }}

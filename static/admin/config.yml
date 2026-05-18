@@ -185,3 +185,66 @@ collections:
                     name: "desc_en"
                     widget: "string"
                     required: false
+
+      - name: "gears"
+        label: "装备 Gears"
+        file: "data/gears.yaml"
+        fields:
+          - label: "分类"
+            name: "categories"
+            widget: "list"
+            label_singular: "分类"
+            fields:
+              - label: "分类名（中文）"
+                name: "name_zh"
+                widget: "string"
+              - label: "分类名（英文）"
+                name: "name_en"
+                widget: "string"
+              - label: "工具列表"
+                name: "items"
+                widget: "list"
+                label_singular: "工具"
+                fields:
+                  - label: "名称"
+                    name: "name"
+                    widget: "string"
+                  - label: "链接"
+                    name: "url"
+                    widget: "string"
+                    required: false
+                  - label: "图标类型"
+                    name: "icon_type"
+                    widget: "select"
+                    default: "favicon"
+                    options:
+                      - { label: "自动抓取网站图标", value: "favicon" }
+                      - { label: "Emoji", value: "emoji" }
+                      - { label: "上传图片", value: "upload" }
+                  - label: "Emoji（图标类型选Emoji时填）"
+                    name: "icon_emoji"
+                    widget: "string"
+                    required: false
+                  - label: "图片（图标类型选上传时填）"
+                    name: "icon_image"
+                    widget: "image"
+                    required: false
+                  - label: "一句话评价"
+                    name: "desc"
+                    widget: "string"
+                    required: false
+                  - label: "评分（1-5）"
+                    name: "rating"
+                    widget: "number"
+                    value_type: "int"
+                    min: 1
+                    max: 5
+                    required: false
+                  - label: "使用状态"
+                    name: "status"
+                    widget: "select"
+                    required: false
+                    options:
+                      - { label: "在用", value: "在用" }
+                      - { label: "曾经用过", value: "曾经用过" }
+                      - { label: "想试试", value: "想试试" }
