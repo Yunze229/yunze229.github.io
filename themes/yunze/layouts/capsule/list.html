@@ -107,7 +107,7 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
 </script>
 
 <!-- Letter submission form -->
-<div class="ct-wrap" id="ct-wrap">
+<div class="ct-wrap" id="ct-wrap" data-api="{{ .Site.Params.capsule_api }}">
   <button class="ct-toggle" id="ct-toggle" onclick="ctToggle()" aria-expanded="false">
     <span class="lang-zh">✉ 写一封信给未来的 Yunze</span>
     <span class="lang-en">✉ Write a Letter to Future Yunze</span>
@@ -191,7 +191,7 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
 
 <script>
 (function() {
-  const API = {{ .Site.Params.capsule_api | jsonify }};
+  const API = document.getElementById('ct-wrap').dataset.api;
   let ctModeVal = 'age';
 
   function currentLang() {
