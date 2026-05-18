@@ -100,10 +100,20 @@ collections:
       - label: "写信人"
         name: "from"
         widget: "string"
-      - label: "信的内容"
+      - label: "写信人（英文）"
+        name: "from_en"
+        widget: "string"
+        required: false
+        hint: "AI自动填写，如：Mom / Dad / Grandpa / Grandma"
+      - label: "信的内容（中文）"
         name: "body"
         widget: "markdown"
         required: false
+      - label: "信的内容（英文）"
+        name: "body_en"
+        widget: "text"
+        required: false
+        hint: "AI自动翻译，也可手动修改"
       - label: "公开到博客"
         name: "revealed"
         widget: "boolean"

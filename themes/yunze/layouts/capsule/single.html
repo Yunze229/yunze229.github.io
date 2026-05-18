@@ -4,6 +4,7 @@
 {{ $locked := $unlockTime.After now }}
 {{ $revealed := .Params.revealed | default false }}
 {{ $from := .Params.from | default "Yunze" }}
+{{ $fromEn := .Params.from_en | default $from }}
 
 <article>
   <header class="article-header">
@@ -22,7 +23,7 @@
       </time>
       <span>
         <span class="lang-zh-inline">来自{{ $from }}的信</span>
-        <span class="lang-en-inline">Letter from {{ $from }}</span>
+        <span class="lang-en-inline">Letter from {{ $fromEn }}</span>
       </span>
       {{ with .Params.tags }}
         {{ range . }}<span class="post-private-badge lang-zh-inline">{{ . }}</span>{{ end }}
@@ -58,7 +59,12 @@
 
   {{ else }}
   <div class="article-content">
-    {{ .Content }}
+    {{ if .Params.body_en }}
+      <div class="lang-zh">{{ .Content }}</div>
+      <div class="lang-en">{{ .Params.body_en | markdownify }}</div>
+    {{ else }}
+      {{ .Content }}
+    {{ end }}
   </div>
 
   <div class="share-bar">
