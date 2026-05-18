@@ -109,8 +109,8 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
 <!-- Letter submission form -->
 <div class="ct-wrap" id="ct-wrap">
   <button class="ct-toggle" id="ct-toggle" onclick="ctToggle()" aria-expanded="false">
-    <span class="lang-zh">✉ 写一封信</span>
-    <span class="lang-en">✉ Write a Letter</span>
+    <span class="lang-zh">✉ 写一封信给未来的 Yunze</span>
+    <span class="lang-en">✉ Write a Letter to Future Yunze</span>
   </button>
 
   <div class="ct-panel" id="ct-panel" hidden>
@@ -121,23 +121,29 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
 
     <div class="ct-fields">
       <div class="ct-field">
-        <label class="ct-label" for="ct-sender">
-          <span class="lang-zh">你是谁</span>
-          <span class="lang-en">Your name</span>
-        </label>
-        <input class="ct-input" type="text" id="ct-sender"
-          placeholder-zh="例：妈妈、爷爷、Yunze……"
-          placeholder-en="e.g. Mom, Grandpa, Yunze…">
-      </div>
-
-      <div class="ct-field">
         <label class="ct-label" for="ct-title">
-          <span class="lang-zh">信的标题</span>
-          <span class="lang-en">Letter title</span>
+          <span class="lang-zh">标题</span>
+          <span class="lang-en">Title</span>
         </label>
         <input class="ct-input" type="text" id="ct-title"
           placeholder-zh="例：写给18岁的你"
           placeholder-en="e.g. To My 18-Year-Old Self">
+      </div>
+
+      <div class="ct-field">
+        <textarea class="ct-input ct-textarea" id="ct-body" rows="9"
+          placeholder-zh="想对 Yunze 说的话……"
+          placeholder-en="What would you like to say to Yunze…"></textarea>
+      </div>
+
+      <div class="ct-field">
+        <label class="ct-label" for="ct-sender">
+          <span class="lang-zh">来自</span>
+          <span class="lang-en">From</span>
+        </label>
+        <input class="ct-input" type="text" id="ct-sender"
+          placeholder-zh="例：妈妈、爷爷、Yunze……"
+          placeholder-en="e.g. Mom, Grandpa, Yunze…">
       </div>
 
       <div class="ct-field">
@@ -156,7 +162,7 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
           </button>
         </div>
         <select class="ct-input" id="ct-unlock-age">
-          <option value="2028-02-29"><span class="lang-zh">12岁生日</span><span class="lang-en">12th birthday</span> — 2028-02-29</option>
+          <option value="2028-02-29">12岁生日 — 2028-02-29</option>
           <option value="2029-02-28">13岁生日 — 2029-02-28</option>
           <option value="2030-02-28">14岁生日 — 2030-02-28</option>
           <option value="2031-02-28">15岁生日 — 2031-02-28</option>
@@ -171,16 +177,6 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
           <option value="2056-02-29">40岁生日 — 2056-02-29</option>
         </select>
         <input class="ct-input" type="date" id="ct-unlock-date" style="display:none" aria-hidden="true">
-      </div>
-
-      <div class="ct-field">
-        <label class="ct-label" for="ct-body">
-          <span class="lang-zh">信的内容</span>
-          <span class="lang-en">Letter</span>
-        </label>
-        <textarea class="ct-input ct-textarea" id="ct-body" rows="9"
-          placeholder-zh="想对 Yunze 说的话……"
-          placeholder-en="What would you like to say to Yunze…"></textarea>
       </div>
     </div>
 
