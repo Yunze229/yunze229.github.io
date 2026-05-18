@@ -6,3 +6,5 @@ unlock_date: "2026-05-18"
 from: "妈妈"
 revealed: false
 ---
+
+相信自己，未来可期，真行动
