@@ -89,3 +89,22 @@ collections:
         widget: "string"
         required: false
         hint: "不填则中英文都显示中文标题"
+      - label: "写信日期"
+        name: "date"
+        widget: "date"
+        format: "YYYY-MM-DD"
+      - label: "开封日"
+        name: "unlock_date"
+        widget: "string"
+      - label: "写信人"
+        name: "from"
+        widget: "string"
+      - label: "信的内容"
+        name: "body"
+        widget: "markdown"
+        required: false
+      - label: "公开到博客"
+        name: "revealed"
+        widget: "boolean"
+        default: false
+        hint: "开启后信的内容会出现在博客上"
