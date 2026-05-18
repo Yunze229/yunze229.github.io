@@ -3,8 +3,11 @@ items:
     name_en: "BEING"
     url: "/being/"
     section: "being"
+    children: []
   - name_zh: "造物"
     name_en: "DOING"
+    url: ""
+    section: ""
     children:
       - name_zh: "作品"
         name_en: "PROJECTS"
@@ -26,3 +29,4 @@ items:
     name_en: "BECOMING"
     url: "/capsule/"
     section: "capsule"
+    children: []
