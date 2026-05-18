@@ -4,6 +4,7 @@
     <span class="lang-zh">{{ .Title }}</span>
     <span class="lang-en">{{ .Title }}</span>
   </h1>
+  {{ partial "section-tagline.html" . }}
 </div>
 
 {{ $pages := where .Pages "Params.private" "ne" true }}

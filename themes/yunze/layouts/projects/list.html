@@ -4,6 +4,7 @@
     <span class="lang-zh">作品</span>
     <span class="lang-en">Projects</span>
   </h1>
+  {{ partial "section-tagline.html" . }}
 </div>
 
 {{ $posts := where site.RegularPages "Section" "posts" }}

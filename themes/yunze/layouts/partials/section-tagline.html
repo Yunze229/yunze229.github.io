@@ -1,0 +1,18 @@
+{{/* Reads desc_zh / desc_en for current section from data/nav.yaml */}}
+{{ $section := .Section }}
+{{ $desc_zh := "" }}
+{{ $desc_en := "" }}
+{{ range .Site.Data.nav.items }}
+  {{ range .children }}
+    {{ if eq .section $section }}
+      {{ $desc_zh = (default "" .desc_zh) }}
+      {{ $desc_en = (default "" .desc_en) }}
+    {{ end }}
+  {{ end }}
+{{ end }}
+{{ if or $desc_zh $desc_en }}
+<p class="section-desc">
+  <span class="lang-zh">{{ $desc_zh }}</span>
+  <span class="lang-en">{{ $desc_en }}</span>
+</p>
+{{ end }}
