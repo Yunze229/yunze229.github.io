@@ -55,9 +55,14 @@
   </div>
 
   {{ with .Params.tags }}
+  {{ $tagEn := dict "日记" "Journal" "作品" "Projects" "技能笔记" "Skills" "学习笔记" "Study Notes" "旅行" "Travel" "读书" "Reading" "手册" "Manual" "随想" "Thoughts" "成长" "Growth" "编程" "Coding" "学习" "Study" "书单" "Reading List" "生活" "Life" "记录" "Notes" }}
   <div class="article-tags">
     {{ range . }}
-    <a href="/tags/{{ . | urlize }}/" class="tag"># {{ . }}</a>
+    {{ $en := index $tagEn . | default . }}
+    <a href="/tags/{{ . | urlize }}/" class="tag">
+      <span class="lang-zh-inline"># {{ . }}</span>
+      <span class="lang-en-inline"># {{ $en }}</span>
+    </a>
     {{ end }}
   </div>
   {{ end }}

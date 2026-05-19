@@ -26,7 +26,12 @@
         <span class="lang-en-inline">Letter from {{ $fromEn }}</span>
       </span>
       {{ with .Params.tags }}
-        {{ range . }}<span class="post-private-badge lang-zh-inline">{{ . }}</span>{{ end }}
+        {{ $tagEn := dict "日记" "Journal" "作品" "Projects" "技能笔记" "Skills" "学习笔记" "Study Notes" "旅行" "Travel" "读书" "Reading" "手册" "Manual" "随想" "Thoughts" "成长" "Growth" "编程" "Coding" "学习" "Study" "书单" "Reading List" "生活" "Life" "记录" "Notes" }}
+        {{ range . }}
+          {{ $en := index $tagEn . | default . }}
+          <span class="post-private-badge lang-zh-inline">{{ . }}</span>
+          <span class="post-private-badge lang-en-inline">{{ $en }}</span>
+        {{ end }}
       {{ end }}
     </div>
   </header>
