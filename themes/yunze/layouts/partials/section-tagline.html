@@ -2,7 +2,7 @@
 {{ $section := .Section }}
 {{ $desc_zh := "" }}
 {{ $desc_en := "" }}
-{{ range .Site.Data.nav.items }}
+{{ range hugo.Data.nav.items }}
   {{ range .children }}
     {{ if eq .section $section }}
       {{ $desc_zh = (default "" .desc_zh) }}

@@ -7,7 +7,7 @@
   {{ partial "section-tagline.html" . }}
 </div>
 
-{{ range .Site.Data.gears.categories }}
+{{ range hugo.Data.gears.categories }}
 {{ if .items }}
 <section class="gear-category">
   <h2 class="gear-cat-title">
@@ -69,7 +69,7 @@
 {{ end }}
 {{ end }}
 
-{{ if not .Site.Data.gears.categories }}
+{{ if not hugo.Data.gears.categories }}
 <p class="section-empty">
   <span class="lang-zh">暂无内容</span>
   <span class="lang-en">Nothing here yet.</span>

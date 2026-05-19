@@ -4,7 +4,7 @@
       <a href="/" class="site-logo">Yunze</a>
 
       <nav class="site-nav">
-        {{ range .Site.Data.nav.items }}
+        {{ range hugo.Data.nav.items }}
           {{ if gt (len .children) 0 }}
             {{/* Dropdown item */}}
             {{ $isActive := false }}
