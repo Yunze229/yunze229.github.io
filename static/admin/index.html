@@ -157,57 +157,57 @@
       });
     }
 
-    // ── Unlock-date field: always read-only ────────────────────────────────
-    var _lockedInput = null;
+    // ── Fields that are always read-only in capsule entries ──────────────────
+    // label keyword → tooltip message
+    var READONLY_FIELDS = {
+      '开封日':    '开封日期不可修改',
+      '写信人':    '写信人不可修改',
+    };
 
-    function lockUnlockDateInput() {
-      if (!window.location.hash.includes('capsule')) { _lockedInput = null; return; }
-      var unlockDate = getUnlockDate();
-      if (!unlockDate) return;
+    var _readonlyInputs = [];   // list of locked <input> elements
 
-      // Re-apply readonly if we already found it
-      if (_lockedInput && document.body.contains(_lockedInput)) {
-        _lockedInput.readOnly = true;
-        return;
-      }
+    function lockReadonlyFields() {
+      if (!window.location.hash.includes('capsule')) { _readonlyInputs = []; return; }
 
-      // Find by exact value match first (most reliable)
-      var found = null;
-      document.querySelectorAll('input').forEach(function(inp) {
-        if (found) return;
-        if ((inp.value || '').trim() === unlockDate) found = inp;
+      // Re-apply to already-found inputs (survives Sveltia re-renders)
+      _readonlyInputs.forEach(function(inp) {
+        if (document.body.contains(inp)) inp.readOnly = true;
       });
 
-      // Fallback: find by "开封日" ancestor label (shallow)
-      if (!found) {
-        document.querySelectorAll('input').forEach(function(inp) {
-          if (found) return;
-          var node = inp.parentElement;
-          for (var i = 0; i < 5; i++) {
-            if (!node || node === document.body) break;
-            var t = (node.textContent || '').trim();
-            if (t.includes('开封日') && t.length < 120) { found = inp; break; }
-            node = node.parentElement;
+      // Scan for new inputs that match a readonly label
+      document.querySelectorAll('input').forEach(function(inp) {
+        if (_readonlyInputs.indexOf(inp) !== -1) return;  // already locked
+        var node = inp.parentElement;
+        for (var i = 0; i < 5; i++) {
+          if (!node || node === document.body) break;
+          var t = (node.textContent || '').trim();
+          if (t.length < 150) {
+            var matched = null;
+            Object.keys(READONLY_FIELDS).forEach(function(key) {
+              if (!matched && t.includes(key)) matched = key;
+            });
+            if (matched) {
+              inp.readOnly = true;
+              inp.style.cursor = 'not-allowed';
+              inp.style.opacity = '0.6';
+              inp.title = READONLY_FIELDS[matched];
+              _readonlyInputs.push(inp);
+              break;
+            }
           }
-        });
-      }
-
-      if (!found) return;
-      _lockedInput = found;
-      found.readOnly = true;
-      found.style.cursor = 'not-allowed';
-      found.style.opacity = '0.6';
-      found.title = '开封日期不可修改';
+          node = node.parentElement;
+        }
+      });
     }
 
-    // Block keydown + paste on the locked input
+    // Block keydown + paste on all locked inputs
     document.addEventListener('keydown', function(e) {
-      if (_lockedInput && e.target === _lockedInput) {
+      if (_readonlyInputs.indexOf(e.target) !== -1) {
         e.preventDefault(); e.stopImmediatePropagation();
       }
     }, true);
     document.addEventListener('paste', function(e) {
-      if (_lockedInput && e.target === _lockedInput) {
+      if (_readonlyInputs.indexOf(e.target) !== -1) {
         e.preventDefault(); e.stopImmediatePropagation();
       }
     }, true);
@@ -219,9 +219,9 @@
       if (h !== lastHash) {
         lastHash = h;
         _lockedInput = null;
-        setTimeout(function() { injectWarnings(); lockUnlockDateInput(); }, 1200);
+        setTimeout(function() { injectWarnings(); lockReadonlyFields(); }, 1200);
       }
-      lockUnlockDateInput();
+      lockReadonlyFields();
     }, 400);
   })();
   </script>
