@@ -23,7 +23,7 @@
     data-visited="{{ delimit $codes "," }}"
   ></div>
 
-  <script id="travel-data" type="application/json">{{ $countries | jsonify }}</script>
+  <script id="travel-data" type="application/json">{{ $countries | jsonify | safeHTML }}</script>
 
   <div class="countries-list">
     {{ range $countries }}
@@ -71,7 +71,10 @@
   // Read full country data from JSON script tag
   var travelDataEl = document.getElementById('travel-data');
   var travelData = [];
-  try { travelData = JSON.parse(travelDataEl.textContent || '[]'); } catch (e) {}
+  try {
+    var parsed = JSON.parse(travelDataEl.textContent || '[]');
+    travelData = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+  } catch (e) {}
 
   // Build lookup map: code -> country object
   var countryMap = {};
