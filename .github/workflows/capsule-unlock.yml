@@ -1,0 +1,243 @@
+name: Unlock Due Capsule Letters
+
+on:
+  schedule:
+    - cron: '0 9 * * *'   # 09:00 UTC = 01:00 PDT / 02:00 PST
+  workflow_dispatch:
+
+jobs:
+  unlock:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Transfer due letters and notify
+        env:
+          LETTERS_PAT:    ${{ secrets.LETTERS_PAT }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          python3 << 'PYEOF'
+          import os, json, re, urllib.request, base64
+          from datetime import date
+
+          LETTERS_PAT   = os.environ['LETTERS_PAT']
+          RESEND_KEY    = os.environ['RESEND_API_KEY']
+          PRIVATE_REPO  = 'hxz49/yunze-letters'
+          TODAY         = date.today().isoformat()
+          CAPSULE_DIR   = 'content/capsule'
+          NOTIFY_EMAILS = ['hxz49@hotmail.com', 'dyz229@outlook.com']
+          FROM_EMAIL    = 'onboarding@resend.dev'
+
+          # ── GitHub API helpers ──────────────────────────────────────────────
+          def gh_api(url, method='GET', payload=None):
+            headers = {
+              'Authorization': f'Bearer {LETTERS_PAT}',
+              'User-Agent': 'yunze-capsule-unlock',
+              'Accept': 'application/vnd.github.v3+json',
+            }
+            data = json.dumps(payload).encode() if payload else None
+            req = urllib.request.Request(url, data=data, method=method, headers=headers)
+            if data:
+              req.add_header('Content-Type', 'application/json')
+            try:
+              with urllib.request.urlopen(req) as r:
+                return json.loads(r.read()), r.status
+            except urllib.error.HTTPError as e:
+              return {}, e.code
+
+          # ── Frontmatter helpers ─────────────────────────────────────────────
+          def fm_get(fm_text, key):
+            m = re.search(rf'^{re.escape(key)}:\s*["\']?(.*?)["\']?\s*$', fm_text, re.MULTILINE)
+            return m.group(1).strip() if m else ''
+
+          def extract_body_en(fm_text):
+            m = re.search(r'^body_en:\s*\|[-]?\n((?:[ \t]{2}[^\n]*\n?)*)', fm_text, re.MULTILINE)
+            if not m:
+              return ''
+            lines = m.group(1).splitlines()
+            return '\n'.join(l[2:] if l.startswith('  ') else l for l in lines).strip()
+
+          # ── Email ───────────────────────────────────────────────────────────
+          def h(text):
+            return text.replace('&', '&amp;').replace('<', '&lt;').replace('\n', '<br>')
+
+          def send_unlock_email(from_zh, from_en, title_zh, title_en,
+                                date_written, unlock_date, body_zh, body_en):
+            rows = [
+              ('来自 From',     f'{from_zh} / {from_en}'),
+              ('标题 Title',    f'{title_zh} / {title_en}'),
+              ('写于 Written',  date_written),
+              ('开封日 Opened', unlock_date),
+            ]
+            table_rows = ''.join(
+              f'<tr><td style="padding:4px 12px 4px 0;color:#888;white-space:nowrap">{k}</td>'
+              f'<td>{v}</td></tr>'
+              for k, v in rows
+            )
+            body_zh_block = (
+              f'<h3 style="margin-top:24px">📝 信件内容</h3>'
+              f'<p style="line-height:1.9;white-space:pre-wrap">{h(body_zh)}</p>'
+              if body_zh else ''
+            )
+            body_en_block = (
+              f'<h3 style="margin-top:24px">📝 Letter</h3>'
+              f'<p style="line-height:1.9;white-space:pre-wrap">{h(body_en)}</p>'
+              if body_en else ''
+            )
+            html = f'''
+<div style="font-family:sans-serif;font-size:15px;max-width:640px">
+<h2 style="margin-bottom:16px">🔓 时光胶囊已到期</h2>
+<table style="border-collapse:collapse;font-size:14px">{table_rows}</table>
+<hr style="margin:20px 0;border:none;border-top:1px solid #eee">
+{body_zh_block}
+{body_en_block}
+<hr style="margin:24px 0;border:none;border-top:1px solid #eee">
+<p style="color:#888;font-size:12px;line-height:1.7">
+  信件已自动推送至博客（未公开）。登录 CMS → 时光胶囊，勾选「公开到博客」即可展示。<br>
+  The letter has been pushed to the blog (hidden). Log in to CMS → Capsule and toggle "revealed" to publish.
+</p>
+</div>
+'''
+            payload = {
+              'from':    FROM_EMAIL,
+              'to':      NOTIFY_EMAILS,
+              'subject': f'🔓 时光胶囊开封：{from_zh} 写给 Yunze（{unlock_date}）',
+              'html':    html,
+            }
+            req = urllib.request.Request(
+              'https://api.resend.com/emails',
+              data=json.dumps(payload).encode(),
+              method='POST',
+              headers={
+                'Authorization': f'Bearer {RESEND_KEY}',
+                'Content-Type': 'application/json',
+              }
+            )
+            try:
+              with urllib.request.urlopen(req) as r:
+                print(f'  ✉  Email sent → {NOTIFY_EMAILS}')
+            except urllib.error.HTTPError as e:
+              print(f'  ✉  Email failed: {e.code} {e.read().decode()[:200]}')
+
+          # ── Main ────────────────────────────────────────────────────────────
+          data, status = gh_api(
+            f'https://api.github.com/repos/{PRIVATE_REPO}/contents/letters'
+          )
+          if status == 404:
+            print('Private repo has no letters/ directory — nothing to do')
+            exit(0)
+          if status != 200:
+            print(f'ERROR: Cannot access private repo (HTTP {status})')
+            exit(1)
+
+          count = 0
+          for file_info in data:
+            if not file_info['name'].endswith('.md'):
+              continue
+
+            fdata, fstatus = gh_api(file_info['url'])
+            if fstatus != 200:
+              print(f'[SKIP] {file_info["name"]}: fetch failed ({fstatus})')
+              continue
+
+            raw = base64.b64decode(fdata['content'].replace('\n', '')).decode('utf-8')
+            sha = fdata['sha']
+
+            parsed = re.match(r'^---\n(.*?)\n---\n?(.*)', raw, re.DOTALL)
+            if not parsed:
+              continue
+            fm_text  = parsed.group(1).strip()
+            body_zh  = parsed.group(2).strip()
+
+            unlock_date = fm_get(fm_text, 'unlock_date').strip("'\"")
+            transferred = fm_get(fm_text, 'transferred') == 'true'
+
+            if not unlock_date or transferred or unlock_date > TODAY:
+              continue
+
+            title_zh     = fm_get(fm_text, 'title')
+            title_en     = fm_get(fm_text, 'title_en')
+            from_zh      = fm_get(fm_text, 'from')
+            from_en      = fm_get(fm_text, 'from_en')
+            date_written = fm_get(fm_text, 'date')
+            body_en      = extract_body_en(fm_text)
+
+            print(f'[UNLOCK] {file_info["name"]}  ({from_zh} → {unlock_date})')
+
+            # ── Write public capsule file ─────────────────────────────────────
+            pub_path = f'{CAPSULE_DIR}/{file_info["name"]}'
+            if os.path.exists(pub_path):
+              print(f'  File already exists in public repo — skipping write')
+            else:
+              def q(s): return s.replace('"', '\\"')
+              fm_lines = [
+                '---',
+                f'title: "{q(title_zh)}"',
+                f'title_en: "{q(title_en)}"',
+                f'date: {date_written}',
+                f'unlock_date: {unlock_date}',
+                f'from: "{q(from_zh)}"',
+                f'from_en: "{q(from_en)}"',
+              ]
+              if body_en:
+                indented = '\n'.join('  ' + l for l in body_en.splitlines())
+                fm_lines.append(f'body_en: |-\n{indented}')
+              fm_lines += ['read_by_admin: false', 'revealed: false', '---']
+              pub_content = '\n'.join(fm_lines)
+              if body_zh:
+                pub_content += f'\n\n{body_zh}'
+              pub_content += '\n'
+              os.makedirs(CAPSULE_DIR, exist_ok=True)
+              with open(pub_path, 'w', encoding='utf-8') as f:
+                f.write(pub_content)
+              print(f'  Wrote {pub_path}')
+
+            # ── Email both recipients ─────────────────────────────────────────
+            send_unlock_email(
+              from_zh, from_en, title_zh, title_en,
+              date_written, unlock_date, body_zh, body_en
+            )
+
+            # ── Mark transferred=true in private repo ─────────────────────────
+            if 'transferred:' in fm_text:
+              updated_fm = re.sub(
+                r'^transferred:\s*(false|true)', 'transferred: true',
+                fm_text, flags=re.MULTILINE
+              )
+            else:
+              updated_fm = fm_text + '\ntransferred: true'
+            updated_raw = f'---\n{updated_fm}\n---\n\n{body_zh}\n'
+            updated_b64 = base64.b64encode(updated_raw.encode()).decode()
+            _, put_status = gh_api(
+              f'https://api.github.com/repos/{PRIVATE_REPO}/contents/letters/{file_info["name"]}',
+              method='PUT',
+              payload={
+                'message': f'unlock: {from_zh} → {unlock_date}',
+                'content': updated_b64,
+                'sha': sha,
+              }
+            )
+            if put_status in (200, 201):
+              print(f'  Marked transferred in private repo ✓')
+            else:
+              print(f'  WARNING: failed to mark transferred (HTTP {put_status})')
+
+            count += 1
+
+          print(f'\n✓ {count} letter(s) unlocked today ({TODAY})')
+          PYEOF
+
+      - name: Commit new capsule stubs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add content/capsule/
+          if git diff --staged --quiet; then
+            echo "Nothing new to commit"
+          else
+            git commit -m "capsule: auto-unlock letters for $(date +%Y-%m-%d)"
+            git push
+          fi
