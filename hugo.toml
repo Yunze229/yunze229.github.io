@@ -25,7 +25,7 @@ enableEmoji = false
 [outputs]
   home = ["HTML", "RSS", "JSON"]
   page = ["HTML"]
-  section = ["HTML", "RSS"]
+  section = ["HTML"]
 
 [markup]
   [markup.goldmark]
