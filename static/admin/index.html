@@ -55,66 +55,95 @@
   </script>
 
   <script>
-  // Guard: disable toggles in capsule entries before unlock date
+  // Guard: block toggling read/reveal before unlock date
   (function() {
-    function guardToggles() {
-      if (!window.location.hash.includes('/collections/capsule/entries/')) return;
+    var GUARDED_LABELS = ['确认已读', '公开到博客'];
 
-      // Find unlock_date value from any visible input
-      let unlockDate = null;
+    function getUnlockDate() {
+      if (!window.location.hash.includes('/collections/capsule/entries/')) return null;
+      var found = null;
       document.querySelectorAll('input').forEach(function(inp) {
-        if (/^\d{4}-\d{2}-\d{2}$/.test((inp.value || '').trim())) {
-          const container = inp.closest('div[class]');
-          if (container && container.textContent.includes('开封日')) {
-            unlockDate = inp.value.trim();
-          }
+        if (found) return;
+        var v = (inp.value || '').trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+        // Walk up to see if any ancestor label mentions 开封日
+        var el = inp.parentElement;
+        for (var i = 0; i < 8; i++) {
+          if (!el) break;
+          if ((el.textContent || '').includes('开封日')) { found = v; break; }
+          el = el.parentElement;
         }
       });
-      if (!unlockDate) return;
+      return found;
+    }
 
-      const today = new Date().toISOString().slice(0, 10);
-      if (unlockDate <= today) {
-        document.querySelectorAll('.cms-guard-warn').forEach(function(el) { el.remove(); });
-        return;
+    function isToggleGuarded(toggleEl) {
+      // Walk up ancestors to find a field wrapper containing a guarded label
+      var el = toggleEl.parentElement;
+      for (var i = 0; i < 12; i++) {
+        if (!el) break;
+        var text = el.textContent || '';
+        for (var j = 0; j < GUARDED_LABELS.length; j++) {
+          if (text.includes(GUARDED_LABELS[j])) return GUARDED_LABELS[j];
+        }
+        el = el.parentElement;
       }
+      return null;
+    }
 
-      // Labels to guard and their warning messages
-      var guards = [
-        { text: '确认已读',   warn: '⚠️ 尚未到开封日（' + unlockDate + '），不可提前确认已读' },
-        { text: '公开到博客', warn: '⚠️ 尚未到开封日（' + unlockDate + '），不可提前公开' },
-      ];
+    function updateWarnings(unlockDate) {
+      // Remove stale warnings
+      document.querySelectorAll('.cms-guard-warn').forEach(function(el) { el.remove(); });
+      if (!unlockDate) return;
+      var today = new Date().toISOString().slice(0, 10);
+      if (unlockDate <= today) return;
 
-      document.querySelectorAll('label, span').forEach(function(el) {
-        guards.forEach(function(g) {
-          if (!el.textContent.includes(g.text)) return;
-          const field = el.closest('div[class]');
-          if (!field) return;
-
-          const toggle = field.querySelector('input[type="checkbox"], [role="switch"], button[aria-checked]');
-          if (toggle) {
-            toggle.disabled = true;
-            toggle.style.opacity = '0.4';
-            toggle.style.pointerEvents = 'none';
-          }
-          if (!field.querySelector('.cms-guard-warn')) {
-            const warn = document.createElement('p');
-            warn.className = 'cms-guard-warn';
-            warn.style.cssText = 'color:#c0392b;font-size:0.82em;margin:4px 0 0;';
-            warn.textContent = g.warn;
-            field.appendChild(warn);
-          }
-        });
+      // Add visual warning near each guarded toggle
+      document.querySelectorAll('[role="switch"]').forEach(function(toggle) {
+        var label = isToggleGuarded(toggle);
+        if (!label) return;
+        // Find a stable parent to attach warning to
+        var wrapper = toggle.parentElement;
+        for (var i = 0; i < 6; i++) {
+          if (!wrapper) break;
+          if ((wrapper.textContent || '').includes(label)) break;
+          wrapper = wrapper.parentElement;
+        }
+        if (!wrapper || wrapper.querySelector('.cms-guard-warn')) return;
+        var msg = {
+          '确认已读':   '⚠️ 尚未到开封日（' + unlockDate + '），不可提前确认已读',
+          '公开到博客': '⚠️ 尚未到开封日（' + unlockDate + '），不可提前公开',
+        }[label];
+        var warn = document.createElement('p');
+        warn.className = 'cms-guard-warn';
+        warn.style.cssText = 'color:#c0392b;font-size:0.82em;margin:4px 0 0;';
+        warn.textContent = msg;
+        wrapper.appendChild(warn);
       });
     }
 
-    let lastHash = '';
+    // Intercept clicks in capture phase — runs before Sveltia's own handlers
+    document.addEventListener('click', function(e) {
+      var unlockDate = getUnlockDate();
+      if (!unlockDate) return;
+      var today = new Date().toISOString().slice(0, 10);
+      if (unlockDate <= today) return;
+
+      var toggle = e.target.closest('[role="switch"]');
+      if (!toggle) return;
+      if (!isToggleGuarded(toggle)) return;
+
+      e.stopImmediatePropagation();
+      e.preventDefault();
+    }, true); // capture phase
+
+    // Refresh warning labels periodically
+    var lastHash = '';
     setInterval(function() {
-      if (window.location.hash !== lastHash) {
-        lastHash = window.location.hash;
-        setTimeout(guardToggles, 1200);
-      }
-      guardToggles();
-    }, 800);
+      var hash = window.location.hash;
+      if (hash !== lastHash) { lastHash = hash; setTimeout(function() { updateWarnings(getUnlockDate()); }, 1000); }
+      updateWarnings(getUnlockDate());
+    }, 1000);
   })();
   </script>
 </body>
