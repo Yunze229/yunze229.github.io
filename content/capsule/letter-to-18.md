@@ -4,8 +4,7 @@ title_en: To My 18-Year-Old Self
 date: 2026-05-15
 unlock_date: 2034-02-28
 from: Yunze
-from_en: "Yunze"
-from_en: ''
+from_en: Yunze
 read_by_admin: false
 revealed: false
 tags:
