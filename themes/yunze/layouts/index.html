@@ -56,6 +56,7 @@
 {{ $allPages := where .Site.RegularPages "Params.private" "ne" true }}
 {{ $dates := slice }}
 {{ range $allPages }}{{ $dates = $dates | append (.Date.Format "2006-01-02") }}{{ end }}
+<script id="heatmap-dates" type="application/json">{{ $dates | jsonify | safeHTML }}</script>
 <div class="heatmap-section">
   <div class="heatmap-label">
     <span class="lang-zh">写作记录</span>
@@ -66,7 +67,9 @@
 
 <script>
 (function() {
-  const dates = {{ $dates | jsonify }};
+  const raw = document.getElementById('heatmap-dates').textContent;
+  const parsed = JSON.parse(raw);
+  const dates = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
   const counts = {};
   dates.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
 
