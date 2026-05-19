@@ -57,93 +57,109 @@
   <script>
   // Guard: block toggling read/reveal before unlock date
   (function() {
-    var GUARDED_LABELS = ['确认已读', '公开到博客'];
+    var GUARDED = ['确认已读', '公开到博客'];
 
+    // Unlock date is embedded in the filename, which is in the URL hash.
+    // e.g. #/collections/capsule/entries/mom-2028-02-29-abc123
     function getUnlockDate() {
-      if (!window.location.hash.includes('/collections/capsule/entries/')) return null;
-      var found = null;
-      document.querySelectorAll('input').forEach(function(inp) {
-        if (found) return;
-        var v = (inp.value || '').trim();
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
-        // Walk up to see if any ancestor label mentions 开封日
-        var el = inp.parentElement;
-        for (var i = 0; i < 8; i++) {
-          if (!el) break;
-          if ((el.textContent || '').includes('开封日')) { found = v; break; }
-          el = el.parentElement;
-        }
-      });
-      return found;
+      var hash = window.location.hash || '';
+      if (!hash.includes('capsule')) return null;
+      var m = hash.match(/(\d{4}-\d{2}-\d{2})/);
+      return m ? m[0] : null;
     }
 
-    function isToggleGuarded(toggleEl) {
-      // Walk up ancestors to find a field wrapper containing a guarded label
-      var el = toggleEl.parentElement;
-      for (var i = 0; i < 12; i++) {
-        if (!el) break;
-        var text = el.textContent || '';
-        for (var j = 0; j < GUARDED_LABELS.length; j++) {
-          if (text.includes(GUARDED_LABELS[j])) return GUARDED_LABELS[j];
+    function isLocked(unlockDate) {
+      if (!unlockDate) return false;
+      return unlockDate > new Date().toISOString().slice(0, 10);
+    }
+
+    // Walk up from el; return label name if any ancestor (within depth) contains it.
+    function nearGuardedLabel(el) {
+      var node = el;
+      for (var i = 0; i < 15; i++) {
+        if (!node || node === document.body) break;
+        var t = node.textContent || '';
+        for (var j = 0; j < GUARDED.length; j++) {
+          if (t.includes(GUARDED[j])) return GUARDED[j];
         }
-        el = el.parentElement;
+        node = node.parentElement;
       }
       return null;
     }
 
-    function updateWarnings(unlockDate) {
-      // Remove stale warnings
-      document.querySelectorAll('.cms-guard-warn').forEach(function(el) { el.remove(); });
-      if (!unlockDate) return;
-      var today = new Date().toISOString().slice(0, 10);
-      if (unlockDate <= today) return;
-
-      // Add visual warning near each guarded toggle
-      document.querySelectorAll('[role="switch"]').forEach(function(toggle) {
-        var label = isToggleGuarded(toggle);
-        if (!label) return;
-        // Find a stable parent to attach warning to
-        var wrapper = toggle.parentElement;
-        for (var i = 0; i < 6; i++) {
-          if (!wrapper) break;
-          if ((wrapper.textContent || '').includes(label)) break;
-          wrapper = wrapper.parentElement;
-        }
-        if (!wrapper || wrapper.querySelector('.cms-guard-warn')) return;
-        var msg = {
-          '确认已读':   '⚠️ 尚未到开封日（' + unlockDate + '），不可提前确认已读',
-          '公开到博客': '⚠️ 尚未到开封日（' + unlockDate + '），不可提前公开',
-        }[label];
-        var warn = document.createElement('p');
-        warn.className = 'cms-guard-warn';
-        warn.style.cssText = 'color:#c0392b;font-size:0.82em;margin:4px 0 0;';
-        warn.textContent = msg;
-        wrapper.appendChild(warn);
-      });
+    function showToast(msg) {
+      var old = document.getElementById('cms-guard-toast');
+      if (old) old.remove();
+      var el = document.createElement('div');
+      el.id = 'cms-guard-toast';
+      el.style.cssText = [
+        'position:fixed', 'top:18px', 'left:50%', 'transform:translateX(-50%)',
+        'background:#c0392b', 'color:#fff', 'padding:10px 20px', 'border-radius:6px',
+        'font-size:13px', 'z-index:99999', 'pointer-events:none',
+        'box-shadow:0 2px 10px rgba(0,0,0,.3)', 'white-space:nowrap'
+      ].join(';');
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(function() { if (el.parentNode) el.remove(); }, 3000);
     }
 
-    // Intercept clicks in capture phase — runs before Sveltia's own handlers
+    // Capture-phase listener: intercepts before Sveltia handles the event.
+    // Blocks any interactive element click that is near a guarded label.
     document.addEventListener('click', function(e) {
       var unlockDate = getUnlockDate();
-      if (!unlockDate) return;
-      var today = new Date().toISOString().slice(0, 10);
-      if (unlockDate <= today) return;
+      if (!isLocked(unlockDate)) return;
 
-      var toggle = e.target.closest('[role="switch"]');
-      if (!toggle) return;
-      if (!isToggleGuarded(toggle)) return;
+      var target = e.target;
+
+      // Must be something interactive — toggle (any role/type), button, or label wrapping one
+      var interactive = (
+        target.closest('[role="switch"]') ||
+        target.closest('[role="checkbox"]') ||
+        target.closest('input[type="checkbox"]') ||
+        target.closest('button') ||
+        (target.tagName === 'LABEL')
+      );
+      if (!interactive) return;
+
+      var label = nearGuardedLabel(target);
+      if (!label) return;
 
       e.stopImmediatePropagation();
       e.preventDefault();
-    }, true); // capture phase
+      showToast('⚠️ 未到开封日（' + unlockDate + '）— ' + label + ' 暂时锁定');
+    }, true);
 
-    // Refresh warning labels periodically
+    // Inject warning text below each guarded field
+    function injectWarnings() {
+      document.querySelectorAll('.cms-guard-warn').forEach(function(el) { el.remove(); });
+      var unlockDate = getUnlockDate();
+      if (!isLocked(unlockDate)) return;
+
+      // Find label elements whose text exactly matches a guarded label
+      document.querySelectorAll('label, span, div, p').forEach(function(el) {
+        var t = (el.textContent || '').trim();
+        for (var j = 0; j < GUARDED.length; j++) {
+          if (t === GUARDED[j] || t.startsWith(GUARDED[j] + '\n') || t.startsWith(GUARDED[j] + ' ')) {
+            var container = el.parentElement;
+            if (!container || container.querySelector('.cms-guard-warn')) return;
+            var warn = document.createElement('p');
+            warn.className = 'cms-guard-warn';
+            warn.style.cssText = 'color:#c0392b;font-size:0.8em;margin:3px 0 2px;line-height:1.4';
+            warn.textContent = '🔒 开封日前锁定（' + unlockDate + '）';
+            container.appendChild(warn);
+          }
+        }
+      });
+    }
+
     var lastHash = '';
     setInterval(function() {
-      var hash = window.location.hash;
-      if (hash !== lastHash) { lastHash = hash; setTimeout(function() { updateWarnings(getUnlockDate()); }, 1000); }
-      updateWarnings(getUnlockDate());
-    }, 1000);
+      var h = window.location.hash;
+      if (h !== lastHash) {
+        lastHash = h;
+        setTimeout(injectWarnings, 1200);
+      }
+    }, 400);
   })();
   </script>
 </body>
