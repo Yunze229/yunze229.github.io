@@ -80,12 +80,69 @@
   var countryMap = {};
   travelData.forEach(function (c) { if (c.code) countryMap[c.code] = c; });
 
+  // Color palettes for visited countries (light / dark mode)
+  var PALETTE = ['#e07b54','#5b9bd5','#6ab187','#f0c040','#9b6bb5','#45b7b0'];
+  var PALETTE_DARK = ['#e8956d','#7ab5e8','#82c99d','#f5d060','#b589cc','#5ecfca'];
+  var countryColors = {}; // iso -> palette index
+
+  // Extract all coordinate strings from a GeoJSON geometry
+  function getAllCoordKeys(geometry) {
+    var pts = [];
+    function walk(c) {
+      if (typeof c[0] === 'number') {
+        pts.push(c[0].toFixed(1) + ',' + c[1].toFixed(1));
+      } else { c.forEach(walk); }
+    }
+    walk(geometry.coordinates);
+    return pts;
+  }
+
+  // Build adjacency map and assign colors via greedy algorithm
+  function buildColorMap(geojson) {
+    var coordMap = {}; // coordKey -> [iso, ...]
+    geojson.features.forEach(function(f) {
+      var iso = (f.properties || {}).ISO_A2 || '';
+      if (!iso || iso === '-99' || visitedCodes.indexOf(iso) === -1) return;
+      getAllCoordKeys(f.geometry).forEach(function(pt) {
+        if (!coordMap[pt]) coordMap[pt] = [];
+        if (coordMap[pt].indexOf(iso) === -1) coordMap[pt].push(iso);
+      });
+    });
+
+    // Build adjacency between visited countries
+    var adj = {};
+    visitedCodes.forEach(function(iso) { adj[iso] = []; });
+    Object.keys(coordMap).forEach(function(pt) {
+      var isos = coordMap[pt];
+      for (var i = 0; i < isos.length; i++) {
+        for (var j = i + 1; j < isos.length; j++) {
+          var a = isos[i], b = isos[j];
+          if (adj[a] && adj[a].indexOf(b) === -1) adj[a].push(b);
+          if (adj[b] && adj[b].indexOf(a) === -1) adj[b].push(a);
+        }
+      }
+    });
+
+    // Greedy coloring
+    visitedCodes.forEach(function(iso) {
+      var used = new Set();
+      (adj[iso] || []).forEach(function(nb) {
+        if (countryColors[nb] !== undefined) used.add(countryColors[nb]);
+      });
+      for (var i = 0; i < PALETTE.length; i++) {
+        if (!used.has(i)) { countryColors[iso] = i; return; }
+      }
+      countryColors[iso] = 0;
+    });
+  }
+
   function isDark() {
     return document.documentElement.getAttribute('data-theme') === 'dark';
   }
 
-  function visitedColor() {
-    return isDark() ? '#e8e8e8' : '#1a1a1a';
+  function visitedColor(iso) {
+    var idx = (countryColors[iso] !== undefined) ? countryColors[iso] : 0;
+    return (isDark() ? PALETTE_DARK : PALETTE)[idx];
   }
 
   function unvisitedColor() {
@@ -118,7 +175,7 @@
     var iso = props['ISO_A2'] || '';
     var isVisited = iso && iso !== '-99' && visitedCodes.indexOf(iso) !== -1;
     return {
-      fillColor: isVisited ? visitedColor() : unvisitedColor(),
+      fillColor: isVisited ? visitedColor(iso) : unvisitedColor(),
       fillOpacity: isVisited ? 0.85 : 0.6,
       color: borderColor(),
       weight: 0.5,
@@ -181,6 +238,7 @@
     fetch('/data/world-110m.geojson')
       .then(function (r) { return r.json(); })
       .then(function (geojson) {
+        buildColorMap(geojson);
         geojsonLayer = L.geoJSON(geojson, {
           style: styleFeature,
           onEachFeature: onEachFeature,
