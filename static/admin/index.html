@@ -104,22 +104,43 @@
     }
 
     // Capture-phase listener: intercepts before Sveltia handles the event.
-    // Blocks any interactive element click that is near a guarded label.
+    // Blocks toggle clicks near guarded labels, but never inside dialogs/modals.
     document.addEventListener('click', function(e) {
       var unlockDate = getUnlockDate();
       if (!isLocked(unlockDate)) return;
 
       var target = e.target;
 
-      // Must be something interactive — toggle (any role/type), button, or label wrapping one
-      var interactive = (
+      // Never block clicks inside any dialog or modal overlay
+      if (target.closest('[role="dialog"]') ||
+          target.closest('[role="alertdialog"]') ||
+          target.closest('.modal') ||
+          target.closest('[data-modal]')) return;
+
+      // Only intercept toggle-like elements (not plain buttons, to avoid false positives)
+      var toggle = (
         target.closest('[role="switch"]') ||
         target.closest('[role="checkbox"]') ||
-        target.closest('input[type="checkbox"]') ||
-        target.closest('button') ||
-        (target.tagName === 'LABEL')
+        target.closest('input[type="checkbox"]')
       );
-      if (!interactive) return;
+      // Also catch <button> elements that are DIRECTLY inside a guarded field
+      // (within 4 DOM levels, not 15, to avoid catching unrelated buttons)
+      if (!toggle) {
+        var btn = target.closest('button');
+        if (btn) {
+          var node = btn.parentElement;
+          for (var d = 0; d < 4; d++) {
+            if (!node) break;
+            var t = node.textContent || '';
+            for (var j = 0; j < GUARDED.length; j++) {
+              if (t.includes(GUARDED[j])) { toggle = btn; break; }
+            }
+            if (toggle) break;
+            node = node.parentElement;
+          }
+        }
+      }
+      if (!toggle) return;
 
       var label = nearGuardedLabel(target);
       if (!label) return;
