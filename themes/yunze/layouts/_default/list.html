@@ -1,8 +1,10 @@
 {{ define "main" }}
+{{ $tagEn := dict "日记" "Journal" "作品" "Projects" "技能笔记" "Skills" "学习笔记" "Study Notes" "旅行" "Travel" "读书" "Reading" "手册" "Manual" "随想" "Thoughts" "成长" "Growth" "编程" "Coding" "学习" "Study" "书单" "Reading List" "生活" "Life" "记录" "Notes" "开始" "Beginning" }}
+{{ $titleEn := index $tagEn .Title | default .Title }}
 <div class="section-header" style="margin-bottom:32px;">
   <h1 style="font-size:1.4rem;font-weight:600;">
     <span class="lang-zh">{{ .Title }}</span>
-    <span class="lang-en">{{ .Title }}</span>
+    <span class="lang-en">{{ $titleEn }}</span>
   </h1>
   {{ partial "section-tagline.html" . }}
 </div>
