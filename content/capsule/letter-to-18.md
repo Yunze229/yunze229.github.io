@@ -1,11 +1,14 @@
 ---
-title: "写给18岁的自己"
-title_en: "To My 18-Year-Old Self"
+title: 写给18岁的自己
+title_en: To My 18-Year-Old Self
 date: 2026-05-15
-unlock_date: "2034-02-28"
-from: "Yunze"
-tags: ["成长"]
+unlock_date: 2034-02-28
+from: Yunze
+from_en: ''
+read_by_admin: true
 revealed: false
+tags:
+  - 成长
 ---
 
 这封信在你18岁生日那天才能打开。
