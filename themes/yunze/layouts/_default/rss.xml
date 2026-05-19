@@ -2,6 +2,7 @@
 {{- $pages = where $pages "Params.private" "ne" true -}}
 {{- $pages = where $pages "Params.draft" "ne" true -}}
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml-stylesheet href="/feed.xsl" type="text/xsl"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>{{ .Site.Title }}</title>
