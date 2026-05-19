@@ -94,10 +94,10 @@ async function sendEmail(apiKey, subject, html) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     try {
-      return await handleRequest(request, env, origin);
+      return await handleRequest(request, env, ctx, origin);
     } catch (err) {
       console.error('Unhandled Worker error:', err?.stack || err);
       return Response.json(
@@ -108,7 +108,7 @@ export default {
   },
 };
 
-async function handleRequest(request, env, origin) {
+async function handleRequest(request, env, ctx, origin) {
     const { pathname } = new URL(request.url);
 
     if (pathname === '/submit' && request.method === 'OPTIONS') {
@@ -196,12 +196,14 @@ async function handleRequest(request, env, origin) {
         );
       }
 
-      sendEmail(
-        env.RESEND_API_KEY,
-        `📬 新的时光胶囊：${fromZh} → ${unlock_date}`,
-        `<p><strong>${fromZh}</strong> 写了一封信，将于 <strong>${unlock_date}</strong> 开封。</p>
-         <p>标题：${titleZh}</p><p>文件：<code>${filename}</code></p>`
-      ).catch(e => console.error('Email error:', e));
+      ctx.waitUntil(
+        sendEmail(
+          env.RESEND_API_KEY,
+          `📬 新的时光胶囊：${fromZh} → ${unlock_date}`,
+          `<p><strong>${fromZh}</strong> 写了一封信，将于 <strong>${unlock_date}</strong> 开封。</p>
+           <p>标题：${titleZh}</p><p>文件：<code>${filename}</code></p>`
+        ).catch(e => console.error('Email error:', e))
+      );
 
       return Response.json(
         { message: `信已寄出，将于 ${unlock_date} 开封 / Letter sealed, opens ${unlock_date}` },
