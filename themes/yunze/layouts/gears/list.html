@@ -57,8 +57,11 @@
         </div>
         {{ end }}
 
-        {{ with .desc }}
-        <p class="gear-desc">{{ . }}</p>
+        {{ if or .desc_zh .desc_en }}
+        <p class="gear-desc">
+          {{ with .desc_zh }}<span class="lang-zh">{{ . }}</span>{{ end }}
+          {{ with .desc_en }}<span class="lang-en">{{ . }}</span>{{ end }}
+        </p>
         {{ end }}
       </div>
 

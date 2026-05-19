@@ -231,8 +231,12 @@ collections:
                     name: "icon_image"
                     widget: "image"
                     required: false
-                  - label: "一句话评价"
-                    name: "desc"
+                  - label: "一句话评价（中文）"
+                    name: "desc_zh"
+                    widget: "string"
+                    required: false
+                  - label: "一句话评价（英文）"
+                    name: "desc_en"
                     widget: "string"
                     required: false
                   - label: "评分（1-5）"

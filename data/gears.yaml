@@ -5,9 +5,8 @@ categories:
       - name: type.review
         url: https://type.review/
         icon_type: favicon
-        icon_emoji: ''
-        icon_image: ''
-        desc: A typing-practice web app that adapts to you and stays out of your way — no account, no server, no telemetry. 一款打字练习网页应用，它会适应你 ，并且不会干扰你 ——无需账户、无需服务器、无需遥测数据。  Adaptive letter-unlock + benchmark runs + bring-your-own text. 自适应字母解锁 + 基准测试运行 + 自带文本。
+        desc_zh: 一款打字练习网页应用，会适应你的节奏，不干扰你——无需账户、无需服务器、无需遥测数据。自适应字母解锁 + 基准测试 + 自带文本。
+        desc_en: A typing-practice web app that adapts to you and stays out of your way — no account, no server, no telemetry. Adaptive letter-unlock + benchmark runs + bring-your-own text.
         rating: 5
         status: 想试试
   - name_zh: 创客硬件链
@@ -16,9 +15,8 @@ categories:
       - name: bambulab
         url: https://bambulab.com/en-us
         icon_type: favicon
-        icon_emoji: ''
-        icon_image: ''
-        desc: 拓竹打印机用无可挑剔的速度与‘到手即打’的傻瓜式体验，彻底颠覆了3D打印行业。”  "Bambu Lab has completely revolutionized the 3D printing industry by delivering unmatched speed and a seamless 'out-of-the-box' printing experience.
+        desc_zh: 拓竹打印机用无可挑剔的速度与"到手即打"的傻瓜式体验，彻底颠覆了 3D 打印行业。
+        desc_en: Bambu Lab has completely revolutionized the 3D printing industry with unmatched speed and a seamless out-of-the-box printing experience.
         rating: 5
         status: 曾经用过
   - name_zh: 竞技与体能
@@ -27,8 +25,7 @@ categories:
       - name: feinwerkbau
         url: https://feinwerkbau.de/en/
         icon_type: favicon
-        icon_emoji: ''
-        icon_image: ''
-        desc: “Feinwerkbau（FWB）以无可挑剔的德系精密工艺和绝对的弹道稳定性，成为了气步枪竞技领域中统治级的金字塔尖之作。”  "Feinwerkbau (FWB) represents the absolute pinnacle of competitive air rifles, dominating the shooting sports with its flawless German precision engineering and unparalleled ballistic consistency."
+        desc_zh: Feinwerkbau（FWB）以无可挑剔的德系精密工艺和绝对的弹道稳定性，成为气步枪竞技领域统治级的金字塔尖之作。
+        desc_en: Feinwerkbau (FWB) represents the absolute pinnacle of competitive air rifles, dominating shooting sports with flawless German precision and unparalleled ballistic consistency.
         rating: 5
         status: 在用
