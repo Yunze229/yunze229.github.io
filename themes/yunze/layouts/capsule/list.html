@@ -180,6 +180,9 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
       </div>
     </div>
 
+    <!-- Turnstile invisible widget (no visible UI) -->
+    <div id="ct-turnstile"></div>
+
     <button type="button" class="ct-submit" id="ct-submit" onclick="ctSubmit()">
       <span class="lang-zh">寄出这封信</span>
       <span class="lang-en">Send this letter</span>
@@ -190,16 +193,19 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
   <div class="ct-msg" id="ct-msg" role="alert" aria-live="polite"></div>
 </div>
 
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
 <script>
 (function() {
-  const API = document.getElementById('ct-wrap').dataset.api;
-  let ctModeVal = 'age';
+  const API        = document.getElementById('ct-wrap').dataset.api;
+  const SITE_KEY   = '{{ .Site.Params.turnstile_site_key }}';
+  let ctModeVal    = 'age';
+  let _widgetId    = null;   // Turnstile widget handle
+  let _pendingArgs = null;   // queued submit args waiting for token
 
   function currentLang() {
     return document.body.classList.contains('show-en') ? 'en' : 'zh';
   }
 
-  // Sync placeholder text to current language
   function syncPlaceholders() {
     const lang = currentLang();
     document.querySelectorAll('#ct-panel [placeholder-zh]').forEach(function(el) {
@@ -207,13 +213,49 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
     });
   }
 
+  // ── Turnstile ─────────────────────────────────────────────────────────────
+  function initTurnstile() {
+    if (_widgetId !== null) return;
+    if (!SITE_KEY || SITE_KEY === '<no value>') return;   // not configured
+    if (typeof turnstile === 'undefined') return;         // script not loaded yet
+    _widgetId = turnstile.render('#ct-turnstile', {
+      sitekey:           SITE_KEY,
+      size:              'invisible',
+      callback:          onToken,
+      'error-callback':  onTurnstileError,
+      'expired-callback': function() { turnstile.reset(_widgetId); },
+    });
+  }
+
+  function onToken(token) {
+    if (_pendingArgs) {
+      const args = _pendingArgs;
+      _pendingArgs = null;
+      doSubmit(args.sender, args.title, args.body, args.unlock, args.lang, token);
+    }
+  }
+
+  function onTurnstileError() {
+    _pendingArgs = null;
+    document.getElementById('ct-submit').disabled = false;
+    showMsg('err',
+      '人机验证失败，请刷新页面重试',
+      'Verification failed — please refresh the page and try again'
+    );
+  }
+
+  // ── UI helpers ────────────────────────────────────────────────────────────
   window.ctToggle = function() {
     const panel = document.getElementById('ct-panel');
     const btn   = document.getElementById('ct-toggle');
     const open  = panel.hidden;
     panel.hidden = !open;
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (open) { syncPlaceholders(); panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+    if (open) {
+      syncPlaceholders();
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      setTimeout(initTurnstile, 300);
+    }
   };
 
   window.ctMode = function(m) {
@@ -233,7 +275,8 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  window.ctSubmit = async function() {
+  // ── Submit ────────────────────────────────────────────────────────────────
+  window.ctSubmit = function() {
     const btn    = document.getElementById('ct-submit');
     const sender = document.getElementById('ct-sender').value.trim();
     const title  = document.getElementById('ct-title').value.trim();
@@ -253,16 +296,27 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
 
     btn.disabled = true;
 
+    if (_widgetId !== null) {
+      // Turnstile ready — execute challenge, doSubmit called from onToken callback
+      _pendingArgs = { sender, title, body, unlock, lang };
+      turnstile.execute(_widgetId);
+    } else {
+      // Turnstile not available (script blocked, key not set) — submit without token
+      doSubmit(sender, title, body, unlock, lang, '');
+    }
+  };
+
+  async function doSubmit(sender, title, body, unlock, lang, turnstileToken) {
+    const btn = document.getElementById('ct-submit');
     try {
-      const res  = await fetch(API + '/submit', {
-        method: 'POST',
+      const res = await fetch(API + '/submit', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sender, title, unlock_date: unlock, body, lang }),
+        body:    JSON.stringify({ sender, title, unlock_date: unlock, body, lang, turnstile_token: turnstileToken }),
       });
       let data;
       try { data = await res.json(); } catch { data = {}; }
       if (res.ok) {
-        // Collapse the panel and show success on the toggle button area
         const panel  = document.getElementById('ct-panel');
         const toggle = document.getElementById('ct-toggle');
         panel.hidden = true;
@@ -270,7 +324,6 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
         document.getElementById('ct-sender').value = '';
         document.getElementById('ct-title').value  = '';
         document.getElementById('ct-body').value   = '';
-        // Show success message below the toggle button
         const msg = document.getElementById('ct-msg');
         msg.className = 'ct-msg ct-msg--ok';
         msg.innerHTML =
@@ -278,8 +331,10 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
           '<span class="lang-en">Letter sealed. Opens on ' + unlock + '.</span>';
         msg.hidden = false;
         msg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (_widgetId !== null) turnstile.reset(_widgetId);
       } else {
         showMsg('err', data.error || '提交失败，请稍后再试', data.error || 'Submission failed, please try again');
+        if (_widgetId !== null) turnstile.reset(_widgetId);
       }
     } catch (e) {
       showMsg('err',
@@ -287,16 +342,13 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
         'Network error — check your connection and retry (' + e.message + ')'
       );
     }
-
     btn.disabled = false;
-  };
+  }
 
-  // Initialize
+  // ── Init ──────────────────────────────────────────────────────────────────
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
   document.getElementById('ct-unlock-date').min = tomorrow.toISOString().slice(0, 10);
   syncPlaceholders();
-
-  // Re-sync placeholders when language is toggled
   const observer = new MutationObserver(syncPlaceholders);
   observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 })();

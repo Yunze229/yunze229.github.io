@@ -56,6 +56,18 @@ async function translate(ai, text, sourceLang, targetLang) {
   }
 }
 
+async function verifyTurnstile(secret, token, ip) {
+  if (!secret) return true;   // not configured — allow through
+  if (!token)  return false;
+  const res  = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ secret, response: token, remoteip: ip }),
+  });
+  const data = await res.json();
+  return data.success === true;
+}
+
 function slugify(str) {
   return str
     .replace(/[一-鿿]/g, c => c.codePointAt(0).toString(36))
@@ -131,7 +143,16 @@ async function handleRequest(request, env, ctx, origin) {
         return Response.json({ error: '请求格式错误 / Bad request' }, { status: 400, headers: corsHeaders(origin) });
       }
 
-      const { sender, title, unlock_date, body: letter, lang } = body;
+      const { sender, title, unlock_date, body: letter, lang, turnstile_token } = body;
+
+      // Verify Turnstile (skip if TURNSTILE_SECRET not configured)
+      const turnstileOk = await verifyTurnstile(env.TURNSTILE_SECRET, turnstile_token, ip);
+      if (!turnstileOk) {
+        return Response.json(
+          { error: '人机验证未通过，请刷新页面重试 / Verification failed, please refresh and try again' },
+          { status: 400, headers: corsHeaders(origin) }
+        );
+      }
 
       if (!sender || !title || !unlock_date || !letter) {
         return Response.json(
