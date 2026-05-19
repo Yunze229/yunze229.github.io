@@ -132,14 +132,16 @@ jobs:
               if fm_get('transferred') == 'true':
                   continue
 
-              title        = fm_get('title')
-              from_person  = fm_get('from')
-              unlock_date  = fm_get('unlock_date')
-              date_written = fm_get('date')
-              tz_name      = fm_get('tz') or 'Asia/Shanghai'
-              show_preview = fm_get('show_preview') != 'false'
-              tags_m       = re.search(r'^tags:\s*\[(.*?)\]', fm_text, re.MULTILINE)
-              tags         = tags_m.group(1) if tags_m else ''
+              title           = fm_get('title')
+              title_en_source = fm_get('title_en')   # translated title from private repo
+              from_person     = fm_get('from')
+              from_en_source  = fm_get('from_en')    # translated sender from private repo
+              unlock_date     = fm_get('unlock_date')
+              date_written    = fm_get('date')
+              tz_name         = fm_get('tz') or 'Asia/Shanghai'
+              show_preview    = fm_get('show_preview') != 'false'
+              tags_m          = re.search(r'^tags:\s*\[(.*?)\]', fm_text, re.MULTILINE)
+              tags            = tags_m.group(1) if tags_m else ''
 
               today      = today_for_tz(tz_name)
               is_unlocked = unlock_date <= today
@@ -151,7 +153,9 @@ jobs:
               if is_unlocked:
                   # Full transfer: include body content
                   existing = get_existing_fields(target_path)
-                  title_en = existing['title_en']
+                  # Prefer title_en set via CMS; fall back to Worker's translation in private repo
+                  title_en = existing['title_en'] or title_en_source
+                  from_en  = from_en_source
                   # Preserve revealed if already set via CMS
                   # Only preserve read_by_admin if it was set on a previous full transfer (not a stub)
                   revealed_val   = 'true' if existing['revealed'] else 'false'
@@ -200,7 +204,9 @@ jobs:
               elif show_preview:
                   # Stub only: title/sender/dates visible, no body content
                   existing = get_existing_fields(target_path)
-                  title_en = existing['title_en']
+                  # Prefer title_en set via CMS; fall back to Worker's translation in private repo
+                  title_en = existing['title_en'] or title_en_source
+                  from_en  = from_en_source
                   stub_lines = ['---', f'title: "{title}"']
                   if title_en:
                       stub_lines.append(f'title_en: "{title_en}"')

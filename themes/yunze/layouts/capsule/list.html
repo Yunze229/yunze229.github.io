@@ -185,8 +185,9 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
       <span class="lang-en">Send this letter</span>
     </button>
 
-    <div class="ct-msg" id="ct-msg" role="alert" aria-live="polite"></div>
   </div>
+
+  <div class="ct-msg" id="ct-msg" role="alert" aria-live="polite"></div>
 </div>
 
 <script>
@@ -261,13 +262,22 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
       let data;
       try { data = await res.json(); } catch { data = {}; }
       if (res.ok) {
-        showMsg('ok',
-          '信已寄出，将于 ' + unlock + ' 开封。',
-          'Letter sealed. Opens on ' + unlock + '.'
-        );
+        // Collapse the panel and show success on the toggle button area
+        const panel  = document.getElementById('ct-panel');
+        const toggle = document.getElementById('ct-toggle');
+        panel.hidden = true;
+        toggle.setAttribute('aria-expanded', 'false');
         document.getElementById('ct-sender').value = '';
         document.getElementById('ct-title').value  = '';
         document.getElementById('ct-body').value   = '';
+        // Show success message below the toggle button
+        const msg = document.getElementById('ct-msg');
+        msg.className = 'ct-msg ct-msg--ok';
+        msg.innerHTML =
+          '<span class="lang-zh">信已寄出，将于 ' + unlock + ' 开封。</span>' +
+          '<span class="lang-en">Letter sealed. Opens on ' + unlock + '.</span>';
+        msg.hidden = false;
+        msg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       } else {
         showMsg('err', data.error || '提交失败，请稍后再试', data.error || 'Submission failed, please try again');
       }
