@@ -53,5 +53,64 @@
 
     CMS.registerPreviewTemplate('posts', PostPreview);
   </script>
+
+  <script>
+  // Guard: disable "confirmed read" toggle in capsule entries before unlock date
+  (function() {
+    function guardReadToggle() {
+      if (!window.location.hash.includes('/collections/capsule/entries/')) return;
+
+      // Find unlock_date value from any visible input
+      let unlockDate = null;
+      document.querySelectorAll('input').forEach(function(inp) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test((inp.value || '').trim())) {
+          const container = inp.closest('div[class]');
+          if (container && container.textContent.includes('开封日')) {
+            unlockDate = inp.value.trim();
+          }
+        }
+      });
+      if (!unlockDate) return;
+
+      const today = new Date().toISOString().slice(0, 10);
+      if (unlockDate <= today) {
+        // Unlock date passed — remove any existing guard warning
+        const existing = document.querySelector('.cms-guard-warn');
+        if (existing) existing.remove();
+        return;
+      }
+
+      // Find the read_by_admin toggle by its label text
+      document.querySelectorAll('label, span').forEach(function(el) {
+        if (!el.textContent.includes('确认已读')) return;
+        const field = el.closest('div[class]');
+        if (!field) return;
+
+        const toggle = field.querySelector('input[type="checkbox"], [role="switch"], button[aria-checked]');
+        if (toggle) {
+          toggle.disabled = true;
+          toggle.style.opacity = '0.4';
+          toggle.style.pointerEvents = 'none';
+        }
+        if (!field.querySelector('.cms-guard-warn')) {
+          const warn = document.createElement('p');
+          warn.className = 'cms-guard-warn';
+          warn.style.cssText = 'color:#c0392b;font-size:0.82em;margin:4px 0 0;';
+          warn.textContent = '⚠️ 尚未到开封日（' + unlockDate + '），不可提前确认已读';
+          field.appendChild(warn);
+        }
+      });
+    }
+
+    let lastHash = '';
+    setInterval(function() {
+      if (window.location.hash !== lastHash) {
+        lastHash = window.location.hash;
+        setTimeout(guardReadToggle, 1200);
+      }
+      guardReadToggle();
+    }, 800);
+  })();
+  </script>
 </body>
 </html>

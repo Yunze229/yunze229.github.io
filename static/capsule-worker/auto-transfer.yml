@@ -87,10 +87,10 @@ jobs:
               return (datetime.now(timezone.utc) + delta).date().isoformat()
 
           def get_existing_fields(path):
-              """Return dict with title_en, revealed, read_by_admin from the existing main-repo file."""
+              """Return dict with title_en, revealed, read_by_admin, has_body from the existing main-repo file."""
               url = f'https://api.github.com/repos/{MAIN_REPO}/contents/{path}'
               status, data = gh_request('GET', url)
-              result = {'title_en': None, 'revealed': False, 'read_by_admin': False}
+              result = {'title_en': None, 'revealed': False, 'read_by_admin': False, 'has_body': False}
               if status == 200 and 'content' in data:
                   existing = base64.b64decode(data['content']).decode()
                   m = re.search(r'^title_en:\s*["\']?(.*?)["\']?\s*$', existing, re.MULTILINE)
@@ -98,6 +98,10 @@ jobs:
                       result['title_en'] = m.group(1).strip()
                   result['revealed']      = bool(re.search(r'^revealed:\s*true\s*$', existing, re.MULTILINE))
                   result['read_by_admin'] = bool(re.search(r'^read_by_admin:\s*true\s*$', existing, re.MULTILINE))
+                  # Detect whether existing file is a full transfer (has body) vs stub (empty body)
+                  body_m = re.match(r'^---\n.*?\n---\n?(.*)', existing, re.DOTALL)
+                  if body_m and body_m.group(1).strip():
+                      result['has_body'] = True
               return result
 
           letters_dir = 'letters'
@@ -148,9 +152,10 @@ jobs:
                   # Full transfer: include body content
                   existing = get_existing_fields(target_path)
                   title_en = existing['title_en']
-                  # Preserve revealed/read_by_admin if already set via CMS
-                  revealed_val     = 'true' if existing['revealed'] else 'false'
-                  read_admin_val   = 'true' if existing.get('read_by_admin') else 'false'
+                  # Preserve revealed if already set via CMS
+                  # Only preserve read_by_admin if it was set on a previous full transfer (not a stub)
+                  revealed_val   = 'true' if existing['revealed'] else 'false'
+                  read_admin_val = 'true' if (existing.get('read_by_admin') and existing.get('has_body')) else 'false'
                   fm_lines = ['---', f'title: "{title}"']
                   if title_en:
                       fm_lines.append(f'title_en: "{title_en}"')
