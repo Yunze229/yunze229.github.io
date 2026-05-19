@@ -1,7 +1,8 @@
 countries:
-  - code: "CN"
-    name_zh: "中国"
-    name_en: "China"
+  - code: CN
+    name_zh: 中国
+    name_en: China
+    year: 2016
     cities_zh:
       - 浙江
       - 上海
@@ -10,28 +11,32 @@ countries:
       - Zhejiang
       - Shanghai
       - Beijing
-    year: 2016
-  - code: "US"
-    name_zh: "美国"
-    name_en: "United States"
+      - Hangzhou
+    notes_zh: ''
+    notes_en: ''
+  - code: US
+    name_zh: 美国
+    name_en: United States
+    year: 2020
     cities_zh:
       - 加州尔湾
     cities_en:
       - Irvine, CA
-    year: 2020
-  - code: "SG"
-    name_zh: "新加坡"
-    name_en: "Singapore"
+    notes_zh: ''
+    notes_en: ''
+  - code: SG
+    name_zh: 新加坡
+    name_en: Singapore
+    year: 2019
     cities_zh:
       - 新加坡
     cities_en:
       - Singapore
-    year: 2019
-  - code: "ES"
-    name_zh: "西班牙"
-    name_en: "Spain"
+  - code: ES
+    name_zh: 西班牙
+    name_en: Spain
+    year: 2024
     cities_zh:
       - 西班牙
     cities_en:
       - Spain
-    year: 2024
