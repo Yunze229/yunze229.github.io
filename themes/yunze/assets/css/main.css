@@ -1090,3 +1090,40 @@ a.gear-name:hover { text-decoration: underline; }
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+
+/* ── Map / Footprint ──────────────────────────────────── */
+#world-map { width: 100%; height: 420px; border-radius: 8px; margin-bottom: 32px; background: var(--code-bg); }
+
+.countries-list { display: flex; flex-direction: column; margin-top: 8px; }
+
+.country-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.country-item:first-child { border-top: 1px solid var(--border); }
+
+.country-name { font-weight: 600; font-size: 1rem; min-width: 90px; }
+
+.country-right { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+
+.country-cities { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.city-tag {
+  font-size: 0.78rem;
+  background: var(--code-bg);
+  color: var(--fg-muted);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.country-meta { font-size: 0.82rem; color: var(--fg-muted); }
+
+.country-notes { font-size: 0.82rem; color: var(--fg-muted); font-style: italic; }
+
+@media (max-width: 600px) {
+  #world-map { height: 260px; }
+  .country-item { flex-wrap: wrap; }
+}
