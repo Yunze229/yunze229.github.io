@@ -1,7 +1,6 @@
 {{- $pages := where .Site.RegularPages "Section" "posts" -}}
 {{- $pages = where $pages "Params.private" "ne" true -}}
 {{- $pages = where $pages "Params.draft" "ne" true -}}
-<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>{{ .Site.Title }}</title>
