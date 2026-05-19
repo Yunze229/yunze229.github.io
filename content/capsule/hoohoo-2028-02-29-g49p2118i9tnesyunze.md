@@ -6,5 +6,5 @@ unlock_date: 2028-02-29
 from: 妈妈
 from_en: Mom
 read_by_admin: true
-revealed: false
+revealed: true
 ---
