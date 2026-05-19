@@ -117,29 +117,13 @@
           target.closest('.modal') ||
           target.closest('[data-modal]')) return;
 
-      // Only intercept toggle-like elements (not plain buttons, to avoid false positives)
+      // Only intercept elements with an explicit toggle ARIA role or checkbox input.
+      // Never match plain <button> or <input type="text"> to avoid false positives.
       var toggle = (
         target.closest('[role="switch"]') ||
         target.closest('[role="checkbox"]') ||
         target.closest('input[type="checkbox"]')
       );
-      // Also catch <button> elements that are DIRECTLY inside a guarded field
-      // (within 4 DOM levels, not 15, to avoid catching unrelated buttons)
-      if (!toggle) {
-        var btn = target.closest('button');
-        if (btn) {
-          var node = btn.parentElement;
-          for (var d = 0; d < 4; d++) {
-            if (!node) break;
-            var t = node.textContent || '';
-            for (var j = 0; j < GUARDED.length; j++) {
-              if (t.includes(GUARDED[j])) { toggle = btn; break; }
-            }
-            if (toggle) break;
-            node = node.parentElement;
-          }
-        }
-      }
       if (!toggle) return;
 
       var label = nearGuardedLabel(target);
