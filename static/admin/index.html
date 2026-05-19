@@ -157,13 +157,71 @@
       });
     }
 
+    // ── Unlock-date field: always read-only ────────────────────────────────
+    var _lockedInput = null;
+
+    function lockUnlockDateInput() {
+      if (!window.location.hash.includes('capsule')) { _lockedInput = null; return; }
+      var unlockDate = getUnlockDate();
+      if (!unlockDate) return;
+
+      // Re-apply readonly if we already found it
+      if (_lockedInput && document.body.contains(_lockedInput)) {
+        _lockedInput.readOnly = true;
+        return;
+      }
+
+      // Find by exact value match first (most reliable)
+      var found = null;
+      document.querySelectorAll('input').forEach(function(inp) {
+        if (found) return;
+        if ((inp.value || '').trim() === unlockDate) found = inp;
+      });
+
+      // Fallback: find by "开封日" ancestor label (shallow)
+      if (!found) {
+        document.querySelectorAll('input').forEach(function(inp) {
+          if (found) return;
+          var node = inp.parentElement;
+          for (var i = 0; i < 5; i++) {
+            if (!node || node === document.body) break;
+            var t = (node.textContent || '').trim();
+            if (t.includes('开封日') && t.length < 120) { found = inp; break; }
+            node = node.parentElement;
+          }
+        });
+      }
+
+      if (!found) return;
+      _lockedInput = found;
+      found.readOnly = true;
+      found.style.cursor = 'not-allowed';
+      found.style.opacity = '0.6';
+      found.title = '开封日期不可修改';
+    }
+
+    // Block keydown + paste on the locked input
+    document.addEventListener('keydown', function(e) {
+      if (_lockedInput && e.target === _lockedInput) {
+        e.preventDefault(); e.stopImmediatePropagation();
+      }
+    }, true);
+    document.addEventListener('paste', function(e) {
+      if (_lockedInput && e.target === _lockedInput) {
+        e.preventDefault(); e.stopImmediatePropagation();
+      }
+    }, true);
+
+    // ── Polling ─────────────────────────────────────────────────────────────
     var lastHash = '';
     setInterval(function() {
       var h = window.location.hash;
       if (h !== lastHash) {
         lastHash = h;
-        setTimeout(injectWarnings, 1200);
+        _lockedInput = null;
+        setTimeout(function() { injectWarnings(); lockUnlockDateInput(); }, 1200);
       }
+      lockUnlockDateInput();
     }, 400);
   })();
   </script>
