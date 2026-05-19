@@ -66,40 +66,52 @@ jobs:
               continue
             fm_text, body = m.group(1), m.group(2).strip()
 
-            # Only translate letters with actual body content
-            if not body:
-              print(f'  [SKIP] {filepath}: no body (stub)')
-              continue
-
             title    = fm_get(fm_text, 'title')
             from_p   = fm_get(fm_text, 'from')
             title_en = fm_get(fm_text, 'title_en')
             from_en  = fm_get(fm_text, 'from_en')
             body_en  = fm_get(fm_text, 'body_en')
 
+            is_stub = not body
+
             needs_title_en = not title_en
             needs_from_en  = not from_en
-            needs_body_en  = not body_en
+            needs_body_en  = not body_en and not is_stub  # stubs have no body to translate
 
             if not (needs_title_en or needs_from_en or needs_body_en):
               print(f'  [SKIP] {filepath}: already translated')
               continue
 
+            # Stubs only need title/from translated — skip if both are already set
+            if is_stub and not (needs_title_en or needs_from_en):
+              print(f'  [SKIP] {filepath}: stub, title/from already translated')
+              continue
+
             print(f'  [TRANSLATE] {filepath}')
 
-            prompt = (
-              "以下是家人写给孩子的一封信（孩子的优势语言是英文）。"
-              "请翻译成自然、温暖的英文，保留原文的情感和语气。\n\n"
-              "严格按如下格式返回，不要添加其他内容：\n\n"
-              "TITLE: [标题英文]\n"
-              "FROM: [写信人英文称谓，妈妈→Mom，爸爸→Dad，爷爷→Grandpa，奶奶→Grandma，Yunze保持不变]\n"
-              "---BODY---\n"
-              "[正文英文翻译，保留Markdown格式]\n"
-              "---END---\n\n"
-              f"标题：{title}\n"
-              f"写信人：{from_p}\n"
-              f"正文：\n{body}"
-            )
+            if is_stub:
+              prompt = (
+                "请将以下中文信件标题和写信人翻译成英文。\n\n"
+                "严格按如下格式返回，不要添加其他内容：\n\n"
+                "TITLE: [标题英文]\n"
+                "FROM: [写信人英文称谓，妈妈→Mom，爸爸→Dad，爷爷→Grandpa，奶奶→Grandma，Yunze保持不变]\n\n"
+                f"标题：{title}\n"
+                f"写信人：{from_p}"
+              )
+            else:
+              prompt = (
+                "以下是家人写给孩子的一封信（孩子的优势语言是英文）。"
+                "请翻译成自然、温暖的英文，保留原文的情感和语气。\n\n"
+                "严格按如下格式返回，不要添加其他内容：\n\n"
+                "TITLE: [标题英文]\n"
+                "FROM: [写信人英文称谓，妈妈→Mom，爸爸→Dad，爷爷→Grandpa，奶奶→Grandma，Yunze保持不变]\n"
+                "---BODY---\n"
+                "[正文英文翻译，保留Markdown格式]\n"
+                "---END---\n\n"
+                f"标题：{title}\n"
+                f"写信人：{from_p}\n"
+                f"正文：\n{body}"
+              )
 
             req = urllib.request.Request(
               'https://api.anthropic.com/v1/messages',
@@ -126,13 +138,16 @@ jobs:
             f_match = re.search(r'^FROM:\s*(.+)$', resp_text, re.MULTILINE)
             b_match = re.search(r'---BODY---\s*(.*?)\s*---END---', resp_text, re.DOTALL)
 
-            if not (t_match and f_match and b_match):
+            if not (t_match and f_match):
               print(f'  [ERROR] Parse failed: {resp_text[:300]}')
+              continue
+
+            if needs_body_en and not b_match:
+              print(f'  [ERROR] Body parse failed: {resp_text[:300]}')
               continue
 
             t_val = t_match.group(1).strip().strip('"')
             f_val = f_match.group(1).strip().strip('"')
-            b_val = b_match.group(1).strip()
 
             # Insert fields into frontmatter (preserve existing structure)
             if needs_title_en:
@@ -141,7 +156,8 @@ jobs:
             if needs_from_en:
               safe = f_val.replace('"', '\\"')
               fm_text = insert_after(fm_text, 'from', f'from_en: "{safe}"')
-            if needs_body_en:
+            if needs_body_en and b_match:
+              b_val = b_match.group(1).strip()
               indented = '\n'.join(('  ' + l) if l.strip() else '' for l in b_val.splitlines())
               fm_text = fm_text.rstrip('\n') + '\nbody_en: |\n' + indented
 
