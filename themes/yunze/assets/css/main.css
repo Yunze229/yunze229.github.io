@@ -1005,11 +1005,10 @@ a:hover {
 
 .gear-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
 }
-@media (max-width: 720px) { .gear-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 480px) { .gear-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .gear-grid { grid-template-columns: 1fr; } }
 
 .gear-card {
   display: flex;
