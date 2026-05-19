@@ -1,0 +1,76 @@
+{{ define "main" }}
+<div style="max-width:520px;">
+  <div style="margin-bottom:28px;">
+    <h1 style="font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;margin-bottom:6px;">
+      <span class="lang-zh">订阅</span>
+      <span class="lang-en">Subscribe</span>
+    </h1>
+    <p style="color:var(--fg-muted);font-size:0.9rem;">
+      <span class="lang-zh">通过 RSS 订阅，新文章自动推送到你的阅读器</span>
+      <span class="lang-en">Subscribe via RSS — new posts delivered to your reader automatically</span>
+    </p>
+  </div>
+
+  <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:24px 28px;margin-bottom:20px;">
+    <div style="font-size:0.8rem;color:var(--fg-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">
+      <span class="lang-zh">RSS 订阅地址</span>
+      <span class="lang-en">RSS Feed URL</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <code id="feed-url" style="flex:1;background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:0.88rem;word-break:break-all;">https://yunze229.github.io/index.xml</code>
+      <button id="copy-btn" onclick="copyFeed()" style="flex-shrink:0;padding:10px 16px;background:var(--accent,#e07b54);color:#fff;border:none;border-radius:6px;font-size:0.85rem;cursor:pointer;font-weight:500;">
+        <span class="lang-zh">复制</span>
+        <span class="lang-en">Copy</span>
+      </button>
+    </div>
+  </div>
+
+  <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:24px 28px;margin-bottom:20px;">
+    <div style="font-size:0.8rem;color:var(--fg-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:14px;">
+      <span class="lang-zh">怎么用？</span>
+      <span class="lang-en">How to subscribe</span>
+    </div>
+    <ol style="padding-left:1.2em;line-height:2;font-size:0.9rem;color:var(--fg-muted);">
+      <li>
+        <span class="lang-zh">下载一个 RSS 阅读器，推荐 <strong>Reeder</strong>（iOS/Mac）或 <strong>Feedly</strong>（网页/Android）</span>
+        <span class="lang-en">Get an RSS reader — <strong>Reeder</strong> (iOS/Mac) or <strong>Feedly</strong> (web/Android) are great</span>
+      </li>
+      <li>
+        <span class="lang-zh">复制上方订阅地址</span>
+        <span class="lang-en">Copy the feed URL above</span>
+      </li>
+      <li>
+        <span class="lang-zh">在阅读器里粘贴，点击「添加」</span>
+        <span class="lang-en">Paste it in the reader and click "Add"</span>
+      </li>
+      <li>
+        <span class="lang-zh">以后每次 Yunze 发新文章，阅读器自动通知你</span>
+        <span class="lang-en">You'll get notified automatically whenever Yunze publishes something new</span>
+      </li>
+    </ol>
+  </div>
+
+  <a href="/index.xml" target="_blank" style="display:inline-flex;align-items:center;gap:6px;color:var(--fg-muted);font-size:0.85rem;text-decoration:none;">
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor" stroke="none"/></svg>
+    <span class="lang-zh">直接查看 RSS 原文件</span>
+    <span class="lang-en">View raw RSS feed</span>
+  </a>
+</div>
+
+<script>
+function copyFeed() {
+  var url = document.getElementById('feed-url').textContent.trim();
+  navigator.clipboard.writeText(url).then(function() {
+    var btn = document.getElementById('copy-btn');
+    var zh = btn.querySelector('.lang-zh');
+    var en = btn.querySelector('.lang-en');
+    if (zh) zh.textContent = '已复制';
+    if (en) en.textContent = 'Copied!';
+    setTimeout(function() {
+      if (zh) zh.textContent = '复制';
+      if (en) en.textContent = 'Copy';
+    }, 2000);
+  });
+}
+</script>
+{{ end }}
