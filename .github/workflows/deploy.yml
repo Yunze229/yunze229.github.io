@@ -58,16 +58,24 @@ jobs:
               if not os.path.exists(page):
                   print(f'[SKIP] {slug}: built page not found')
                   continue
+              size_before = os.path.getsize(page)
               r = subprocess.run(
                   ['npx', '--yes', 'staticrypt@3', page,
                    '--password', password, '-o', page],
                   capture_output=True, text=True
               )
+              print(f'  stdout: {r.stdout.strip()}')
+              print(f'  stderr: {r.stderr.strip()[:200]}')
+              size_after = os.path.getsize(page)
+              print(f'  file size: {size_before} → {size_after}')
+              with open(page) as fv:
+                  snippet = fv.read(120)
+              print(f'  first 120 chars: {repr(snippet)}')
               if r.returncode == 0:
                   print(f'[ENCRYPTED] {slug}')
                   encrypted += 1
               else:
-                  print(f'[ERROR] {slug}:\n{r.stderr}')
+                  print(f'[ERROR] {slug}: returncode={r.returncode}')
                   sys.exit(1)
 
           print(f'Done. {encrypted} private posts encrypted.')
