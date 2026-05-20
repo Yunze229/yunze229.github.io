@@ -150,6 +150,14 @@ TITLE: [翻译后的标题]
 根因：hxz49 不是主库管理员
 修正：从 GitHub Actions UI 触发，或切换 Yunze229 账号
 
+### E17：translate.yml git push 被并发 deploy.yml 抢先（T5 测试发现，2026-05-20）
+根因：translate.yml 翻译完成后直接 `git push`，与同时触发的 deploy.yml 竞争，push 被拒（fetch first）
+修正：translate.yml 的 "Commit translations" 步骤加 `git pull --rebase`，先同步再推送（commit `855020a`）
+
+### E18：T8 设计文档与实际 Worker 不符
+根因：文档描述 T8 测试 USER_MAP 密码认证，但实际 Worker 代码无此机制；认证靠 Turnstile（未激活则放行）
+修正：T8 改为测字段校验（缺必填字段→400，格式错误→400，正确→200），文档同步更正
+
 ---
 
 ## 五、关键配置
