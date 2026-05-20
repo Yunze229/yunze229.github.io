@@ -58,25 +58,22 @@ jobs:
               if not os.path.exists(page):
                   print(f'[SKIP] {slug}: built page not found')
                   continue
-              size_before = os.path.getsize(page)
+              import tempfile, shutil
+              tmp_dir = tempfile.mkdtemp()
+              tmp_out = os.path.join(tmp_dir, 'index.html')
               r = subprocess.run(
                   ['npx', '--yes', 'staticrypt@3', page,
-                   '--password', password, '-o', page],
+                   '--password', password, '-o', tmp_out],
                   capture_output=True, text=True
               )
-              print(f'  stdout: {r.stdout.strip()}')
-              print(f'  stderr: {r.stderr.strip()[:200]}')
-              size_after = os.path.getsize(page)
-              print(f'  file size: {size_before} → {size_after}')
-              with open(page) as fv:
-                  snippet = fv.read(120)
-              print(f'  first 120 chars: {repr(snippet)}')
-              if r.returncode == 0:
+              if r.returncode == 0 and os.path.exists(tmp_out) and os.path.getsize(tmp_out) > 0:
+                  shutil.copy(tmp_out, page)
                   print(f'[ENCRYPTED] {slug}')
                   encrypted += 1
               else:
-                  print(f'[ERROR] {slug}: returncode={r.returncode}')
+                  print(f'[ERROR] {slug}: rc={r.returncode} stdout={r.stdout[:200]} stderr={r.stderr[:200]}')
                   sys.exit(1)
+              shutil.rmtree(tmp_dir, ignore_errors=True)
 
           print(f'Done. {encrypted} private posts encrypted.')
           PYEOF
