@@ -208,3 +208,211 @@ TITLE: [翻译后的标题]
 | 低 | 时光胶囊防乱写（候选：白名单+共享密码） |
 | 低 | 成长时间轴页面 |
 | 低 | 教 yunze 用 git |
+
+---
+
+## 八、API 配置详细步骤
+
+> 从零搭建时，按此顺序操作。
+
+---
+
+### 8.1 Anthropic API Key
+
+1. 打开 https://console.anthropic.com → 登录 dyz229 账号
+2. 左侧菜单 → **API Keys** → **Create Key**
+3. 名称填 `yunze-blog`，复制生成的 `sk-ant-api03-...`
+4. 添加到主库 Secrets（见 8.6）：`ANTHROPIC_API_KEY`
+5. **安全提示**：Key 只显示一次，立即粘贴到 Secrets，不要存本地文件
+
+---
+
+### 8.2 Resend（hxz49 账号）——时光胶囊邮件
+
+**用途**：新信件提交通知 + 开封通知（发往 hxz49@hotmail.com）
+
+1. 打开 https://resend.com → 用 hxz49@hotmail.com 注册
+2. 左侧 **API Keys** → **Create API Key**，名称 `yunze-capsule`，权限选 **Full access**
+3. 复制 Key（`re_...`）
+4. 添加到私库 Secrets：`RESEND_API_KEY`
+5. 添加到 Cloudflare Worker Secrets：`RESEND_API_KEY`（见 8.4）
+6. **发件域名**：目前用 `onboarding@resend.dev`（Resend 测试域名，无需验证）
+   - 如需自定义发件人，左侧 **Domains** → Add Domain → 按提示加 DNS 记录
+
+---
+
+### 8.3 Resend（dyz229 账号）——AI审查邮件
+
+**用途**：AI 草稿建议发往 dyz229@outlook.com，开封通知抄送 dyz229
+
+1. 打开 https://resend.com → 用 dyz229@outlook.com 注册（或已有账号登录）
+2. 左侧 **API Keys** → **Create API Key**，名称 `yunze-ai-review`
+3. 复制 Key
+4. 添加到主库 Secrets：`RESEND_API_KEY_2`
+5. 添加到私库 Secrets：`RESEND_API_KEY_2`
+
+---
+
+### 8.4 Cloudflare Worker 配置
+
+**两个 Worker**：
+- `yunze-capsule`（时光胶囊表单）→ yunze-capsule.dyz229.workers.dev
+- `yunze-cms-auth`（CMS OAuth）→ yunze-cms-auth.dyz229.workers.dev
+
+#### 部署 yunze-capsule Worker
+
+1. 打开 https://dash.cloudflare.com → 登录 dyz229 账号
+2. 左侧 **Workers & Pages** → **Create** → **Create Worker**
+3. 名称填 `yunze-capsule`，点 **Deploy**
+4. 进入 Worker → **Edit Code** → 粘贴 `static/capsule-worker/worker.js` 的内容 → **Save and Deploy**
+
+#### 添加 Worker Secrets
+
+进入 Worker → **Settings** → **Variables** → **Add variable**（类型选 **Secret**）：
+
+| Secret 名 | 值 | 说明 |
+|---|---|---|
+| `RESEND_API_KEY` | hxz49 账号的 Resend Key | 发提交通知邮件 |
+| `GITHUB_TOKEN` | hxz49 的 GitHub PAT（见 8.5） | 写私库 letters/ |
+| `USER_MAP` | JSON 字符串（见下方格式） | 家人身份认证 |
+| `TURNSTILE_SECRET` | Cloudflare Turnstile 密钥（见 8.7） | 防机器人（待激活） |
+
+**USER_MAP 格式**：
+```json
+{
+  "爷爷": "1234",
+  "奶奶": "5678",
+  "爸爸": "9012",
+  "外公": "3456",
+  "外婆": "7890"
+}
+```
+key = 姓名（下拉选项），value = 手机末4位
+
+#### 绑定 KV（速率限制存储）
+
+1. 左侧 **KV** → **Create namespace**，名称 `capsule-rate-limit`
+2. 回到 Worker → **Settings** → **Bindings** → **Add binding**
+3. 类型选 **KV Namespace**，变量名填 `RATE_LIMIT_KV`，选刚创建的 namespace
+
+---
+
+### 8.5 GitHub Personal Access Tokens（PAT）
+
+需要创建两个 PAT，分别用于两个方向的跨库写入。
+
+#### PAT 1：MAIN_REPO_TOKEN（私库用，写主库）
+
+1. 登录 **Yunze229** GitHub 账号
+2. 右上角头像 → **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**
+3. 配置：
+   - Token name：`capsule-main-repo-write`
+   - Expiration：**No expiration**（或1年，到期后需更新）
+   - Resource owner：**Yunze229**
+   - Repository access：**Only select repositories** → 选 `yunze229.github.io`
+   - Permissions → **Contents**：**Read and write**
+4. 点 **Generate token**，复制 token
+5. 添加到 **私库** `hxz49/yunze-letters` Secrets：`MAIN_REPO_TOKEN`
+
+#### PAT 2：LETTERS_PAT（主库用，读私库）
+
+1. 登录 **hxz49** GitHub 账号
+2. 同上路径 → **Fine-grained tokens** → **Generate new token**
+3. 配置：
+   - Token name：`capsule-letters-read`
+   - Resource owner：**hxz49**
+   - Repository access：选 `yunze-letters`
+   - Permissions → **Contents**：**Read and write**（需要写 transferred:true）
+4. 复制 token
+5. 添加到 **主库** `Yunze229/yunze229.github.io` Secrets：`LETTERS_PAT`
+
+#### PAT 3：Cloudflare Worker 用的 GITHUB_TOKEN
+
+1. 登录 **hxz49** 账号
+2. 创建 Fine-grained token，仓库选 `yunze-letters`，权限 Contents: **Read and write**
+3. 复制后添加到 Cloudflare Worker Secrets：`GITHUB_TOKEN`
+
+---
+
+### 8.6 GitHub Secrets 添加方法
+
+#### 主库（Yunze229/yunze229.github.io）
+1. 打开 https://github.com/Yunze229/yunze229.github.io
+2. **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+
+需要添加的 Secrets：
+| Secret 名 | 来源 |
+|---|---|
+| `ANTHROPIC_API_KEY` | 8.1 |
+| `RESEND_API_KEY_2` | 8.3（dyz229 账号） |
+| `LETTERS_PAT` | 8.5 PAT2 |
+
+#### 私库（hxz49/yunze-letters）
+1. 打开 https://github.com/hxz49/yunze-letters
+2. 同上路径
+
+需要添加的 Secrets：
+| Secret 名 | 来源 |
+|---|---|
+| `MAIN_REPO_TOKEN` | 8.5 PAT1 |
+| `RESEND_API_KEY` | 8.2（hxz49 账号） |
+| `RESEND_API_KEY_2` | 8.3（dyz229 账号） |
+
+---
+
+### 8.7 Cloudflare Turnstile（待激活）
+
+**当前状态**：Worker 代码已写好，但 site key 和 secret key 未填入，Turnstile 校验被跳过。
+
+激活步骤：
+1. 打开 https://dash.cloudflare.com → **Turnstile** → **Add site**
+2. Site name：`yunze-capsule`，Domain：`dyz229.workers.dev`（或绑定的自定义域名）
+3. Widget type：**Managed**（自动判断人机）
+4. 点 **Create** → 得到两个值：
+   - **Site Key**（公开）→ 填入 `hugo.toml`：`turnstile_site_key = "0x4AAAA..."`
+   - **Secret Key**（私密）→ 添加到 Cloudflare Worker Secrets：`TURNSTILE_SECRET`
+5. 重新部署 Worker
+
+---
+
+### 8.8 Sveltia CMS OAuth（Cloudflare Worker）
+
+**用途**：CMS 后台 `/admin` 登录用 GitHub OAuth
+
+**Worker**：`yunze-cms-auth`（yunze-cms-auth.dyz229.workers.dev）
+
+1. **创建 GitHub OAuth App**：
+   - 登录 Yunze229 账号 → Settings → Developer settings → **OAuth Apps** → **New OAuth App**
+   - Application name：`yunze-cms`
+   - Homepage URL：`https://yunze229.github.io`
+   - Callback URL：`https://yunze-cms-auth.dyz229.workers.dev/callback`
+   - 点 **Register** → 得到 Client ID 和 Client Secret
+
+2. **添加到 CMS Auth Worker Secrets**：
+   - `GITHUB_CLIENT_ID`：上一步的 Client ID
+   - `GITHUB_CLIENT_SECRET`：上一步的 Client Secret
+
+3. **hugo.toml 中配置**：
+```toml
+[params]
+  cms_backend = "https://yunze-cms-auth.dyz229.workers.dev"
+```
+
+---
+
+### 8.9 从零搭建检查清单
+
+按顺序操作，每步完成打勾：
+
+- [ ] 8.1 Anthropic API Key → 主库 ANTHROPIC_API_KEY
+- [ ] 8.2 Resend hxz49 账号 → 私库 RESEND_API_KEY + Worker RESEND_API_KEY
+- [ ] 8.3 Resend dyz229 账号 → 主库 RESEND_API_KEY_2 + 私库 RESEND_API_KEY_2
+- [ ] 8.5 PAT1（MAIN_REPO_TOKEN）→ 私库 Secret
+- [ ] 8.5 PAT2（LETTERS_PAT）→ 主库 Secret
+- [ ] 8.5 PAT3（Worker GITHUB_TOKEN）→ Cloudflare Worker Secret
+- [ ] 8.4 创建 KV namespace capsule-rate-limit，绑定到 Worker
+- [ ] 8.4 填写 USER_MAP（家人名单+手机末4位）→ Worker Secret
+- [ ] 8.4 部署 yunze-capsule Worker
+- [ ] 8.8 创建 GitHub OAuth App，部署 yunze-cms-auth Worker
+- [ ] 8.7 激活 Turnstile（待办）
+- [ ] 验证：提交测试信件 → 私库出现文件 → 主库出现 stub → 收到邮件
