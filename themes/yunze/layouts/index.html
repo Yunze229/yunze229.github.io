@@ -10,8 +10,6 @@
   </div>
 </div>
 
-{{ partial "contribution-graph.html" . }}
-
 {{ $pages := where .Site.RegularPages "Section" "posts" }}
 {{ $pages = where $pages "Params.private" "ne" true }}
 {{ $pages = $pages | first 50 }}
@@ -53,4 +51,6 @@
   </div>
   {{ end }}
 {{ end }}
+
+{{ partial "contribution-graph.html" . }}
 {{ end }}
