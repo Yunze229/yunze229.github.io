@@ -50,15 +50,13 @@ jobs:
                 continue
               fi
               TMPDIR=$(mktemp -d)
-              npx --yes staticrypt@3 "$PAGE" --password "$PRIVATE_PASS" -d "$TMPDIR" 2>&1
-              echo "staticrypt output dir contents:"
-              ls -la "$TMPDIR/"
+              npx --yes staticrypt@3 "$PAGE" --password "$PRIVATE_PASS" --short -d "$TMPDIR" 2>&1
               if [ -f "$TMPDIR/index.html" ]; then
                 cp "$TMPDIR/index.html" "$PAGE"
                 echo "[ENCRYPTED] $SLUG"
                 ENCRYPTED=$((ENCRYPTED+1))
               else
-                echo "[ERROR] $SLUG: encrypted file not found"
+                echo "[ERROR] $SLUG: encrypted file not found in $TMPDIR"
                 exit 1
               fi
               rm -rf "$TMPDIR"
