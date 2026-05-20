@@ -278,7 +278,7 @@ TITLE: [翻译后的标题]
 | 优先级 | 问题 |
 |---|---|
 | 高 | 时光胶囊表单大陆可访问（workers.dev 被 GFW 封，需绑自定义域名） |
-| 中 | Cloudflare Turnstile 激活（代码已写，需填 site key + secret key） |
+| ✅ | Cloudflare Turnstile 已激活（site key 在 hugo.toml，TURNSTILE_SECRET 已加到 Worker，2026-05-20） |
 | 中 | 私密文章真正加密（现在直接输 URL 可访问） |
 | 低 | 时光胶囊防乱写（候选：白名单+共享密码） |
 | 低 | 成长时间轴页面 |
