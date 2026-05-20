@@ -10,6 +10,8 @@
   </div>
 </div>
 
+{{ partial "contribution-graph.html" . }}
+
 {{ $pages := where .Site.RegularPages "Section" "posts" }}
 {{ $pages = where $pages "Params.private" "ne" true }}
 {{ $pages = $pages | first 50 }}
@@ -51,63 +53,4 @@
   </div>
   {{ end }}
 {{ end }}
-
-{{/* Writing heatmap */}}
-{{ $allPages := where .Site.RegularPages "Params.private" "ne" true }}
-{{ $dates := slice }}
-{{ range $allPages }}{{ $dates = $dates | append (.Date.Format "2006-01-02") }}{{ end }}
-<script id="heatmap-dates" type="application/json">{{ $dates | jsonify | safeHTML }}</script>
-<div class="heatmap-section">
-  <div class="heatmap-label">
-    <span class="lang-zh">写作记录</span>
-    <span class="lang-en">Writing activity</span>
-  </div>
-  <div id="heatmap" class="heatmap"></div>
-</div>
-
-<script>
-(function() {
-  const raw = document.getElementById('heatmap-dates').textContent;
-  const parsed = JSON.parse(raw);
-  const dates = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
-  const counts = {};
-  dates.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
-
-  const container = document.getElementById('heatmap');
-  const today = new Date();
-  const start = new Date(today);
-  start.setDate(start.getDate() - 364);
-  start.setDate(start.getDate() - start.getDay());
-
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const levels = isDark
-    ? ['#222', '#444', '#666', '#999', '#e8e8e8']
-    : ['#eeece9', '#d0cdc8', '#a0a09a', '#606060', '#1a1a1a'];
-
-  const weeks = document.createDocumentFragment();
-  let d = new Date(start);
-
-  while (d <= today) {
-    const col = document.createElement('div');
-    col.className = 'heatmap-col';
-    for (let i = 0; i < 7; i++) {
-      const cell = document.createElement('div');
-      cell.className = 'heatmap-cell';
-      if (d <= today) {
-        const key = d.toISOString().slice(0, 10);
-        const c = counts[key] || 0;
-        const lvl = c === 0 ? 0 : c === 1 ? 1 : c === 2 ? 2 : c === 3 ? 3 : 4;
-        cell.style.background = levels[lvl];
-        cell.title = key + (c ? ' · ' + c + ' post' + (c > 1 ? 's' : '') : '');
-      } else {
-        cell.style.background = 'transparent';
-      }
-      col.appendChild(cell);
-      d.setDate(d.getDate() + 1);
-    }
-    weeks.appendChild(col);
-  }
-  container.appendChild(weeks);
-})();
-</script>
 {{ end }}
