@@ -1,5 +1,9 @@
 # 时光胶囊 + 博客系统完整知识库
 
+> **邮箱占位符说明**
+> - `ADMIN_EMAIL`：妈妈管理员邮箱（hxz49 账号）
+> - `NOTIFY_EMAIL`：通知邮箱（dyz229 账号）
+
 ## 一、系统架构
 
 ```
@@ -13,7 +17,7 @@ Cloudflare Worker (yunze-capsule.dyz229.workers.dev)
 每天 UTC 09:00 → capsule-unlock.yml
   unlock_date<=today AND transferred:false
     ├──► 写完整内容到主库 (read_by_admin:false, revealed:false)
-    ├──► 发邮件 hxz49@hotmail.com + dyz229@outlook.com (含中英文正文)
+    ├──► 发邮件 ADMIN_EMAIL + NOTIFY_EMAIL (含中英文正文)
     └──► 私库标记 transferred:true
 
 CMS 管理员：read_by_admin:true → revealed:true → 公开
@@ -57,7 +61,7 @@ concurrency:
 
 文章内容：{content}
 ```
-模型：claude-sonnet-4-6，max_tokens:1024，结果→dyz229@outlook.com
+模型：claude-sonnet-4-6，max_tokens:1024，结果→NOTIFY_EMAIL
 
 ### 博客文章翻译（translate.yml）
 ```
@@ -170,9 +174,9 @@ TITLE: [翻译后的标题]
 ### 邮件路由
 | 事件 | 收件人 |
 |---|---|
-| 新信件提交 | hxz49@hotmail.com |
-| 信件到期开封 | hxz49 + dyz229@outlook.com |
-| AI 草稿建议 | dyz229@outlook.com（不让 Yunze 看） |
+| 新信件提交 | ADMIN_EMAIL |
+| 信件到期开封 | hxz49 + NOTIFY_EMAIL |
+| AI 草稿建议 | NOTIFY_EMAIL（不让 Yunze 看） |
 
 ---
 
@@ -195,6 +199,70 @@ TITLE: [翻译后的标题]
 方法：创建 unlock_date=今天 的测试信件，手动触发 capsule-unlock.yml
 验证：主库包含正文 → 两个邮箱收信 → CMS 可切换 revealed
 结果：修复英文字段写入 bug 后 ✅
+
+### T5：博客文章翻译（translate.yml）
+方法：在 content/posts/ 新建英文文章，commit push 到 main
+验证：Actions 页查看 translate.yml 运行 → data/translations/<slug>.yaml 生成 → 博客页面中文标题显示正常
+预期日志：`Saved: data/translations/xxx.yaml`
+结果：待测试
+
+### T6：AI 草稿建议（ai-review.yml）
+方法：新建 draft:true 的文章，用 CMS 或本地开 PR
+验证：ai-review.yml 触发 → NOTIFY_EMAIL 收到"📝 AI 草稿建议"邮件，含 3-5 条中文建议
+注意：只在 PR 时触发，直接 push 不触发
+结果：待测试
+
+### T7：时光胶囊信件翻译（capsule-translate.yml）
+方法：手动触发 capsule-translate.yml（workflow_dispatch）
+验证：content/capsule/ 下信件文件新增 title_en / from_en / body_en 字段
+预期日志：`[TRANSLATE] xxx.md`
+结果：待测试
+
+### T8：Worker 身份验证
+方法：用 curl 分别测试（1）正确姓名+正确末4位；（2）正确姓名+错误密码；（3）不存在的姓名
+```bash
+# 正确凭证（应200）
+curl -X POST https://yunze-capsule.dyz229.workers.dev/submit \
+  -H "Content-Type: application/json" \
+  -d '{"from":"爷爷","password":"1234","title":"测试","body":"内容","unlock_date":"2030-01-01"}'
+
+# 错误密码（应401）
+curl -X POST https://yunze-capsule.dyz229.workers.dev/submit \
+  -H "Content-Type: application/json" \
+  -d '{"from":"爷爷","password":"0000","title":"测试","body":"内容","unlock_date":"2030-01-01"}'
+```
+验证：正确返回 `{"ok":true}`，错误返回 `{"error":"..."}`（均为 JSON，非 HTML）
+结果：待测试
+
+### T9：Worker 速率限制
+方法：同一 IP 1分钟内连续发送 6 次提交
+```bash
+for i in {1..6}; do
+  curl -s -X POST https://yunze-capsule.dyz229.workers.dev/submit \
+    -H "Content-Type: application/json" \
+    -d '{"from":"爷爷","password":"1234","title":"速率测试'$i'","body":"内容","unlock_date":"2030-01-01"}'
+  echo ""
+done
+```
+验证：前5次成功（`{"ok":true}`），第6次返回 429 限速响应
+结果：待测试
+
+### T10：屏蔽名单（capsule-suppress.yml）
+方法：在主库 content/capsule/ 删除一个 capsule 文件，commit push
+验证：capsule-suppress.yml 触发 → static/capsule-suppressed.txt 新增该 slug → 再次触发 auto-transfer.yml，该信件显示 [SKIP] suppressed
+结果：待测试（suppression 机制已验证可用，suppress.yml 自动触发路径未做完整测试）
+
+### T11：CMS 完整公开流程
+方法：等一封信件到期开封后，在 /admin 完整走一遍：
+1. 收到开封邮件，确认包含中英文正文
+2. 打开 CMS → 时光胶囊 → 找到该信件
+3. 切换 `read_by_admin` → true（守卫允许，因为 unlock_date 已过）
+4. 切换 `revealed` → true
+5. 保存，等待 deploy.yml 完成
+6. 打开博客 /capsule/ 页面，确认信件全文可见
+验证：六步全部通过，公开后信件在博客正确显示
+结果：待测试（各步骤单独验证过，完整链路未连贯测试）
+
 
 ---
 
@@ -229,9 +297,9 @@ TITLE: [翻译后的标题]
 
 ### 8.2 Resend（hxz49 账号）——时光胶囊邮件
 
-**用途**：新信件提交通知 + 开封通知（发往 hxz49@hotmail.com）
+**用途**：新信件提交通知 + 开封通知（发往 ADMIN_EMAIL）
 
-1. 打开 https://resend.com → 用 hxz49@hotmail.com 注册
+1. 打开 https://resend.com → 用 ADMIN_EMAIL 注册
 2. 左侧 **API Keys** → **Create API Key**，名称 `yunze-capsule`，权限选 **Full access**
 3. 复制 Key（`re_...`）
 4. 添加到私库 Secrets：`RESEND_API_KEY`
@@ -243,9 +311,9 @@ TITLE: [翻译后的标题]
 
 ### 8.3 Resend（dyz229 账号）——AI审查邮件
 
-**用途**：AI 草稿建议发往 dyz229@outlook.com，开封通知抄送 dyz229
+**用途**：AI 草稿建议发往 NOTIFY_EMAIL，开封通知抄送 dyz229
 
-1. 打开 https://resend.com → 用 dyz229@outlook.com 注册（或已有账号登录）
+1. 打开 https://resend.com → 用 NOTIFY_EMAIL 注册（或已有账号登录）
 2. 左侧 **API Keys** → **Create API Key**，名称 `yunze-ai-review`
 3. 复制 Key
 4. 添加到主库 Secrets：`RESEND_API_KEY_2`
