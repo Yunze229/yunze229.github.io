@@ -1,16 +1,12 @@
 ---
-title: 测试1
-title_en: Testing 1
+title: "测试1"
+title_en: "Testing 1"
 date: 2026-05-19
-unlock_date: 2026-05-20
-from: 妈妈
-from_en: "Mom"
-from_en: ''
+unlock_date: "2026-05-20"
+from: "妈妈"
+tags: []
 read_by_admin: true
 revealed: false
-tags: []
-body_en: |
-  Content 2
 ---
 
 内容2
