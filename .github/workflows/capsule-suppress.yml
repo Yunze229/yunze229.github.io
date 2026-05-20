@@ -1,0 +1,82 @@
+name: Auto Suppress Deleted Capsule Letters
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'content/capsule/**.md'
+
+jobs:
+  suppress:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect deletions and update suppressed list
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 << 'EOF'
+          import os, subprocess, json, base64, urllib.request
+
+          result = subprocess.run(
+              ['git', 'diff', '--name-status', 'HEAD~1', 'HEAD'],
+              capture_output=True, text=True
+          )
+
+          deleted_slugs = []
+          for line in result.stdout.splitlines():
+              if line.startswith('D\t') and 'content/capsule/' in line and line.endswith('.md'):
+                  path = line[2:].strip()
+                  slug = path.split('/')[-1][:-3]
+                  deleted_slugs.append(slug)
+
+          if not deleted_slugs:
+              print('No capsule letters deleted in this push.')
+              exit(0)
+
+          print(f'Deleted: {deleted_slugs}')
+
+          token = os.environ['GITHUB_TOKEN']
+          repo = os.environ['GITHUB_REPOSITORY']
+          url = f'https://api.github.com/repos/{repo}/contents/data/capsule-suppressed.txt'
+
+          def api(method, data=None):
+              req = urllib.request.Request(url, method=method)
+              req.add_header('Authorization', f'Bearer {token}')
+              req.add_header('Content-Type', 'application/json')
+              req.add_header('User-Agent', 'capsule-suppress-bot')
+              try:
+                  with urllib.request.urlopen(req, json.dumps(data).encode() if data else None) as r:
+                      return r.status, json.loads(r.read())
+              except urllib.error.HTTPError as e:
+                  return e.code, json.loads(e.read())
+
+          status, existing = api('GET')
+          current = base64.b64decode(existing['content']).decode() if status == 200 else ''
+          sha = existing.get('sha') if status == 200 else None
+
+          known = set(current.strip().splitlines()) if current.strip() else set()
+          new_slugs = [s for s in deleted_slugs if s not in known]
+
+          if not new_slugs:
+              print('Already suppressed, nothing to do.')
+              exit(0)
+
+          updated = '\n'.join(sorted(known | set(new_slugs))) + '\n'
+          payload = {
+              'message': 'auto: suppress deleted capsule letter(s): ' + ', '.join(new_slugs),
+              'content': base64.b64encode(updated.encode()).decode()
+          }
+          if sha:
+              payload['sha'] = sha
+
+          status, _ = api('PUT', payload)
+          print(f'Suppressed list updated (HTTP {status}):')
+          for s in new_slugs:
+              print(f'  + {s}')
+          EOF
