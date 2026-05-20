@@ -232,5 +232,68 @@ async function handleRequest(request, env, ctx, origin) {
       );
     }
 
+    if (pathname === '/subscribe' && request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+
+    if (pathname === '/subscribe' && request.method === 'POST') {
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const rl = await checkRateLimit(env.RATE_LIMIT, ip);
+      if (!rl.allowed) {
+        return Response.json(
+          { error: `请求过于频繁，请 ${rl.retryAfter} 秒后再试 / Too many requests, retry in ${rl.retryAfter}s` },
+          { status: 429, headers: { ...corsHeaders(origin), 'Retry-After': String(rl.retryAfter) } }
+        );
+      }
+
+      let body;
+      try { body = await request.json(); } catch {
+        return Response.json({ error: '请求格式错误 / Bad request' }, { status: 400, headers: corsHeaders(origin) });
+      }
+
+      const { email, 'cf-turnstile-response': turnstile_token } = body;
+
+      const turnstileOk = await verifyTurnstile(env.TURNSTILE_SECRET, turnstile_token, ip);
+      if (!turnstileOk) {
+        return Response.json(
+          { error: '人机验证未通过，请刷新页面重试 / Verification failed, please refresh and try again' },
+          { status: 400, headers: corsHeaders(origin) }
+        );
+      }
+
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return Response.json(
+          { error: '邮箱格式不正确 / Invalid email address' },
+          { status: 400, headers: corsHeaders(origin) }
+        );
+      }
+
+      const subKey = `sub:${email.toLowerCase()}`;
+      const existing = await env.RATE_LIMIT.get(subKey);
+      if (existing) {
+        return Response.json(
+          { message: '您已订阅 / Already subscribed' },
+          { headers: corsHeaders(origin) }
+        );
+      }
+
+      await env.RATE_LIMIT.put(subKey, new Date().toISOString());
+
+      ctx.waitUntil(
+        sendEmail(
+          env.RESEND_API_KEY,
+          `📧 新订阅：${email}`,
+          `<p>有新读者订阅了 Yunze 的博客。</p>
+           <p><strong>邮箱：</strong>${email}</p>
+           <p><strong>时间：</strong>${new Date().toISOString()}</p>`
+        ).catch(e => console.error('Email error:', e))
+      );
+
+      return Response.json(
+        { message: '订阅成功！期待与你分享新内容 / Subscribed! Excited to share new content with you' },
+        { headers: corsHeaders(origin) }
+      );
+    }
+
     return new Response('Not Found', { status: 404 });
 }
