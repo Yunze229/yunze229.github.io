@@ -169,7 +169,7 @@ Fix: Added `git pull --rebase` before `git push` in all three workflows (commit 
 
 ### E20: Worker missing /subscribe endpoint — newsletter form always returns 404 (found 2026-05-20 code audit)
 Cause: subscribe/list.html newsletter form POSTs to `{capsule_api}/subscribe`, but Worker only handles `/submit` → 404
-Status: **Not yet fixed** — requires deciding whether to implement email subscription (storage, confirmation emails, etc.)
+Fix: Added /subscribe POST endpoint to Worker — stores email in RATE_LIMIT KV (key=sub:{email}, permanent), returns "Already subscribed" for duplicates, sends admin notification email. Deployed via wrangler deploy (commit b334cf2, 2026-05-20)
 
 ---
 

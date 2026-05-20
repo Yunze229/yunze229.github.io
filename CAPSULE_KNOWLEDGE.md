@@ -164,7 +164,7 @@ TITLE: [翻译后的标题]
 
 ### E20：Worker 缺少 /subscribe 端点，订阅表单永远 404（2026-05-20 代码审查发现）
 根因：subscribe/list.html 中的 newsletter 表单向 `{capsule_api}/subscribe` 发 POST，但 Worker 只有 `/submit`，返回 404
-现状：**未修复**，需决定是否实现订阅功能（存储邮件地址、发确认邮件等）
+修正：Worker 加 /subscribe POST 端点，邮箱存 RATE_LIMIT KV（key=sub:{email}，永久），重复订阅返回"已订阅"，新订阅发邮件通知 NOTIFY_EMAIL（commit b334cf2，2026-05-20 wrangler deploy 生效）
 
 ---
 
