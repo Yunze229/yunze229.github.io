@@ -168,6 +168,9 @@ jobs:
 
               if is_unlocked:
                   # Full transfer: include body content
+                  if is_stub_suppressed(slug):
+                      print(f'  [SKIP] {fname}: suppressed (manually deleted)')
+                      continue
                   existing = get_existing_fields(target_path)
                   # Prefer title_en set via CMS; fall back to Worker's translation in private repo
                   title_en = existing['title_en'] or title_en_source
