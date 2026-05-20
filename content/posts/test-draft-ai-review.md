@@ -1,14 +1,14 @@
 ---
-title: "我的第一篇测试文章"
+title: "My Minecraft House"
 date: 2026-05-20
 draft: true
-tags: ["测试"]
+tags: ["gaming"]
 ---
 
-今天我想写一篇关于我最喜欢的游戏的文章。
+Today I want to write about Minecraft. Minecraft is a really really fun game. I like it a lot. I play it every day.
 
-我喜欢玩 Minecraft。Minecraft 是一个很好玩的游戏。我在里面建了很多东西。
+I builded a house in Minecraft. The house is really big. It have a lot of rooms. I put a lot of stuff in it like beds and chests and torches.
 
-我建了一个房子。房子很大。房子里有很多东西。
+One time I get attack by a creeper and it blowed up part of my house. I was so mad. But then I fix it and it look even better than before.
 
-我觉得 Minecraft 很好玩因为可以做很多事情。我每天都想玩。
+I think Minecraft is the best game because you can do anything you want. You can build or fight or explore. I love exploring caves because you find a lot of cool things down there.
