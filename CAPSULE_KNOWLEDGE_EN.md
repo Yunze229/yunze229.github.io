@@ -163,6 +163,14 @@ Fix: Added `git pull --rebase` before `git push` in the "Commit translations" st
 Cause: Docs described testing USER_MAP password auth, but actual Worker has no such mechanism; auth relies on Turnstile (skipped when not configured)
 Fix: T8 redesigned to test field validation (missing fields → 400, bad date format → 400, valid → 200); docs corrected
 
+### E19: nav-sync / capsule-translate / capsule-unlock missing git pull --rebase (found 2026-05-20 code audit)
+Cause: E17 fixed translate.yml, but three other git-writing workflows (nav-sync.yml, capsule-translate.yml, capsule-unlock.yml) were not updated; nav-sync and capsule-translate trigger at the same time as deploy.yml — near-certain race
+Fix: Added `git pull --rebase` before `git push` in all three workflows (commit `4293e6a`)
+
+### E20: Worker missing /subscribe endpoint — newsletter form always returns 404 (found 2026-05-20 code audit)
+Cause: subscribe/list.html newsletter form POSTs to `{capsule_api}/subscribe`, but Worker only handles `/submit` → 404
+Status: **Not yet fixed** — requires deciding whether to implement email subscription (storage, confirmation emails, etc.)
+
 ---
 
 ## 5. Key Configuration

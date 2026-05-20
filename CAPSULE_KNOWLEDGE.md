@@ -158,6 +158,14 @@ TITLE: [翻译后的标题]
 根因：文档描述 T8 测试 USER_MAP 密码认证，但实际 Worker 代码无此机制；认证靠 Turnstile（未激活则放行）
 修正：T8 改为测字段校验（缺必填字段→400，格式错误→400，正确→200），文档同步更正
 
+### E19：nav-sync / capsule-translate / capsule-unlock 缺 git pull --rebase（2026-05-20 代码审查发现）
+根因：E17 修了 translate.yml，但另外三个写 git 的 workflow（nav-sync.yml、capsule-translate.yml、capsule-unlock.yml）未同步修正，仍是直接 `git push`；nav-sync 和 capsule-translate 与 deploy.yml 同时触发，必然竞争
+修正：三个 workflow 的 commit 步骤均加 `git pull --rebase`（commit `4293e6a`）
+
+### E20：Worker 缺少 /subscribe 端点，订阅表单永远 404（2026-05-20 代码审查发现）
+根因：subscribe/list.html 中的 newsletter 表单向 `{capsule_api}/subscribe` 发 POST，但 Worker 只有 `/submit`，返回 404
+现状：**未修复**，需决定是否实现订阅功能（存储邮件地址、发确认邮件等）
+
 ---
 
 ## 五、关键配置
