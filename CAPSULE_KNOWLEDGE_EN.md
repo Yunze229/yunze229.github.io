@@ -10,7 +10,7 @@
 Family member submits form
     ▼
 Cloudflare Worker (yunze-capsule.dyz229.workers.dev)
-  Auth (USER_MAP) + Rate limiting + Turnstile
+  Rate limiting + Turnstile bot verification
     ├──► hxz49/yunze-letters/letters/<slug>.md  [Private repo — invisible to Yunze]
     └──► Main repo content/capsule/<slug>.md    [Stub — no body content]
 
@@ -35,7 +35,7 @@ CMS admin: read_by_admin: true → revealed: true → Published on blog
 | translate.yml | push(content/posts/**.md) | Translate English blog posts to Chinese |
 | ai-review.yml | push to main (draft: true file) | Claude reviews draft → email |
 | capsule-suppress.yml | push (capsule file deleted) | Auto-add deleted slug to suppression list |
-| deploy.yml | push(main) | Hugo build → GitHub Pages |
+| deploy.yml | push(main) | Hugo build + staticrypt encrypt private posts → GitHub Pages |
 
 **Critical config in auto-transfer.yml:**
 ```yaml
@@ -160,7 +160,7 @@ Cause: translate.yml commits translation then immediately `git push`; races agai
 Fix: Added `git pull --rebase` before `git push` in the "Commit translations" step (commit `855020a`)
 
 ### E18: T8 test design didn't match actual Worker
-Cause: Docs described testing USER_MAP password auth, but actual Worker has no such mechanism; auth relies on Turnstile (skipped when not configured)
+Cause: Docs described testing USER_MAP password auth, but actual Worker has no such mechanism; auth relies on Turnstile (was skipped when not configured; now active)
 Fix: T8 redesigned to test field validation (missing fields → 400, bad date format → 400, valid → 200); docs corrected
 
 ### E19: nav-sync / capsule-translate / capsule-unlock missing git pull --rebase (found 2026-05-20 code audit)
@@ -355,7 +355,7 @@ Worker → **Settings** → **Variables** → **Add variable** (type: **Secret**
 | `RESEND_API_KEY` | hxz49's Resend key | Send submission notification email |
 | `GITHUB_TOKEN` | hxz49 GitHub PAT (see 8.5) | Write to private repo letters/ |
 | `USER_MAP` | JSON string (see format below) | Family member authentication |
-| `TURNSTILE_SECRET` | Cloudflare Turnstile secret key (see 8.7) | Bot protection (pending activation) |
+| `TURNSTILE_SECRET` | Cloudflare Turnstile secret key (see 8.7) | Bot protection (active) |
 
 **USER_MAP format:**
 ```json
@@ -494,5 +494,5 @@ Complete in order; check off each step:
 - [ ] 8.4 Fill in USER_MAP (family names + last 4 digits of phone) → Worker Secret
 - [ ] 8.4 Deploy yunze-capsule Worker
 - [ ] 8.8 Create GitHub OAuth App; deploy yunze-cms-auth Worker
-- [ ] 8.7 Activate Turnstile (pending)
+- [x] 8.7 Activate Turnstile (done 2026-05-20)
 - [ ] Verify: submit test letter → private repo gets file → main repo gets stub → email received

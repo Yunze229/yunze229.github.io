@@ -10,7 +10,7 @@
 家人提交表单
     ▼
 Cloudflare Worker (yunze-capsule.dyz229.workers.dev)
-  验证身份(USER_MAP) + 速率限制 + Turnstile
+  速率限制 + Turnstile 人机验证
     ├──► hxz49/yunze-letters/letters/<slug>.md  【私库，Yunze不可见】
     └──► 主库 content/capsule/<slug>.md  【stub，无正文】
 
@@ -35,7 +35,7 @@ CMS 管理员：read_by_admin:true → revealed:true → 公开
 | translate.yml | push(content/posts/**.md) | 博客文章英→中翻译 |
 | ai-review.yml | PR opened（draft:true） | Claude 审查草稿→邮件 |
 | capsule-suppress.yml | push（capsule文件被删） | 自动加入屏蔽名单 |
-| deploy.yml | push(main) | Hugo 构建→GitHub Pages |
+| deploy.yml | push(main) | Hugo 构建 + private:true 文章 staticrypt 加密 → GitHub Pages |
 
 **auto-transfer.yml 关键配置：**
 ```yaml
@@ -155,7 +155,7 @@ TITLE: [翻译后的标题]
 修正：translate.yml 的 "Commit translations" 步骤加 `git pull --rebase`，先同步再推送（commit `855020a`）
 
 ### E18：T8 设计文档与实际 Worker 不符
-根因：文档描述 T8 测试 USER_MAP 密码认证，但实际 Worker 代码无此机制；认证靠 Turnstile（未激活则放行）
+根因：文档描述 T8 测试 USER_MAP 密码认证，但实际 Worker 代码无此机制；认证靠 Turnstile（当时未激活则放行，现已激活）
 修正：T8 改为测字段校验（缺必填字段→400，格式错误→400，正确→200），文档同步更正
 
 ### E19：nav-sync / capsule-translate / capsule-unlock 缺 git pull --rebase（2026-05-20 代码审查发现）
@@ -238,7 +238,7 @@ TITLE: [翻译后的标题]
 结果：✅ 1 封翻译（`[TRANSLATE] hoohoo-2028-02-29-...`），3 封已跳过（`[SKIP] already translated`）
 
 ### T8：Worker 字段校验
-**注意**：当前 Worker 无密码/USER_MAP 机制，认证靠 Turnstile（未激活则放行）。T8 测字段校验和格式校验。
+**注意**：当前 Worker 无密码/USER_MAP 机制，认证靠 Turnstile（已激活，TURNSTILE_SECRET 已配置）。T8 测字段校验和格式校验。
 方法：(1) 缺 title 字段 → 期望 400；(2) unlock_date 格式错误 → 期望 400；(3) 所有字段正确 → 期望 200
 结果：✅ 三种情况全部符合预期
 - 缺字段 → `{"error":"请填写所有必填项 / All fields are required"}` (400)
@@ -279,7 +279,7 @@ TITLE: [翻译后的标题]
 |---|---|
 | 高 | 时光胶囊表单大陆可访问（workers.dev 被 GFW 封，需绑自定义域名） |
 | ✅ | Cloudflare Turnstile 已激活（site key 在 hugo.toml，TURNSTILE_SECRET 已加到 Worker，2026-05-20） |
-| 中 | 私密文章真正加密（现在直接输 URL 可访问） |
+| ✅ | 私密文章 staticrypt 加密（deploy.yml 构建后自动加密，直接输 URL 弹密码框，密码存 PRIVATE_PASS Secret，2026-05-20） |
 | 低 | 时光胶囊防乱写（候选：白名单+共享密码） |
 | 低 | 成长时间轴页面 |
 | 低 | 教 yunze 用 git |
@@ -350,7 +350,7 @@ TITLE: [翻译后的标题]
 | `RESEND_API_KEY` | hxz49 账号的 Resend Key | 发提交通知邮件 |
 | `GITHUB_TOKEN` | hxz49 的 GitHub PAT（见 8.5） | 写私库 letters/ |
 | `USER_MAP` | JSON 字符串（见下方格式） | 家人身份认证 |
-| `TURNSTILE_SECRET` | Cloudflare Turnstile 密钥（见 8.7） | 防机器人（待激活） |
+| `TURNSTILE_SECRET` | Cloudflare Turnstile 密钥（见 8.7） | 防机器人（已激活） |
 
 **USER_MAP 格式**：
 ```json
@@ -435,9 +435,9 @@ key = 姓名（下拉选项），value = 手机末4位
 
 ---
 
-### 8.7 Cloudflare Turnstile（待激活）
+### 8.7 Cloudflare Turnstile（已激活）
 
-**当前状态**：Worker 代码已写好，但 site key 和 secret key 未填入，Turnstile 校验被跳过。
+**当前状态**：已激活。site key 在 hugo.toml，TURNSTILE_SECRET 已加到 Worker，两个表单（/submit + /subscribe）均需通过验证。
 
 激活步骤：
 1. 打开 https://dash.cloudflare.com → **Turnstile** → **Add site**
@@ -489,5 +489,5 @@ key = 姓名（下拉选项），value = 手机末4位
 - [ ] 8.4 填写 USER_MAP（家人名单+手机末4位）→ Worker Secret
 - [ ] 8.4 部署 yunze-capsule Worker
 - [ ] 8.8 创建 GitHub OAuth App，部署 yunze-cms-auth Worker
-- [ ] 8.7 激活 Turnstile（待办）
+- [x] 8.7 激活 Turnstile（已完成 2026-05-20）
 - [ ] 验证：提交测试信件 → 私库出现文件 → 主库出现 stub → 收到邮件
