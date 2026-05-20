@@ -107,15 +107,17 @@ collections:
         hint: "AI自动填写，如：Mom / Dad / Grandpa / Grandma"
       - label: "信的内容（中文）"
         name: "body"
-        widget: "hidden"
+        widget: "markdown"
+        required: false
       - label: "信的内容（英文）"
         name: "body_en"
-        widget: "hidden"
+        widget: "text"
+        required: false
       - label: "✅ 确认已读"
         name: "read_by_admin"
         widget: "boolean"
         default: false
-        hint: "请先查收开封通知邮件，读完信件内容后再勾选"
+        hint: "读完信件内容后勾选"
       - label: "🌐 公开到博客"
         name: "revealed"
         widget: "boolean"
