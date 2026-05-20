@@ -70,6 +70,15 @@ jobs:
               status, result = gh_request('PUT', url, payload)
               return status, result
 
+          def is_stub_suppressed(slug):
+              """Return True if this stub was manually deleted and should not be recreated."""
+              url = f'https://api.github.com/repos/{MAIN_REPO}/contents/data/capsule-suppressed.txt'
+              status, data = gh_request('GET', url)
+              if status != 200 or 'content' not in data:
+                  return False
+              suppressed = base64.b64decode(data['content']).decode()
+              return slug in suppressed.splitlines()
+
           def send_email(subject, html):
               req = urllib.request.Request('https://api.resend.com/emails', method='POST')
               req.add_header('Authorization', f'Bearer {resend_key}')
@@ -125,21 +134,28 @@ jobs:
                   continue
               fm_text, body = m.group(1), m.group(2).strip()
 
+              import yaml as _yaml
+              try:
+                  fm = _yaml.safe_load(fm_text) or {}
+              except Exception:
+                  fm = {}
+
               def fm_get(key):
-                  r = re.search(rf'^{key}:\s*["\']?(.*?)["\']?\s*$', fm_text, re.MULTILINE)
-                  return r.group(1).strip() if r else ''
+                  v = fm.get(key, '')
+                  return str(v).strip() if v is not None else ''
 
               if fm_get('transferred') == 'true':
                   continue
 
               title           = fm_get('title')
-              title_en_source = fm_get('title_en')   # translated title from private repo
+              title_en_source = fm_get('title_en')
               from_person     = fm_get('from')
-              from_en_source  = fm_get('from_en')    # translated sender from private repo
+              from_en_source  = fm_get('from_en')
+              body_en_source  = str(fm.get('body_en') or '').strip()
               unlock_date     = fm_get('unlock_date')
               date_written    = fm_get('date')
               tz_name         = fm_get('tz') or 'Asia/Shanghai'
-              show_preview    = fm_get('show_preview') != 'false'
+              show_preview    = fm.get('show_preview', True) is not False
               tags_m          = re.search(r'^tags:\s*\[(.*?)\]', fm_text, re.MULTILINE)
               tags            = tags_m.group(1) if tags_m else ''
 
@@ -167,11 +183,21 @@ jobs:
                       f'date: {date_written}',
                       f'unlock_date: "{unlock_date}"',
                       f'from: "{from_person}"',
+                  ]
+                  if from_en:
+                      fm_lines.append(f'from_en: "{from_en}"')
+                  fm_lines += [
                       f'tags: [{tags}]',
                       f'read_by_admin: {read_admin_val}',
                       f'revealed: {revealed_val}',
-                      '---', '', body,
                   ]
+                  if body_en_source:
+                      if '\n' in body_en_source:
+                          fm_lines.append('body_en: |')
+                          fm_lines += ['  ' + line for line in body_en_source.splitlines()]
+                      else:
+                          fm_lines.append(f'body_en: "{body_en_source}"')
+                  fm_lines += ['---', '', body]
                   new_content = '\n'.join(fm_lines)
                   status, result = gh_put_file(
                       target_path, new_content,
@@ -203,6 +229,9 @@ jobs:
 
               elif show_preview:
                   # Stub only: title/sender/dates visible, no body content
+                  if is_stub_suppressed(slug):
+                      print(f'  [SKIP] {fname}: suppressed (manually deleted)')
+                      continue
                   existing = get_existing_fields(target_path)
                   # Prefer title_en set via CMS; fall back to Worker's translation in private repo
                   title_en = existing['title_en'] or title_en_source
@@ -214,9 +243,10 @@ jobs:
                       f'date: {date_written}',
                       f'unlock_date: "{unlock_date}"',
                       f'from: "{from_person}"',
-                      'revealed: false',
-                      '---', '',
                   ]
+                  if from_en:
+                      stub_lines.append(f'from_en: "{from_en}"')
+                  stub_lines += ['revealed: false', '---', '']
                   stub_content = '\n'.join(stub_lines)
                   status, result = gh_put_file(
                       target_path, stub_content,
