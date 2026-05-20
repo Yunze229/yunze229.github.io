@@ -29,6 +29,51 @@ jobs:
       - name: Build
         run: hugo --minify
 
+      - name: Encrypt private posts
+        env:
+          PRIVATE_PASS: ${{ secrets.PRIVATE_PASS }}
+        run: |
+          python3 << 'PYEOF'
+          import os, re, subprocess, sys
+
+          password = os.environ.get('PRIVATE_PASS', '').strip()
+          if not password:
+              print('PRIVATE_PASS not set — skipping encryption')
+              sys.exit(0)
+
+          posts_dir = 'content/posts'
+          public_dir = 'public/posts'
+          encrypted = 0
+
+          for fname in sorted(os.listdir(posts_dir)):
+              if not fname.endswith('.md'):
+                  continue
+              with open(os.path.join(posts_dir, fname)) as f:
+                  content = f.read()
+              if not re.search(r'^private:\s*true', content, re.MULTILINE):
+                  continue
+              slug_m = re.search(r'^slug:\s*["\']?([^\s"\']+)["\']?', content, re.MULTILINE)
+              slug = slug_m.group(1) if slug_m else fname[:-3]
+              page = os.path.join(public_dir, slug, 'index.html')
+              if not os.path.exists(page):
+                  print(f'[SKIP] {slug}: built page not found')
+                  continue
+              out_dir = os.path.dirname(page)
+              r = subprocess.run(
+                  ['npx', '--yes', 'staticrypt@3', page,
+                   '--password', password, '-d', out_dir],
+                  capture_output=True, text=True
+              )
+              if r.returncode == 0:
+                  print(f'[ENCRYPTED] {slug}')
+                  encrypted += 1
+              else:
+                  print(f'[ERROR] {slug}:\n{r.stderr}')
+                  sys.exit(1)
+
+          print(f'Done. {encrypted} private posts encrypted.')
+          PYEOF
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -44,3 +89,9 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Trigger Newsletter Broadcast
+        run: |
+          curl -X POST https://yunze-capsule.dyz229.workers.dev/broadcast \
+            -H "Content-Type: application/json" \
+            -d '{"secret": "${{ secrets.BROADCAST_SECRET }}"}'
