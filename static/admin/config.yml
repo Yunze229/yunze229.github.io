@@ -109,10 +109,12 @@ collections:
         name: "body"
         widget: "markdown"
         required: false
+        readonly: true
       - label: "信的内容（英文）"
         name: "body_en"
         widget: "text"
         required: false
+        readonly: true
       - label: "✅ 确认已读"
         name: "read_by_admin"
         widget: "boolean"
