@@ -1,14 +1,12 @@
 ---
-title: "My Minecraft House"
+title: "我的生日派对"
 date: 2026-05-20
 draft: true
-tags: ["gaming"]
+tags: ["生活"]
 ---
 
-Today I want to write about Minecraft. Minecraft is a really really fun game. I like it a lot. I play it every day.
+今天是我的生日。我们去了一个很好玩的地方。那里有很多游戏可以玩，还有好吃的蛋糕。
 
-I builded a house in Minecraft. The house is really big. It have a lot of rooms. I put a lot of stuff in it like beds and chests and torches.
+我邀请了我的朋友们来。我们一起玩了很多游戏。我赢了好几次，感觉很开心。我的朋友也赢了，我们都很高兴。
 
-One time I get attack by a creeper and it blowed up part of my house. I was so mad. But then I fix it and it look even better than before.
-
-I think Minecraft is the best game because you can do anything you want. You can build or fight or explore. I love exploring caves because you find a lot of cool things down there.
+妈妈给我买了一个大蛋糕。蛋糕是巧克力味的。我觉得是我吃过最好吃的蛋糕了。我们一起唱了生日歌。
