@@ -33,50 +33,38 @@ jobs:
         env:
           PRIVATE_PASS: ${{ secrets.PRIVATE_PASS }}
         run: |
-          python3 << 'PYEOF'
-          import os, re, subprocess, sys
-
-          password = os.environ.get('PRIVATE_PASS', '').strip()
-          if not password:
-              print('PRIVATE_PASS not set — skipping encryption')
-              sys.exit(0)
-
-          posts_dir = 'content/posts'
-          public_dir = 'public/posts'
-          encrypted = 0
-
-          for fname in sorted(os.listdir(posts_dir)):
-              if not fname.endswith('.md'):
-                  continue
-              with open(os.path.join(posts_dir, fname)) as f:
-                  content = f.read()
-              if not re.search(r'^private:\s*true', content, re.MULTILINE):
-                  continue
-              slug_m = re.search(r'^slug:\s*["\']?([^\s"\']+)["\']?', content, re.MULTILINE)
-              slug = slug_m.group(1) if slug_m else fname[:-3]
-              page = os.path.join(public_dir, slug, 'index.html')
-              if not os.path.exists(page):
-                  print(f'[SKIP] {slug}: built page not found')
-                  continue
-              import tempfile, shutil
-              tmp_dir = tempfile.mkdtemp()
-              tmp_out = os.path.join(tmp_dir, 'index.html')
-              r = subprocess.run(
-                  ['npx', '--yes', 'staticrypt@3', page,
-                   '--password', password, '-o', tmp_out],
-                  capture_output=True, text=True
-              )
-              if r.returncode == 0 and os.path.exists(tmp_out) and os.path.getsize(tmp_out) > 0:
-                  shutil.copy(tmp_out, page)
-                  print(f'[ENCRYPTED] {slug}')
-                  encrypted += 1
-              else:
-                  print(f'[ERROR] {slug}: rc={r.returncode} stdout={r.stdout[:200]} stderr={r.stderr[:200]}')
-                  sys.exit(1)
-              shutil.rmtree(tmp_dir, ignore_errors=True)
-
-          print(f'Done. {encrypted} private posts encrypted.')
-          PYEOF
+          if [ -z "$PRIVATE_PASS" ]; then
+            echo "PRIVATE_PASS not set — skipping"
+            exit 0
+          fi
+          ENCRYPTED=0
+          for f in content/posts/*.md; do
+            if grep -q "^private: true" "$f"; then
+              SLUG=$(basename "$f" .md)
+              # Check for slug: override in frontmatter
+              FM_SLUG=$(grep "^slug:" "$f" | head -1 | sed "s/^slug:[ '\"]*//;s/[ '\"]*$//")
+              [ -n "$FM_SLUG" ] && SLUG="$FM_SLUG"
+              PAGE="public/posts/$SLUG/index.html"
+              if [ ! -f "$PAGE" ]; then
+                echo "[SKIP] $SLUG: $PAGE not found"
+                continue
+              fi
+              TMPDIR=$(mktemp -d)
+              npx --yes staticrypt@3 "$PAGE" --password "$PRIVATE_PASS" -d "$TMPDIR" 2>&1
+              echo "staticrypt output dir contents:"
+              ls -la "$TMPDIR/"
+              if [ -f "$TMPDIR/index.html" ]; then
+                cp "$TMPDIR/index.html" "$PAGE"
+                echo "[ENCRYPTED] $SLUG"
+                ENCRYPTED=$((ENCRYPTED+1))
+              else
+                echo "[ERROR] $SLUG: encrypted file not found"
+                exit 1
+              fi
+              rm -rf "$TMPDIR"
+            fi
+          done
+          echo "Done. $ENCRYPTED posts encrypted."
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
