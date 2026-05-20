@@ -204,8 +204,10 @@ TITLE: [翻译后的标题]
 方法：在 content/posts/ 新建英文文章，commit push 到 main
 验证：Actions 页查看 translate.yml 运行 → data/translations/<slug>.yaml 生成 → 博客页面中文标题显示正常
 预期日志：`Saved: data/translations/xxx.yaml`
-结果：翻译 API 调用成功，`data/translations/t5-translation-test.yaml` 生成 ✅；但 workflow 内 `git push` 被并发的 deploy.yml 抢先，推送失败（E6 同款 bug）⚠️
-**待修**：translate.yml 的 "Commit translations" 步骤需加 `git pull --rebase` 再 push
+结果：✅ 已修复
+- 修复：translate.yml 的 "Commit translations" 步骤加了 `git pull --rebase`（commit `855020a`）
+- 翻译 API 调用成功，`data/translations/t5-translation-test.yaml` 正确生成
+- 修复后 workflow 以 success 完成，无 push 冲突
 
 ### T6：AI 草稿建议（ai-review.yml）
 方法：新建 draft:true 的文章，push 到 main（不是开 PR，是直接 push）

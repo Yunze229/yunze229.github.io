@@ -1,7 +1,0 @@
-title: "T5翻译测试文章"
-content: |
-  这是一篇临时测试文章，用来验证英文自动翻译成中文的流程能不能正常运行。
-
-  translate.yml 这个工作流应该会检测到这个文件，然后调用 Claude API，把翻译好的版本保存到 data/translations/t5-translation-test.yaml 里面。
-
-  验证完成之后这篇文章就会被删掉啦。
