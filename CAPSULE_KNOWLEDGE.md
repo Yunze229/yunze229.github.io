@@ -204,53 +204,42 @@ TITLE: [翻译后的标题]
 方法：在 content/posts/ 新建英文文章，commit push 到 main
 验证：Actions 页查看 translate.yml 运行 → data/translations/<slug>.yaml 生成 → 博客页面中文标题显示正常
 预期日志：`Saved: data/translations/xxx.yaml`
-结果：待测试
+结果：翻译 API 调用成功，`data/translations/t5-translation-test.yaml` 生成 ✅；但 workflow 内 `git push` 被并发的 deploy.yml 抢先，推送失败（E6 同款 bug）⚠️
+**待修**：translate.yml 的 "Commit translations" 步骤需加 `git pull --rebase` 再 push
 
 ### T6：AI 草稿建议（ai-review.yml）
-方法：新建 draft:true 的文章，用 CMS 或本地开 PR
-验证：ai-review.yml 触发 → NOTIFY_EMAIL 收到"📝 AI 草稿建议"邮件，含 3-5 条中文建议
-注意：只在 PR 时触发，直接 push 不触发
-结果：待测试
+方法：新建 draft:true 的文章，push 到 main（不是开 PR，是直接 push）
+验证：ai-review.yml 触发 → NOTIFY_EMAIL 收到"📝 AI 草稿建议"邮件，含建议内容
+注意：触发条件是 push to main + draft:true，不是 PR
+结果：✅ 邮件成功发出（Resend id: 2d503068-b10e-4028-9a04-78b082d0c058）
 
 ### T7：时光胶囊信件翻译（capsule-translate.yml）
 方法：手动触发 capsule-translate.yml（workflow_dispatch）
 验证：content/capsule/ 下信件文件新增 title_en / from_en / body_en 字段
 预期日志：`[TRANSLATE] xxx.md`
-结果：待测试
+结果：✅ 1 封翻译（`[TRANSLATE] hoohoo-2028-02-29-...`），3 封已跳过（`[SKIP] already translated`）
 
-### T8：Worker 身份验证
-方法：用 curl 分别测试（1）正确姓名+正确末4位；（2）正确姓名+错误密码；（3）不存在的姓名
-```bash
-# 正确凭证（应200）
-curl -X POST https://yunze-capsule.dyz229.workers.dev/submit \
-  -H "Content-Type: application/json" \
-  -d '{"from":"爷爷","password":"1234","title":"测试","body":"内容","unlock_date":"2030-01-01"}'
-
-# 错误密码（应401）
-curl -X POST https://yunze-capsule.dyz229.workers.dev/submit \
-  -H "Content-Type: application/json" \
-  -d '{"from":"爷爷","password":"0000","title":"测试","body":"内容","unlock_date":"2030-01-01"}'
-```
-验证：正确返回 `{"ok":true}`，错误返回 `{"error":"..."}`（均为 JSON，非 HTML）
-结果：待测试
-
+### T8：Worker 字段校验
+**注意**：当前 Worker 无密码/USER_MAP 机制，认证靠 Turnstile（未激活则放行）。T8 测字段校验和格式校验。
+方法：(1) 缺 title 字段 → 期望 400；(2) unlock_date 格式错误 → 期望 400；(3) 所有字段正确 → 期望 200
+结果：✅ 三种情况全部符合预期
+- 缺字段 → `{"error":"请填写所有必填项 / All fields are required"}` (400)
+- 格式错误 → `{"error":"日期格式错误 / Invalid date"}` (400)
+- 正确 → `{"message":"信已寄出，将于 2099-01-01 开封 / Letter sealed, opens 2099-01-01"}` (200)
 ### T9：Worker 速率限制
 方法：同一 IP 1分钟内连续发送 6 次提交
-```bash
-for i in {1..6}; do
-  curl -s -X POST https://yunze-capsule.dyz229.workers.dev/submit \
-    -H "Content-Type: application/json" \
-    -d '{"from":"爷爷","password":"1234","title":"速率测试'$i'","body":"内容","unlock_date":"2030-01-01"}'
-  echo ""
-done
-```
-验证：前5次成功（`{"ok":true}`），第6次返回 429 限速响应
-结果：待测试
-
+结果：✅ 速率限制生效，但触发时机需注意：
+- **速率限制对所有请求计数，包括字段校验失败的请求**
+- T8 测试消耗了 3 次计数，T9 从第 3 次起触发 429（累计已达 5 次上限）
+- T9 第1-2次：HTTP 200 成功；第3-6次：HTTP 429 `请求过于频繁，请 ~43 秒后再试`
+- 窗口期：60 秒，上限：5次/IP（所有到达 /submit 的请求都计数，非仅成功请求）
 ### T10：屏蔽名单（capsule-suppress.yml）
-方法：在主库 content/capsule/ 删除一个 capsule 文件，commit push
-验证：capsule-suppress.yml 触发 → static/capsule-suppressed.txt 新增该 slug → 再次触发 auto-transfer.yml，该信件显示 [SKIP] suppressed
-结果：待测试（suppression 机制已验证可用，suppress.yml 自动触发路径未做完整测试）
+方法：删除 content/capsule/t8ll7rmd-2099-01-01-...md，push 到 main
+验证：capsule-suppress.yml 触发 → static/capsule-suppressed.txt 新增 slug
+结果：✅ 全链路通过
+- workflow 日志：`Deleted: ['t8ll7rmd-2099-01-01-t8uj0rltll7rmdfs1fli']`
+- `Suppressed list updated (HTTP 200): + t8ll7rmd-2099-01-01-t8uj0rltll7rmdfs1fli`
+- suppressed.txt 远端已更新
 
 ### T11：CMS 完整公开流程
 方法：等一封信件到期开封后，在 /admin 完整走一遍：
@@ -261,7 +250,7 @@ done
 5. 保存，等待 deploy.yml 完成
 6. 打开博客 /capsule/ 页面，确认信件全文可见
 验证：六步全部通过，公开后信件在博客正确显示
-结果：待测试（各步骤单独验证过，完整链路未连贯测试）
+结果：需等真实信件到期后手动测试（2026-05-21 有一封到期）
 
 
 ---
