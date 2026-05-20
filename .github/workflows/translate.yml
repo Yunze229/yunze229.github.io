@@ -146,5 +146,6 @@ jobs:
             echo "No new translations to commit"
           else
             git commit -m "Auto-translate: add Chinese translations"
+            git pull --rebase
             git push
           fi
