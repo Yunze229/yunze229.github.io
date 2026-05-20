@@ -231,5 +231,6 @@ jobs:
             echo "Nothing new to commit"
           else
             git commit -m "capsule: auto-unlock letters for $(date +%Y-%m-%d)"
+            git pull --rebase
             git push
           fi

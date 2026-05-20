@@ -177,5 +177,6 @@ jobs:
             echo "Nothing to commit"
           else
             git commit -m "auto-translate: add English translations for capsule letters"
+            git pull --rebase
             git push
           fi

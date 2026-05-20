@@ -87,5 +87,6 @@ jobs:
             echo "Nothing to commit"
           else
             git commit -m "auto: create placeholder pages for new nav items"
+            git pull --rebase
             git push
           fi
