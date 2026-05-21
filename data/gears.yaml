@@ -5,16 +5,27 @@ categories:
       - name: type.review
         url: https://type.review/
         icon_type: favicon
+        icon_emoji: ''
         desc_zh: 一款打字练习网页应用，会适应你的节奏，不干扰你——无需账户、无需服务器、无需遥测数据。自适应字母解锁 + 基准测试 + 自带文本。
         desc_en: A typing-practice web app that adapts to you and stays out of your way — no account, no server, no telemetry. Adaptive letter-unlock + benchmark runs + bring-your-own text.
         rating: 5
         status: 想试试
+      - name: Vmark
+        url: https://vmark.app/
+        icon_type: favicon
+        icon_emoji: ''
+        icon_image: ''
+        desc_zh: 与AI共舞，你从未拥有过如此好用的AI书写工具
+        desc_en: VMark is now the plain-text workspace where humans and AI collaborate
+        rating: 5
+        status: 在用
   - name_zh: 创客硬件链
     name_en: Hardware & Making
     items:
       - name: bambulab
         url: https://bambulab.com/en-us
         icon_type: favicon
+        icon_emoji: ''
         desc_zh: 拓竹打印机用无可挑剔的速度与"到手即打"的傻瓜式体验，彻底颠覆了 3D 打印行业。
         desc_en: Bambu Lab has completely revolutionized the 3D printing industry with unmatched speed and a seamless out-of-the-box printing experience.
         rating: 5
