@@ -6,15 +6,41 @@
       <span class="lang-en">Subscribe</span>
     </h1>
     <p style="color:var(--fg-muted);font-size:0.9rem;">
-      <span class="lang-zh">通过 RSS 订阅，新文章自动推送到你的阅读器</span>
-      <span class="lang-en">Subscribe via RSS — new posts delivered to your reader automatically</span>
+      <span class="lang-zh">选择你喜欢的方式，第一时间获取更新</span>
+      <span class="lang-en">Choose your preferred way to stay updated</span>
     </p>
   </div>
 
+  <!-- Newsletter Section -->
+  <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:24px 28px;margin-bottom:24px; position: relative; overflow: hidden;">
+    <div style="font-size:0.8rem;color:var(--fg-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:14px;">
+      <span class="lang-zh">邮件订阅 (Newsletter)</span>
+      <span class="lang-en">Email Newsletter</span>
+    </div>
+    
+    <form id="newsletter-form" class="newsletter-form">
+      <div style="display:flex; flex-direction: column; gap: 12px;">
+        <input type="email" id="subscriber-email" placeholder="your@email.com" required 
+          style="width:100%; background:var(--code-bg); border:1px solid var(--border); border-radius:6px; padding:12px 14px; font-size:0.95rem; color:var(--fg); outline:none;">
+        
+        <!-- Turnstile placeholder -->
+        <div id="turnstile-container"></div>
+
+        <button type="submit" id="subscribe-btn" style="width:100%; padding:12px; background:var(--fg); color:var(--bg); border:none; border-radius:6px; font-size:0.9rem; cursor:pointer; font-weight:600; transition: opacity 0.2s;">
+          <span class="lang-zh">订阅更新</span>
+          <span class="lang-en">Subscribe Now</span>
+        </button>
+      </div>
+    </form>
+    
+    <div id="subscribe-msg" style="margin-top:12px; font-size:0.85rem; display:none; padding:10px; border-radius:6px;"></div>
+  </div>
+
+  <!-- RSS Section -->
   <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:24px 28px;margin-bottom:20px;">
     <div style="font-size:0.8rem;color:var(--fg-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">
-      <span class="lang-zh">RSS 订阅地址</span>
-      <span class="lang-en">RSS Feed URL</span>
+      <span class="lang-zh">RSS 订阅</span>
+      <span class="lang-en">RSS Feed</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <code id="feed-url" style="flex:1;background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:0.88rem;word-break:break-all;">https://yunze229.github.io/index.xml</code>
@@ -25,37 +51,26 @@
     </div>
   </div>
 
+  <!-- Help Section -->
   <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:24px 28px;margin-bottom:20px;">
     <div style="font-size:0.8rem;color:var(--fg-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:14px;">
-      <span class="lang-zh">怎么用？</span>
-      <span class="lang-en">How to subscribe</span>
+      <span class="lang-zh">RSS 怎么用？</span>
+      <span class="lang-en">How to use RSS</span>
     </div>
     <ol style="padding-left:1.2em;line-height:2;font-size:0.9rem;color:var(--fg-muted);">
       <li>
-        <span class="lang-zh">下载一个 RSS 阅读器，推荐 <strong>Reeder</strong>（iOS/Mac）或 <strong>Feedly</strong>（网页/Android）</span>
-        <span class="lang-en">Get an RSS reader — <strong>Reeder</strong> (iOS/Mac) or <strong>Feedly</strong> (web/Android) are great</span>
+        <span class="lang-zh">下载阅读器，如 <strong>Reeder</strong> 或 <strong>Feedly</strong></span>
+        <span class="lang-en">Get a reader like <strong>Reeder</strong> or <strong>Feedly</strong></span>
       </li>
       <li>
-        <span class="lang-zh">复制上方订阅地址</span>
-        <span class="lang-en">Copy the feed URL above</span>
-      </li>
-      <li>
-        <span class="lang-zh">在阅读器里粘贴，点击「添加」</span>
-        <span class="lang-en">Paste it in the reader and click "Add"</span>
-      </li>
-      <li>
-        <span class="lang-zh">以后每次 Yunze 发新文章，阅读器自动通知你</span>
-        <span class="lang-en">You'll get notified automatically whenever Yunze publishes something new</span>
+        <span class="lang-zh">添加上方订阅地址即可</span>
+        <span class="lang-en">Add the feed URL above</span>
       </li>
     </ol>
   </div>
-
-  <a href="/index.xml" target="_blank" style="display:inline-flex;align-items:center;gap:6px;color:var(--fg-muted);font-size:0.85rem;text-decoration:none;">
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor" stroke="none"/></svg>
-    <span class="lang-zh">直接查看 RSS 原文件</span>
-    <span class="lang-en">View raw RSS feed</span>
-  </a>
 </div>
+
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback" defer></script>
 
 <script>
 function copyFeed() {
@@ -72,5 +87,60 @@ function copyFeed() {
     }, 2000);
   });
 }
+
+// Newsletter Logic
+window.onloadTurnstileCallback = function () {
+  if (!document.getElementById('turnstile-container')) return;
+  window.turnstile.render('#turnstile-container', {
+    sitekey: '{{ .Site.Params.turnstile_site_key | default "1x00000000000000000000AA" }}',
+    theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light',
+  });
+};
+
+document.getElementById('newsletter-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('subscriber-email').value;
+  const turnstileResponse = document.querySelector('[name="cf-turnstile-response"]').value;
+  const msgEl = document.getElementById('subscribe-msg');
+  const btn = document.getElementById('subscribe-btn');
+
+  if (!turnstileResponse) {
+    alert('Please complete the Turnstile challenge');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  msgEl.style.display = 'none';
+
+  try {
+    const response = await fetch('{{ .Site.Params.capsule_api }}/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, 'cf-turnstile-response': turnstileResponse })
+    });
+
+    const result = await response.json();
+    msgEl.style.display = 'block';
+    
+    if (response.ok) {
+      msgEl.style.background = '#e8f5e9';
+      msgEl.style.color = '#2e7d32';
+      msgEl.innerHTML = '<span class="lang-zh">订阅成功！期待与你分享新内容。</span><span class="lang-en">Subscribed! Excited to share new content with you.</span>';
+      document.getElementById('newsletter-form').reset();
+    } else {
+      throw new Error(result.message || 'Subscription failed');
+    }
+  } catch (err) {
+    msgEl.style.display = 'block';
+    msgEl.style.background = '#ffebee';
+    msgEl.style.color = '#c62828';
+    msgEl.innerHTML = `<span class="lang-zh">出错了：${err.message}</span><span class="lang-en">Error: ${err.message}</span>`;
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    if (window.turnstile) window.turnstile.reset();
+  }
+});
 </script>
 {{ end }}
