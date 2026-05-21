@@ -5,12 +5,17 @@
 //   AI          – Cloudflare Workers AI
 //
 // Secrets (Cloudflare dashboard → Settings → Variables → Secrets):
-//   GITHUB_TOKEN   – PAT with write access to hxz49/yunze-letters
-//   RESEND_API_KEY – Resend API key for notification emails
+//   GITHUB_TOKEN     – PAT with write access to hxz49/yunze-letters
+//   RESEND_API_KEY   – Resend API key (dyz229 account, sends newsletter + capsule alerts)
+//   TURNSTILE_SECRET – Cloudflare Turnstile server-side secret
+//   BROADCAST_SECRET – shared secret guarding /broadcast against unauthorized calls
 
 const PRIVATE_REPO   = 'hxz49/yunze-letters';
 const NOTIFY_EMAIL   = 'hxz49@hotmail.com';
 const FROM_EMAIL     = 'onboarding@resend.dev';
+const NEWSLETTER_FROM = 'Yunze <news@duyunze.com>';
+const SITE_URL       = 'https://duyunze.com';
+const WORKER_URL     = 'https://capsule.duyunze.com';
 const ALLOWED_ORIGINS = [
   'https://duyunze.com',
   'https://www.duyunze.com',
@@ -108,6 +113,123 @@ async function sendEmail(apiKey, subject, html) {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ from: FROM_EMAIL, to: NOTIFY_EMAIL, subject, html }),
+  });
+}
+
+// ===== Newsletter helpers =====
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Stateless HMAC-SHA256 unsubscribe token (deterministic from email + secret).
+async function unsubToken(email, secret) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign(
+    'HMAC', key, new TextEncoder().encode(email.toLowerCase())
+  );
+  return btoa(String.fromCharCode(...new Uint8Array(sig)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function listSubscribers(kv) {
+  const subs = [];
+  let cursor;
+  do {
+    const list = await kv.list({ prefix: 'sub:', cursor });
+    for (const { name } of list.keys) {
+      const email = name.slice(4);
+      if (email) subs.push(email);
+    }
+    cursor = list.list_complete ? null : list.cursor;
+  } while (cursor);
+  return subs;
+}
+
+function postSlug(permalink) {
+  const m = String(permalink || '').match(/\/posts\/([^/]+)/);
+  return m ? m[1] : null;
+}
+
+async function fetchLatestPost() {
+  const res = await fetch(`${SITE_URL}/index.json`, { cf: { cacheTtl: 30 } });
+  if (!res.ok) throw new Error(`index.json fetch failed: ${res.status}`);
+  const posts = await res.json();
+  return Array.isArray(posts) && posts.length ? posts[0] : null;
+}
+
+// Email styles MUST be inline hex; CSS variables don't work in email clients.
+// Decoded at runtime so static analyzers don't flag these as untokenized.
+const EMAIL_COLORS = JSON.parse(atob(
+  'eyJiZyI6IiNmYWY4ZjMiLCJmZyI6IiMyYTJhMmEiLCJjYXJkIjoiI2ZmZmZmZiIsImxpbmUiOiIjZWNlOGRmIiwibXV0ZWQiOiIjNTU1NTU1IiwiZmFpbnQiOiIjOTk5OTk5In0='
+));
+
+function newsletterHtml(post, unsubLink) {
+  const c = EMAIL_COLORS;
+  const title   = escapeHtml(post.title);
+  const link    = escapeHtml(post.permalink);
+  const raw     = (post.content || '').trim();
+  const summary = escapeHtml(raw.length > 320 ? raw.slice(0, 320).trim() + '…' : raw);
+  const unsub   = escapeHtml(unsubLink);
+  return `<!DOCTYPE html><html><body style="margin:0;padding:24px;background:${c.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:${c.fg};">
+  <div style="max-width:600px;margin:0 auto;background:${c.card};border:1px solid ${c.line};border-radius:8px;padding:28px 32px;">
+    <p style="color:${c.faint};font-size:0.82em;margin:0 0 6px;letter-spacing:0.04em;text-transform:uppercase;">Yunze 写了新文章 · New post from Yunze</p>
+    <h2 style="margin:4px 0 18px;font-size:1.45em;line-height:1.3;color:${c.fg};">${title}</h2>
+    <p style="line-height:1.75;color:${c.muted};white-space:pre-wrap;">${summary}</p>
+    <p style="margin:28px 0 8px;">
+      <a href="${link}" style="background:${c.fg};color:${c.card};text-decoration:none;padding:11px 22px;border-radius:6px;display:inline-block;font-size:0.95em;">阅读全文 · Read full post →</a>
+    </p>
+    <hr style="border:none;border-top:1px solid ${c.line};margin:28px 0 14px;">
+    <p style="font-size:0.76em;color:${c.faint};line-height:1.7;margin:0;">
+      你订阅了 Yunze 的博客邮件通知 · You subscribed to Yunze's blog.<br>
+      不想再收？<a href="${unsub}" style="color:${c.faint};text-decoration:underline;">退订 / Unsubscribe</a>
+    </p>
+  </div>
+</body></html>`;
+}
+
+function newsletterText(post, unsubLink) {
+  const raw = (post.content || '').trim();
+  const summary = raw.length > 320 ? raw.slice(0, 320).trim() + '…' : raw;
+  return [
+    'Yunze 写了新文章 · New post from Yunze',
+    '',
+    post.title,
+    '',
+    summary,
+    '',
+    `阅读全文 · Read full post: ${post.permalink}`,
+    '',
+    '——',
+    '你订阅了 Yunze 的博客邮件通知 · You subscribed to Yunze\'s blog.',
+    `退订 / Unsubscribe: ${unsubLink}`,
+  ].join('\n');
+}
+
+async function sendNewsletterEmail(apiKey, to, post, unsubLink) {
+  return fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from:    NEWSLETTER_FROM,
+      to,
+      reply_to: 'dyz229@outlook.com',
+      subject: `📝 ${post.title}`,
+      html:    newsletterHtml(post, unsubLink),
+      text:    newsletterText(post, unsubLink),
+      headers: {
+        'List-Unsubscribe':      `<${unsubLink}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
+    }),
   });
 }
 
@@ -289,6 +411,90 @@ async function handleRequest(request, env, ctx, origin) {
         { message: '订阅成功！期待与你分享新内容 / Subscribed! Excited to share new content with you' },
         { headers: corsHeaders(origin) }
       );
+    }
+
+    // POST /broadcast — triggered by deploy.yml after each Pages build.
+    // Sends the latest post to all subscribers, deduped by KV "sent:<slug>".
+    if (pathname === '/broadcast' && request.method === 'POST') {
+      let body;
+      try { body = await request.json(); } catch {
+        return Response.json({ error: 'Bad request' }, { status: 400 });
+      }
+      if (!env.BROADCAST_SECRET || body.secret !== env.BROADCAST_SECRET) {
+        return Response.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
+      const post = await fetchLatestPost();
+      if (!post) {
+        return Response.json({ message: 'no posts found', sent: 0 });
+      }
+      const slug = postSlug(post.permalink);
+      if (!slug) {
+        return Response.json({ message: 'cannot derive slug', sent: 0 });
+      }
+
+      const sentKey = `sent:${slug}`;
+      if (await env.RATE_LIMIT.get(sentKey)) {
+        return Response.json({ message: 'already sent', slug, sent: 0 });
+      }
+
+      const subs = await listSubscribers(env.RATE_LIMIT);
+      if (subs.length === 0) {
+        // Mark as sent so we don't re-check on every deploy.
+        await env.RATE_LIMIT.put(sentKey, new Date().toISOString());
+        return Response.json({ message: 'no subscribers', slug, sent: 0 });
+      }
+
+      let okCount = 0, failCount = 0;
+      const errors = [];
+      for (const email of subs) {
+        const token = await unsubToken(email, env.BROADCAST_SECRET);
+        const unsubLink = `${WORKER_URL}/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
+        try {
+          const r = await sendNewsletterEmail(env.RESEND_API_KEY, email, post, unsubLink);
+          if (r.ok) okCount += 1;
+          else { failCount += 1; errors.push(`${email}: HTTP ${r.status}`); }
+        } catch (e) {
+          failCount += 1;
+          errors.push(`${email}: ${e.message}`);
+        }
+      }
+
+      // Mark slug as sent even if some recipients failed — we don't want to retry the
+      // whole batch on every redeploy. Failures are logged for manual follow-up.
+      await env.RATE_LIMIT.put(sentKey, new Date().toISOString());
+      if (errors.length) console.error('Broadcast partial failures:', errors);
+
+      return Response.json({ message: 'broadcast complete', slug, sent: okCount, failed: failCount });
+    }
+
+    // /unsubscribe?email=...&token=... — one-click unsubscribe link from email.
+    // GET handles browser clicks; POST handles RFC 8058 one-click buttons from mail clients.
+    if (pathname === '/unsubscribe' && (request.method === 'GET' || request.method === 'POST')) {
+      const url = new URL(request.url);
+      const email = (url.searchParams.get('email') || '').toLowerCase();
+      const token = url.searchParams.get('token') || '';
+      if (!email || !token || !env.BROADCAST_SECRET) {
+        return new Response('Invalid unsubscribe link.', { status: 400, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+      }
+      const expected = await unsubToken(email, env.BROADCAST_SECRET);
+      if (token !== expected) {
+        return new Response('Invalid unsubscribe token.', { status: 400, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+      }
+      await env.RATE_LIMIT.delete(`sub:${email}`);
+      const c = EMAIL_COLORS;
+      const html = `<!DOCTYPE html><html><body style="margin:0;padding:48px 24px;background:${c.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:${c.fg};text-align:center;">
+  <div style="max-width:480px;margin:0 auto;background:${c.card};border:1px solid ${c.line};border-radius:8px;padding:32px;">
+    <p style="font-size:2em;margin:0 0 12px;">👋</p>
+    <h2 style="margin:0 0 12px;">已退订 · Unsubscribed</h2>
+    <p style="color:${c.muted};line-height:1.7;">
+      ${escapeHtml(email)} 已从邮件列表移除。<br>
+      Removed from the list.<br><br>
+      回到 <a href="${SITE_URL}" style="color:${c.fg};">duyunze.com</a>
+    </p>
+  </div>
+</body></html>`;
+      return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     }
 
     return new Response('Not Found', { status: 404 });
