@@ -17,6 +17,8 @@ collections:
     create: true
     slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
     preview_path: "posts/{{slug}}"
+    media_folder: "static/images/uploads/{{slug}}"
+    public_folder: "/images/uploads/{{slug}}"
     fields:
       - label: "标题"
         name: "title"
