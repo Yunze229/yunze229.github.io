@@ -279,16 +279,6 @@ async function handleRequest(request, env, ctx, origin) {
 
       await env.RATE_LIMIT.put(subKey, new Date().toISOString());
 
-      ctx.waitUntil(
-        sendEmail(
-          env.RESEND_API_KEY,
-          `📧 新订阅：${email}`,
-          `<p>有新读者订阅了 Yunze 的博客。</p>
-           <p><strong>邮箱：</strong>${email}</p>
-           <p><strong>时间：</strong>${new Date().toISOString()}</p>`
-        ).catch(e => console.error('Email error:', e))
-      );
-
       return Response.json(
         { message: '订阅成功！期待与你分享新内容 / Subscribed! Excited to share new content with you' },
         { headers: corsHeaders(origin) }
