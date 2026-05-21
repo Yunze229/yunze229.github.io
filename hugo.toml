@@ -8,7 +8,7 @@ enableRobotsTXT = true
 enableEmoji = false
 
 [params]
-  capsule_api = "https://yunze-capsule.dyz229.workers.dev"
+  capsule_api = "https://capsule.duyunze.com"
   turnstile_site_key = "0x4AAAAAADSosVQW7GZ2FSq4"   # 填入 Cloudflare Turnstile 的 Site Key
   description = "以逻辑解构世界，以创造交付结果"
   author = "Yunze"

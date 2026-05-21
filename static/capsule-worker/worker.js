@@ -11,12 +11,18 @@
 const PRIVATE_REPO   = 'hxz49/yunze-letters';
 const NOTIFY_EMAIL   = 'hxz49@hotmail.com';
 const FROM_EMAIL     = 'onboarding@resend.dev';
-const ALLOWED_ORIGIN = 'https://yunze229.github.io';
+const ALLOWED_ORIGINS = [
+  'https://duyunze.com',
+  'https://www.duyunze.com',
+  'https://yunze229.github.io',
+  'http://localhost:1313',
+];
+const DEFAULT_ORIGIN = ALLOWED_ORIGINS[0];
 
 function corsHeaders(origin) {
-  const allowed = origin === ALLOWED_ORIGIN || origin === 'http://localhost:1313';
+  const allowed = ALLOWED_ORIGINS.includes(origin);
   return {
-    'Access-Control-Allow-Origin':  allowed ? origin : ALLOWED_ORIGIN,
+    'Access-Control-Allow-Origin':  allowed ? origin : DEFAULT_ORIGIN,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Max-Age':       '86400',
