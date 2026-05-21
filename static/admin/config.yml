@@ -2,7 +2,7 @@ backend:
   name: github
   repo: Yunze229/yunze229.github.io
   branch: main
-  base_url: https://yunze-cms-auth.dyz229.workers.dev
+  base_url: https://auth.duyunze.com
 
 media_folder: "static/images/uploads"
 public_folder: "/images/uploads"
