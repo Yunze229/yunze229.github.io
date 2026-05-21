@@ -43,6 +43,10 @@
           {{ $tagEn := dict "日记" "Journal" "作品" "Projects" "技能笔记" "Skills" "学习笔记" "Study Notes" "旅行" "Travel" "读书" "Reading" "手册" "Manual" "随想" "Thoughts" "成长" "Growth" "编程" "Coding" "学习" "Study" "书单" "Reading List" "生活" "Life" "记录" "Notes" }}<span class="capsule-tags">{{ range . }}{{ $en := index $tagEn . | default . }}<span class="capsule-tag lang-zh-inline">{{ . }}</span><span class="capsule-tag lang-en-inline">{{ $en }}</span>{{ end }}</span>
           {{ end }}
         </div>
+        <div class="capsule-hint" role="status" aria-live="polite">
+          <span class="lang-zh">🔒 这封信还没到开封时间，请等到 {{ $unlock }}</span>
+          <span class="lang-en">🔒 Not yet — this letter opens on {{ $unlock }}</span>
+        </div>
       </div>
 
     {{ else if $revealed }}
@@ -81,6 +85,10 @@
           {{ $tagEn := dict "日记" "Journal" "作品" "Projects" "技能笔记" "Skills" "学习笔记" "Study Notes" "旅行" "Travel" "读书" "Reading" "手册" "Manual" "随想" "Thoughts" "成长" "Growth" "编程" "Coding" "学习" "Study" "书单" "Reading List" "生活" "Life" "记录" "Notes" }}<span class="capsule-tags">{{ range . }}{{ $en := index $tagEn . | default . }}<span class="capsule-tag lang-zh-inline">{{ . }}</span><span class="capsule-tag lang-en-inline">{{ $en }}</span>{{ end }}</span>
           {{ end }}
         </div>
+        <div class="capsule-hint" role="status" aria-live="polite">
+          <span class="lang-zh">⏳ 这封信已经可以开封了，请等 Yunze 决定是否公开</span>
+          <span class="lang-en">⏳ This letter is unlocked — waiting for Yunze to decide whether to share</span>
+        </div>
       </div>
     {{ end }}
 
@@ -103,6 +111,19 @@ document.querySelectorAll('.capsule-countdown[data-unlock]').forEach(function(el
   }
   update();
   setInterval(update, 60000);
+});
+
+document.querySelectorAll('.capsule-item.capsule-locked, .capsule-item.capsule-pending').forEach(function(item) {
+  const hint = item.querySelector('.capsule-hint');
+  if (!hint) return;
+  let hideTimer = null;
+  item.addEventListener('click', function() {
+    hint.classList.add('capsule-hint--show');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(function() {
+      hint.classList.remove('capsule-hint--show');
+    }, 3000);
+  });
 });
 </script>
 

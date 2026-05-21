@@ -716,6 +716,32 @@ a:hover {
   border-bottom: 1px solid var(--border);
 }
 .capsule-item:first-child { border-top: 1px solid var(--border); }
+.capsule-item.capsule-locked,
+.capsule-item.capsule-pending { cursor: pointer; transition: opacity 0.15s ease; }
+.capsule-item.capsule-locked:hover,
+.capsule-item.capsule-pending:hover { opacity: 0.7; }
+
+.capsule-hint {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--code-bg);
+  border-left: 3px solid var(--fg-muted);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding-top: 0;
+  padding-bottom: 0;
+  transition: max-height 0.2s ease, opacity 0.2s ease, padding 0.2s ease;
+}
+.capsule-hint.capsule-hint--show {
+  max-height: 80px;
+  opacity: 1;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
 
 .capsule-icon { font-size: 1.3rem; line-height: 1; padding-top: 3px; flex-shrink: 0; }
 .capsule-body { flex: 1; min-width: 0; }
