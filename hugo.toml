@@ -1,4 +1,4 @@
-baseURL = "https://yunze229.github.io/"
+baseURL = "https://duyunze.com/"
 ignoreFiles = ["static/capsule-worker/node_modules", "static/capsule-worker/package.*", "static/capsule-worker/wrangler.toml"]
 locale = "zh-CN"
 title = "Yunze"
