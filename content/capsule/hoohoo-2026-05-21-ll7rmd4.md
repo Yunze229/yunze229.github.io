@@ -7,7 +7,7 @@ from: 妈妈
 from_en: Mother
 body_en: Contents of 4
 read_by_admin: true
-revealed: false
+revealed: true
 tags: []
 ---
 
