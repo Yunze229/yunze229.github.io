@@ -273,6 +273,23 @@ TITLE: [翻译后的标题]
 
 ---
 
+## 六-B、博客主题与功能（2026-05-20 补充）
+
+### 作品 gallery
+- 触发：文章 `categories` 含 `作品` → `<article class="is-project">`
+- `main.js` 的 `initGalleries()`：找到 `.is-project` → 对 `.post-en`/`.post-zh` 各跑 `buildGalleries()` → 连续 ≥2 个 `<p><img></p>` 自动包成 `.img-gallery`
+- CSS：scroll-snap 横向滚动，箭头默认透明淡灰色常驻，手机端隐藏箭头
+- 中英文各有独立 gallery 实例，CSS 控制显隐
+
+### 双语内容修复
+- `body_zh` 为空时，中文 div 回退显示英文正文（`_default/single.html` 已修复）
+- 修复前：有 `title_zh` 无 `body_zh` → 中文模式空白
+
+### CMS 照片管理
+- posts collection 覆盖全局 media_folder：`static/images/uploads/{{slug}}/`
+- 新文章上传的图片自动存入以文章 slug 命名的子文件夹
+- 旧图片仍在 `static/images/uploads/`（平铺），不受影响
+
 ## 七、待解决
 
 | 优先级 | 问题 |

@@ -278,6 +278,23 @@ Result: Pending manual test — a letter unlocks on 2026-05-21
 
 ---
 
+## 6-B. Blog Theme & Features (added 2026-05-20)
+
+### Project image gallery
+- Trigger: post has `作品` in `categories` → `<article class="is-project">`
+- `initGalleries()` in `main.js`: finds `.is-project` → runs `buildGalleries()` on each `.post-en`/`.post-zh` → wraps runs of ≥2 consecutive `<p><img></p>` into `.img-gallery`
+- CSS: horizontal scroll-snap, arrow buttons always visible in light transparent gray, hidden on mobile
+- Each language div gets its own independent gallery instance; CSS controls show/hide
+
+### Bilingual content fallback fix
+- When `body_zh` is empty, the Chinese div falls back to showing the English content (`_default/single.html`)
+- Before fix: having `title_zh` but no `body_zh` caused the Chinese view to show a blank page
+
+### CMS photo organization
+- The `posts` collection overrides the global `media_folder`: `static/images/uploads/{{slug}}/`
+- New uploads go into a subfolder named after the post slug automatically
+- Old images remain in the flat `static/images/uploads/` directory — existing post links are unaffected
+
 ## 7. Known Issues
 
 | Priority | Issue |
