@@ -5,7 +5,7 @@
 {{ if and (not $trans) .Params.title_zh }}
   {{ $trans = dict "title" .Params.title_zh "content" (.Params.body_zh | default "") }}
 {{ end }}
-<article>
+<article{{ if in (.Params.categories | default slice) "作品" }} class="is-project"{{ end }}>
   <header class="article-header">
     <h1 class="article-title">
       {{ if $trans }}
@@ -48,7 +48,13 @@
   <div class="article-content">
     {{ if $trans }}
     <div class="post-en">{{ .Content }}</div>
-    <div class="post-zh">{{ $trans.content | markdownify }}</div>
+    <div class="post-zh">
+      {{ if $trans.content }}
+        {{ $trans.content | markdownify }}
+      {{ else }}
+        {{ .Content }}
+      {{ end }}
+    </div>
     {{ else }}
     {{ .Content }}
     {{ end }}
