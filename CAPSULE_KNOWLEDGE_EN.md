@@ -1,26 +1,82 @@
 # Time Capsule + Blog System — Complete Knowledge Base
 
 > **Email placeholder legend**
-> - `ADMIN_EMAIL`: Mom's admin email (hxz49 account)
-> - `NOTIFY_EMAIL`: Notification email (dyz229 account)
+> - `ADMIN_EMAIL` = `hxz49@hotmail.com`: Mom (admin / curator / content reviewer)
+> - `NOTIFY_EMAIL` = `dyz229@outlook.com`: **Yunze himself** (the 10-year-old kid, blog author — NOT a technical identity)
+
+---
+
+## 🟢 0. 2026-05-22 Email System Overhaul — Key Changes
+
+**All 7 phases of the email-policy migration shipped on 2026-05-22.**
+Many original sections below describe pre-migration state — the E1–E20
+error log and T1–T11 test records are preserved as historical
+archaeology, but for current facts **this section overrides them**:
+
+### Main changes
+1. **All senders unified to `*@duyunze.com`**: `onboarding@resend.dev` is fully retired. Now `capsule@duyunze.com`, `news@duyunze.com`, `editor@duyunze.com`, all with `Reply-To: hxz49@hotmail.com`
+2. **Resend consolidated to dyz229 single account**: hxz49 Resend key removed; main/private repo `RESEND_API_KEY` (the hxz49 one) deleted; only `RESEND_API_KEY_2` (dyz229, main repo) and Worker's `RESEND_API_KEY` (also dyz229) remain
+3. **`dyz229@outlook.com` IS Yunze himself** — this insight reshapes the entire email design semantics. Every email sent to dyz229 is now designed for a 10-year-old to read (anticipation tone, decision power, auto-subscribed to his own newsletter)
+4. **Two emails at submission**: in addition to mom's metadata notification, Yunze gets an anticipation email (`💝 你有一封来自 X 的信，《title》，于 YYYY-MM-DD 打开`) containing from + title but **no body**
+5. **Two emails at unlock**: split into separate emails (no cc) — mom's version has no buttons + footer saying "decision is Yunze's"; Yunze's version has **magic-link buttons** (✅ make public / 🤐 keep private)
+6. **New Worker endpoint `GET /reveal-action`**: HMAC verify → fetch main repo capsule file → update `revealed:` → commit (idempotent). Lets Yunze decide-without-CMS
+7. **New Worker endpoint `POST /resend-webhook`**: Svix signature verifies inbound Resend events. Hard bounce + complaint → auto `KV delete sub:` + `KV put blocklist:`; `/subscribe` rejects blocklisted addresses (self-cleaning subscriber list)
+8. **Bilingual newsletter subject**: `📝 中文标题 · English title`
+9. **Private repo auto-transfer.yml no longer sends email**: unlock emails come *solely* from main repo `capsule-unlock.yml`. auto-transfer is file-sync-only
+10. **DMARC `rua=` moved to mom's mailbox**: aggregate reports no longer bother Yunze
+
+### New secrets added
+- Main repo GH Actions: `REVEAL_ACTION_SECRET` (Python HMAC signs magic-link tokens)
+- Worker: `MAIN_REPO_TOKEN` (PAT with scope = Yunze229/yunze229.github.io contents:write), `REVEAL_ACTION_SECRET` (HMAC verify, same value as main repo's), `RESEND_WEBHOOK_SECRET` (Svix signature verify, from Resend dashboard)
+
+### Secrets removed
+- Main repo `RESEND_API_KEY` (hxz49)
+- Private repo `RESEND_API_KEY` + `RESEND_API_KEY_2`
+
+### Full migration narrative
+See plugin `yunze-blog-docs`'s `email-policy` skill (4 files; includes per-phase commit hash index, cross-system HMAC compatibility verification, Cloudflare bot-fight-mode gotcha note, etc.).
+
+---
 
 ## 1. System Architecture
 
 ```
 Family member submits form
     ▼
-Cloudflare Worker (yunze-capsule.dyz229.workers.dev)
+Cloudflare Worker (capsule.duyunze.com)
   Rate limiting + Turnstile bot verification
-    ├──► hxz49/yunze-letters/letters/<slug>.md  [Private repo — invisible to Yunze]
-    └──► Main repo content/capsule/<slug>.md    [Stub — no body content]
+    ├──► hxz49/yunze-letters/letters/<slug>.md  [Private repo, invisible to Yunze]
+    └──► Two parallel emails (FROM capsule@duyunze.com, dyz229 Resend):
+         ├─ Mom version: 📬 New letter received: <from> → <unlock_date>
+         │   (metadata only, no body)
+         └─ Yunze version: 💝 You have a letter from <from>,
+                            《<title>》, opens on <unlock_date>
+                            (with title + sender, NO body — preserves anticipation)
 
-Daily at UTC 09:00 → capsule-unlock.yml
+Daily at UTC 09:00 → main repo capsule-unlock.yml
   unlock_date <= today AND transferred: false
     ├──► Write full content to main repo (read_by_admin: false, revealed: false)
-    ├──► Send email to ADMIN_EMAIL + NOTIFY_EMAIL (with full Chinese + English body)
+    ├──► Two parallel emails (FROM capsule@duyunze.com):
+    │    ├─ Mom version: 💌 Letter opened: <from> wrote to Yunze (<title>)
+    │    │              Full bilingual body + footer saying "decision is Yunze's"
+    │    └─ Yunze version: 💌 Your letter is open: <from> wrote to you — <title>
+    │                       Same full body + magic-link buttons (✅ publish / 🤐 keep private)
     └──► Mark private repo letter as transferred: true
 
-CMS admin: read_by_admin: true → revealed: true → Published on blog
+Parallel: private repo auto-transfer.yml (every push + UTC 16:00) → file sync only (incl. stub mode)
+          Does NOT send email anymore (removed in Phase 5)
+
+Yunze clicks ✅ or 🤐 button:
+    ▼
+Worker /reveal-action?slug=&action=&token=
+  HMAC verify → fetch main repo capsule file → update revealed: → commit
+    ▼
+deploy.yml rebuilds → published / hidden state takes effect immediately
+
+OR CMS path (equivalent): admin sets read_by_admin: true → revealed: true → published
+
+Deliverability: Resend → /resend-webhook (Svix-signed) → hard bounce / complaint
+                auto KV delete sub: + KV put blocklist: → future subscribes rejected
 ```
 
 ---
@@ -179,27 +235,42 @@ Fix: Added /subscribe POST endpoint to Worker — stores email in RATE_LIMIT KV 
 - **Yunze229**: Main repo `yunze229.github.io` (blog owner)
 - **hxz49**: Private repo `yunze-letters` (mom's account, letter storage)
 
-### Secrets
+### Secrets (post-2026-05-22 actual state)
 
 | Location | Secret | Purpose |
 |---|---|---|
-| Main repo | ANTHROPIC_API_KEY | Translation + AI review |
-| Main repo | RESEND_API_KEY_2 | ai-review → NOTIFY_EMAIL |
-| Main repo | LETTERS_PAT | capsule-unlock access to private repo |
+| Main repo | ANTHROPIC_API_KEY | Translation + AI review + Claude API |
+| Main repo | RESEND_API_KEY_2 | capsule-unlock + ai-review (dyz229 account; capsule-unlock now also uses this after Phase 1; original RESEND_API_KEY was deleted) |
+| Main repo | LETTERS_PAT | unlock workflow accesses private repo letters/ |
+| Main repo | BROADCAST_SECRET | deploy.yml → Worker /broadcast auth; same value as Worker secret of same name |
+| Main repo | REVEAL_ACTION_SECRET | Python HMAC signs magic-link tokens; same value as Worker secret (Phase 3.3) |
+| Main repo | PRIVATE_PASS | staticrypt encryption of `private: true` posts |
 | Private repo | MAIN_REPO_TOKEN | auto-transfer writes to main repo |
-| Private repo | RESEND_API_KEY | Unlock notification → ADMIN_EMAIL |
-| Private repo | RESEND_API_KEY_2 | Unlock notification → NOTIFY_EMAIL |
-| CF Worker | USER_MAP | Family member authentication |
-| CF Worker | GITHUB_TOKEN | Write to private repo |
-| CF Worker | RESEND_API_KEY | Submission notification email |
+| CF Worker | GITHUB_TOKEN | Write to private repo letters/ |
+| CF Worker | MAIN_REPO_TOKEN | /reveal-action writes to main repo content/capsule/ (Phase 3.4; a SEPARATE PAT from the private repo's same-named secret — different owner, different scope, different purpose) |
+| CF Worker | RESEND_API_KEY | Submit notification + Yunze anticipation + newsletter broadcast (dyz229) |
+| CF Worker | TURNSTILE_SECRET | /submit + /subscribe bot verification |
+| CF Worker | BROADCAST_SECRET | /broadcast auth + /unsubscribe HMAC token signing |
+| CF Worker | REVEAL_ACTION_SECRET | /reveal-action HMAC verify |
+| CF Worker | RESEND_WEBHOOK_SECRET | /resend-webhook Svix signature verify (Phase 4.2) |
+| CF Worker | USER_MAP | Legacy — worker.js doesn't read it; effectively unused |
 
-### Email Routing
+> 🪦 **Deleted secrets (2026-05-22 Phase 5)**: main repo `RESEND_API_KEY` (hxz49), private repo `RESEND_API_KEY` + `RESEND_API_KEY_2`. References to these in older docs/commits are pre-migration.
 
-| Event | Recipients |
-|---|---|
-| New letter submitted | ADMIN_EMAIL |
-| Letter unlocked | ADMIN_EMAIL + NOTIFY_EMAIL |
-| AI draft suggestions | NOTIFY_EMAIL only (hidden from Yunze) |
+### Email Routing (post-2026-05-22)
+
+| Event | To | From | Body contents |
+|---|---|---|---|
+| New letter — mom notification | ADMIN_EMAIL | `Yunze 的时光胶囊 <capsule@duyunze.com>` | metadata + file path; NO body |
+| New letter — Yunze anticipation | NOTIFY_EMAIL | same | from + title + unlock_date; NO body |
+| Letter unlocked — mom version | ADMIN_EMAIL | same | full body + footer "decision is Yunze's"; no buttons |
+| Letter unlocked — Yunze version | NOTIFY_EMAIL | same | full body + ✅ publish / 🤐 keep private magic-link buttons |
+| AI draft suggestion | NOTIFY_EMAIL | `Yunze 的写作助手 <editor@duyunze.com>` | Claude's improvement suggestions (`dyz229@outlook.com` IS Yunze, so this **is for the author himself**, not "hidden from him") |
+| Newsletter new post | all KV `sub:*` subscribers | `Yunze <news@duyunze.com>` | Bilingual subject `📝 中文 · English`; RFC 8058 one-click unsubscribe header |
+| Resend bounce/complaint webhook | Worker `/resend-webhook` | Resend (Svix) → Worker | Auto-writes `blocklist:` KV, self-cleans subscriber list |
+| DMARC aggregate report | ADMIN_EMAIL (since Phase 4.3, 2026-05-22) | ISPs (Gmail/Outlook/etc.) | XML report, for admin (no longer for Yunze) |
+
+All user-facing emails set `Reply-To: hxz49@hotmail.com` — replies route to mom, not Yunze.
 
 ---
 
@@ -324,29 +395,27 @@ Result: Pending manual test — a letter unlocks on 2026-05-21
 
 ---
 
-### 8.2 Resend (hxz49 account) — Capsule emails
+### 8.2 + 8.3 ⚠️ Obsolete (consolidated 2026-05-22)
 
-**Purpose**: New letter submission notification + unlock notification (sent to ADMIN_EMAIL)
+> The original 8.2 (Resend hxz49 account) and 8.3 (Resend dyz229 account)
+> described a two-account model that **no longer exists** after Phase 1+5
+> on 2026-05-22. We now use **one account (dyz229)**. For from-scratch
+> setup, follow the merged section below.
 
-1. Go to https://resend.com → sign up with ADMIN_EMAIL
-2. Left menu → **API Keys** → **Create API Key**, name `yunze-capsule`, permission: **Full access**
-3. Copy the key (`re_...`)
-4. Add to private repo Secrets: `RESEND_API_KEY`
-5. Add to Cloudflare Worker Secrets: `RESEND_API_KEY` (see 8.4)
-6. **Sender domain**: Currently using `onboarding@resend.dev` (Resend test domain, no verification needed)
-   - For a custom sender, go to **Domains** → Add Domain → follow DNS instructions
+### 8.2-NEW Resend Setup (**single account = dyz229**)
 
----
+**Purpose**: ALL emails — submission notifications, unlock notifications
+(both mom and Yunze versions), AI draft critique, newsletter broadcasts.
 
-### 8.3 Resend (dyz229 account) — AI review emails
-
-**Purpose**: AI draft suggestions sent to NOTIFY_EMAIL; unlock notifications CC'd to dyz229
-
-1. Go to https://resend.com → sign up with NOTIFY_EMAIL (or log in to existing account)
-2. Left menu → **API Keys** → **Create API Key**, name `yunze-ai-review`
-3. Copy the key
-4. Add to main repo Secrets: `RESEND_API_KEY_2`
-5. Add to private repo Secrets: `RESEND_API_KEY_2`
+1. Go to https://resend.com → log in with NOTIFY_EMAIL (dyz229)
+2. **Verify domain `duyunze.com`**: left menu **Domains** → **Add Domain** → enter `duyunze.com` → follow the prompts to add SPF / DKIM / MX / DMARC records in Cloudflare DNS → wait for Verified ✅. Once this is done, any `*@duyunze.com` subaddress can send mail
+3. **Create API Key**: left menu **API Keys** → **Create API Key**, name `yunze-blog`, permission **Full access** → copy the `re_...` value
+4. **Add to Worker Secrets**: `RESEND_API_KEY` = this key (see 8.4)
+5. **Add to main repo GH Actions Secrets**: `RESEND_API_KEY_2` = **the same key** (the name `_2` is a historical artifact — it used to mean "second account" but with consolidation we kept the variable name to avoid editing all call sites at once; see plugin `architecture/SKILL-resend-accounts.md`)
+6. **Configure webhook (Phase 4.2)**: left menu **Webhooks** → **Add Endpoint**
+   - URL: `https://capsule.duyunze.com/resend-webhook`
+   - Events to listen to: ✅ `email.bounced` + ✅ `email.complained`
+   - After saving, open the endpoint detail page and copy the **Signing Secret** (`whsec_...`) → add to Worker Secrets: `RESEND_WEBHOOK_SECRET`
 
 ---
 
@@ -363,28 +432,29 @@ Result: Pending manual test — a letter unlocks on 2026-05-21
 3. Name it `yunze-capsule`, click **Deploy**
 4. Enter the Worker → **Edit Code** → paste contents of `static/capsule-worker/worker.js` → **Save and Deploy**
 
-#### Add Worker Secrets
+#### Add Worker Secrets (post-2026-05-22)
 
 Worker → **Settings** → **Variables** → **Add variable** (type: **Secret**):
 
 | Secret name | Value | Purpose |
 |---|---|---|
-| `RESEND_API_KEY` | hxz49's Resend key | Send submission notification email |
-| `GITHUB_TOKEN` | hxz49 GitHub PAT (see 8.5) | Write to private repo letters/ |
-| `USER_MAP` | JSON string (see format below) | Family member authentication |
-| `TURNSTILE_SECRET` | Cloudflare Turnstile secret key (see 8.7) | Bot protection (active) |
+| `RESEND_API_KEY` | **dyz229** Resend key (see 8.2-NEW) | Sends all emails (submit notify, Yunze anticipation, newsletter) |
+| `GITHUB_TOKEN` | hxz49 fine-grained PAT, scope: `hxz49/yunze-letters` contents:write (see 8.5 PAT 3) | Write to private repo letters/ |
+| `MAIN_REPO_TOKEN` | **Yunze229** fine-grained PAT, scope: `Yunze229/yunze229.github.io` contents:write | `/reveal-action` writes to main repo content/capsule/ flipping `revealed:` field (Phase 3.4) |
+| `BROADCAST_SECRET` | random string; **must equal** the main repo GH secret of the same name | `/broadcast` auth + `/unsubscribe` HMAC signing |
+| `REVEAL_ACTION_SECRET` | random 32-byte hex; **must equal** the main repo GH secret of the same name | `/reveal-action` HMAC verify of magic-link tokens (Phase 3.4) |
+| `RESEND_WEBHOOK_SECRET` | `whsec_...` from Resend dashboard webhook detail page | `/resend-webhook` Svix signature verify (Phase 4.2) |
+| `TURNSTILE_SECRET` | Cloudflare Turnstile secret key (see 8.7) | `/submit` + `/subscribe` bot protection |
 
-**USER_MAP format:**
-```json
-{
-  "Grandpa": "1234",
-  "Grandma": "5678",
-  "Dad": "9012",
-  "Grandpa (mom's side)": "3456",
-  "Grandma (mom's side)": "7890"
-}
-```
-key = display name (shown in dropdown), value = last 4 digits of phone number
+> 🪦 The old `USER_MAP` secret is still in the Worker but worker.js doesn't read it; effectively unused. Can be deleted safely or left in place.
+
+**Worker endpoints (post-2026-05-22):**
+- `POST /submit` — family submits a capsule (Turnstile + rate-limit)
+- `POST /subscribe` — newsletter subscription (Turnstile + rate-limit + blocklist gate)
+- `POST /broadcast` — deploy.yml triggers post-deploy broadcast
+- `GET/POST /unsubscribe` — one-click unsubscribe (HMAC)
+- `GET /reveal-action` — Yunze clicks magic-link button to flip `revealed:` (HMAC)
+- `POST /resend-webhook` — Resend bounce/complaint event receiver (Svix signed)
 
 #### Bind KV (rate limit storage)
 
@@ -429,6 +499,21 @@ Three PATs are needed for cross-repo write access.
 2. Create Fine-grained token, repository: `yunze-letters`, permission: Contents **Read and write**
 3. Copy and add to Cloudflare Worker Secrets: `GITHUB_TOKEN`
 
+#### PAT 4: Worker's MAIN_REPO_TOKEN (Phase 3.4, added 2026-05-22)
+
+Needed so the Worker's `/reveal-action` handler can write to main repo's `content/capsule/<slug>.md` flipping `revealed:`.
+
+1. Log in to **Yunze229** account
+2. **Fine-grained tokens** → **Generate new token**
+3. Configure:
+   - Token name: `yunze-capsule-worker`
+   - Expiration: 1 year (regenerate when expired)
+   - Resource owner: **Yunze229**
+   - Repository access: **Only select repositories** → `yunze229.github.io`
+   - Permissions → **Contents**: **Read and write**
+4. Copy the token, add to Cloudflare Worker Secrets: `MAIN_REPO_TOKEN`
+5. **Don't confuse this with PAT 1 (the private repo's MAIN_REPO_TOKEN)** — same name but different owner, different scope, different purpose. PAT 1 lives in private repo GH Actions; PAT 4 lives in Worker secrets.
+
 ---
 
 ### 8.6 How to Add GitHub Secrets
@@ -441,8 +526,11 @@ Secrets to add:
 | Secret name | Source |
 |---|---|
 | `ANTHROPIC_API_KEY` | 8.1 |
-| `RESEND_API_KEY_2` | 8.3 (dyz229 account) |
-| `LETTERS_PAT` | 8.5 PAT2 |
+| `RESEND_API_KEY_2` | 8.2-NEW (dyz229 account; this is now also the key for capsule-unlock.yml) |
+| `LETTERS_PAT` | 8.5 PAT 2 |
+| `BROADCAST_SECRET` | self-generated random string; same value as Worker secret |
+| `REVEAL_ACTION_SECRET` | self-generated (32-byte hex); same value as Worker secret (Phase 3.3) |
+| `PRIVATE_PASS` | self-generated; staticrypt encryption of `private: true` posts |
 
 #### Private repo (hxz49/yunze-letters)
 1. Go to https://github.com/hxz49/yunze-letters
@@ -451,9 +539,9 @@ Secrets to add:
 Secrets to add:
 | Secret name | Source |
 |---|---|
-| `MAIN_REPO_TOKEN` | 8.5 PAT1 |
-| `RESEND_API_KEY` | 8.2 (hxz49 account) |
-| `RESEND_API_KEY_2` | 8.3 (dyz229 account) |
+| `MAIN_REPO_TOKEN` | 8.5 PAT 1 |
+
+> 🪦 The original `RESEND_API_KEY` + `RESEND_API_KEY_2` were deleted (Phase 5, 2026-05-22) — private repo's auto-transfer.yml no longer sends email.
 
 ---
 
@@ -497,19 +585,24 @@ Steps to activate:
 
 ---
 
-### 8.9 From-Scratch Setup Checklist
+### 8.9 From-Scratch Setup Checklist (post-2026-05-22 version)
 
 Complete in order; check off each step:
 
-- [ ] 8.1 Anthropic API Key → main repo ANTHROPIC_API_KEY
-- [ ] 8.2 Resend hxz49 account → private repo RESEND_API_KEY + Worker RESEND_API_KEY
-- [ ] 8.3 Resend dyz229 account → main repo RESEND_API_KEY_2 + private repo RESEND_API_KEY_2
-- [ ] 8.5 PAT1 (MAIN_REPO_TOKEN) → private repo Secret
-- [ ] 8.5 PAT2 (LETTERS_PAT) → main repo Secret
-- [ ] 8.5 PAT3 (Worker GITHUB_TOKEN) → Cloudflare Worker Secret
-- [ ] 8.4 Create KV namespace capsule-rate-limit; bind to Worker
-- [ ] 8.4 Fill in USER_MAP (family names + last 4 digits of phone) → Worker Secret
-- [ ] 8.4 Deploy yunze-capsule Worker
-- [ ] 8.8 Create GitHub OAuth App; deploy yunze-cms-auth Worker
-- [x] 8.7 Activate Turnstile (done 2026-05-20)
-- [ ] Verify: submit test letter → private repo gets file → main repo gets stub → email received
+- [ ] 8.1 Anthropic API Key → main repo `ANTHROPIC_API_KEY`
+- [ ] 8.2-NEW Resend dyz229 single account → API Key into Worker `RESEND_API_KEY` + main repo `RESEND_API_KEY_2` (same key, two copies)
+- [ ] 8.2-NEW Resend domain verify `duyunze.com` + configure webhook → Worker `RESEND_WEBHOOK_SECRET`
+- [ ] 8.5 PAT 1 (private repo's `MAIN_REPO_TOKEN`, for auto-transfer.yml) → private repo Secret
+- [ ] 8.5 PAT 2 (main repo's `LETTERS_PAT`, for capsule-unlock.yml) → main repo Secret
+- [ ] 8.5 PAT 3 (Worker's `GITHUB_TOKEN`, writes private repo letters/) → Worker Secret
+- [ ] 8.5 PAT 4 (Worker's `MAIN_REPO_TOKEN`, writes main repo content/capsule/) → Worker Secret (Phase 3.4)
+- [ ] Self-generate `BROADCAST_SECRET` (random string) → Worker + main repo Secret (must match)
+- [ ] Self-generate `REVEAL_ACTION_SECRET` (32-byte hex) → Worker + main repo Secret (must match; Phase 3.3)
+- [ ] Self-generate `PRIVATE_PASS` (for staticrypt) → main repo Secret
+- [ ] 8.4 Create KV namespace (binding name `RATE_LIMIT`, namespace id in `wrangler.toml`)
+- [ ] 8.7 Turnstile site key + secret → hugo.toml + Worker `TURNSTILE_SECRET`
+- [ ] 8.8 GitHub OAuth App + CMS Auth Worker secrets (`GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET`)
+- [ ] Cloudflare DNS: SPF + DKIM + DMARC (`v=DMARC1; p=none; rua=mailto:hxz49@hotmail.com`)
+- [ ] Verify: submit test letter → private repo gets file → main repo gets stub → BOTH mom and Yunze get their emails
+
+> Phase 4.2 webhook end-to-end verification script: see plugin `email-policy/SKILL-mechanisms.md` (note: must set an explicit User-Agent on the test request or Cloudflare bot fight mode returns 1010).

@@ -133,16 +133,35 @@ CNAME 文件：`static/CNAME` → 部署后 GitHub Pages 读取并接管 `duyunz
 
 包含：系统架构、所有 workflow、Secrets 配置、错误记录（E1–E20）、测试记录（T1–T11）、从零搭建清单。
 
+### 2026-05-22 email-policy 改造 — 关键变化要点
+
+**所有 7 phase 当天完成**。系统主要变化：
+
+1. **发件人统一**：所有邮件从 `*@duyunze.com`（`capsule@` / `news@` / `editor@`）发出；`onboarding@resend.dev` 已弃用；全部 `Reply-To: hxz49@hotmail.com`
+2. **dyz229 = Yunze 本人**（10 岁孩子，不是技术身份）。所有发给 dyz229 的邮件按"给 10 岁孩子看"的语义设计
+3. **投递时**：除妈妈外，Yunze 也收一封 **anticipation 邮件**（`💝 你有一封来自<from>的信，《<title>》，于<date>打开`），含 from + 标题但**无正文**
+4. **开封时**：发**两封单独的邮件**（不是抄送），Yunze 那封含 **magic-link 按钮**（✅ 公开 / 🤐 保密），点击调 Worker `/reveal-action` 改 main repo `revealed:` 字段
+5. **Newsletter 主题双语**：`📝 中文标题 · English title`
+6. **Bounce webhook**：Resend hard bounce/complaint 自动写 KV `blocklist:<email>`，`/subscribe` 拒绝 blocklisted 地址
+7. **Resend 单账号**：只用 dyz229 账号；hxz49 Resend key 已删
+8. **DMARC rua 改妈妈邮箱**：DMARC 聚合报告不再骚扰 Yunze
+9. **私库 auto-transfer.yml 不发邮件**：开封邮件**唯一来源**是主库 capsule-unlock.yml
+
+完整改造叙事在 `yunze-blog-docs` plugin 的 `email-policy` skill 里（含每 phase 的 commit hash 索引）。
+
 ---
 
 ## Worker Secrets 速查
 
-`yunze-capsule`（管 /submit、/subscribe、/broadcast、/unsubscribe）：
+`yunze-capsule`（管 /submit、/subscribe、/broadcast、/unsubscribe、**/reveal-action**、**/resend-webhook**）：
 - `GITHUB_TOKEN` — PAT，写 hxz49/yunze-letters 私库
+- `MAIN_REPO_TOKEN` — PAT，写主库 `content/capsule/` 文件（Phase 3.4：`/reveal-action` 改 revealed 字段用）
 - `TURNSTILE_SECRET` — Cloudflare Turnstile 服务端密钥
 - `RESEND_API_KEY` — dyz229 Resend 账号 key（capsule 通知 + newsletter 群发）
 - `BROADCAST_SECRET` — 与主库 GitHub Actions secret 同值，HMAC 退订 token 也用它
-- `USER_MAP` — 胶囊表单白名单（用户名 → 手机末4位）
+- `REVEAL_ACTION_SECRET` — Phase 3.4：HMAC 验证 magic-link 按钮 token。**和主库 GH secret 同名同值**（一边签一边验，rotate 要同时改）
+- `RESEND_WEBHOOK_SECRET` — Phase 4.2：Svix 签名验证 `/resend-webhook` 入站事件用。从 Resend dashboard webhook 详情页取（`whsec_...` 形式）
+- `USER_MAP` — 历史遗留，worker.js 不读，可视作未使用
 
 `yunze-cms-auth`（管 /auth、/callback）：
 - `GITHUB_CLIENT_SECRET` — GitHub OAuth App secret

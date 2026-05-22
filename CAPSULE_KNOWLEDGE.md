@@ -1,26 +1,77 @@
 # 时光胶囊 + 博客系统完整知识库
 
 > **邮箱占位符说明**
-> - `ADMIN_EMAIL`：妈妈管理员邮箱（hxz49 账号）
-> - `NOTIFY_EMAIL`：通知邮箱（dyz229 账号）
+> - `ADMIN_EMAIL` = `hxz49@hotmail.com`：妈妈（admin / curator / 内容审核）
+> - `NOTIFY_EMAIL` = `dyz229@outlook.com`：**Yunze 本人**（10 岁孩子，博客作者；不是技术身份）
+
+---
+
+## 🟢 0. 2026-05-22 邮件系统大改造 — 关键变化
+
+**email-policy 7 phase 全部于 2026-05-22 当天落地**。本文档**许多原始章节是改造前的状态**——E1-E20、T1-T11 历史记录全部保留作为考古，但下面列出的事实**以本节为准**：
+
+### 主要变化
+1. **统一发件人到 `*@duyunze.com`**：`onboarding@resend.dev` 已**全部弃用**。现用 `capsule@duyunze.com`、`news@duyunze.com`、`editor@duyunze.com`，全部 `Reply-To: hxz49@hotmail.com`
+2. **Resend 账号合并到 dyz229 单账号**：hxz49 Resend key 已删；主库/私库 `RESEND_API_KEY`（hxz49 那个）都已删；只剩 `RESEND_API_KEY_2`（dyz229，主库）和 Worker 的 `RESEND_API_KEY`（也是 dyz229）
+3. **dyz229 = Yunze 本人**这一核心认知改变邮件设计语义。所有发给 dyz229 的邮件按"给 10 岁孩子看"设计（带期待感、决策权、自动订阅自己的 newsletter）
+4. **投递时双邮件**：除妈妈 metadata 邮件外，Yunze 也收一封 anticipation 邮件（`💝 你有一封来自 X 的信，《标题》，于 YYYY-MM-DD 打开`，含 from + 标题，无正文）
+5. **开封时邮件分流**：发**两封单独的邮件**（不是抄送）——妈妈版无按钮 + footer 说"决定权在 Yunze"；Yunze 版含 **magic-link 按钮**（✅ 公开 / 🤐 保密）
+6. **Worker 新 endpoint `GET /reveal-action`**：HMAC 验证 → fetch 主库 capsule 文件 → 改 `revealed:` → commit（幂等）。让 Yunze **不用 CMS** 也能决定是否公开
+7. **Worker 新 endpoint `POST /resend-webhook`**：Svix 签名验证 Resend 入站事件。hard bounce + complaint → 自动 `KV delete sub:` + `KV put blocklist:`；`/subscribe` 拒绝 blocklisted 地址（self-cleaning subscriber list）
+8. **Newsletter 主题双语**：`📝 中文标题 · English title`
+9. **私库 auto-transfer.yml 不再发邮件**：开封邮件**唯一来源**是主库 `capsule-unlock.yml`。auto-transfer 只做文件同步
+10. **DMARC `rua=` 改 hxz49**：聚合报告不再骚扰 Yunze
+
+### 新增的 Secrets
+- 主库 GH Actions：`REVEAL_ACTION_SECRET`（Python HMAC 签 magic-link token）
+- Worker：`MAIN_REPO_TOKEN`（PAT，scope = Yunze229/yunze229.github.io contents:write）、`REVEAL_ACTION_SECRET`（HMAC 验证，和主库同值）、`RESEND_WEBHOOK_SECRET`（Svix 签名验证，从 Resend dashboard 取）
+
+### 删除的 Secrets
+- 主库 `RESEND_API_KEY`（hxz49）
+- 私库 `RESEND_API_KEY` + `RESEND_API_KEY_2`
+
+### 完整改造叙事
+详见 plugin `yunze-blog-docs` 的 `email-policy` skill（4 个文件，含每 phase commit hash 索引、HMAC 跨系统兼容性验证、Cloudflare bot fight mode 踩坑笔记等）。
+
+---
 
 ## 一、系统架构
 
 ```
 家人提交表单
     ▼
-Cloudflare Worker (yunze-capsule.dyz229.workers.dev)
+Cloudflare Worker (capsule.duyunze.com)
   速率限制 + Turnstile 人机验证
     ├──► hxz49/yunze-letters/letters/<slug>.md  【私库，Yunze不可见】
-    └──► 主库 content/capsule/<slug>.md  【stub，无正文】
+    └──► 两封并行邮件（FROM capsule@duyunze.com，dyz229 Resend）：
+         ├─ 妈妈版：📬 收到一封新信:<from> → <unlock_date>（metadata，无正文）
+         └─ Yunze 版：💝 你有一封来自<from>的信，《<title>》，于<unlock_date>打开
+                       （含标题+发信人，但无正文 — 保留期待感）
 
-每天 UTC 09:00 → capsule-unlock.yml
+每天 UTC 09:00 → 主库 capsule-unlock.yml
   unlock_date<=today AND transferred:false
     ├──► 写完整内容到主库 (read_by_admin:false, revealed:false)
-    ├──► 发邮件 ADMIN_EMAIL + NOTIFY_EMAIL (含中英文正文)
+    ├──► 两封并行邮件（FROM capsule@duyunze.com）：
+    │    ├─ 妈妈版：💌 信开封了:<from> 写给 Yunze (<title>)
+    │    │           完整正文 + footer 说"决定权在 Yunze"
+    │    └─ Yunze 版：💌 你的信开了:<from> 写给你 — <title>
+    │                  完整正文 + magic-link 按钮（✅ 公开 / 🤐 保密）
     └──► 私库标记 transferred:true
 
-CMS 管理员：read_by_admin:true → revealed:true → 公开
+并行：私库 auto-transfer.yml (每 push + UTC 16:00) → 只做文件同步（含 stub 模式）
+      不发邮件（Phase 5 后已移除）
+
+Yunze 点 ✅/🤐 按钮：
+    ▼
+Worker /reveal-action?slug=&action=&token=
+  HMAC 验证 → fetch 主库 capsule 文件 → 改 revealed: → commit
+    ▼
+deploy.yml 重新构建 → 公开/不公开 立即生效
+
+或 CMS 路径（等效）：管理员 read_by_admin:true → revealed:true → 公开
+
+deliverability：Resend → /resend-webhook（Svix 签名）→ hard bounce/complaint
+                自动 KV delete sub: + KV put blocklist: → 下次订阅被拒
 ```
 
 ---
@@ -174,25 +225,40 @@ TITLE: [翻译后的标题]
 - Yunze229：主库 yunze229.github.io（博客主人）
 - hxz49：私库 yunze-letters（妈妈账号）
 
-### Secrets
+### Secrets（2026-05-22 改造后真实状态）
 | 位置 | Secret | 用途 |
 |---|---|---|
-| 主库 | ANTHROPIC_API_KEY | 翻译+AI审查 |
-| 主库 | RESEND_API_KEY_2 | ai-review→dyz229 |
-| 主库 | LETTERS_PAT | unlock 访问私库 |
+| 主库 | ANTHROPIC_API_KEY | 翻译 + AI 审查 + Claude API |
+| 主库 | RESEND_API_KEY_2 | capsule-unlock + ai-review（dyz229 账号；今天起也是 capsule-unlock 用的，原 RESEND_API_KEY 已删） |
+| 主库 | LETTERS_PAT | unlock workflow 访问私库 letters/ |
+| 主库 | BROADCAST_SECRET | deploy.yml→Worker /broadcast 鉴权；和 Worker 同名 secret 同值 |
+| 主库 | REVEAL_ACTION_SECRET | Python HMAC 签 magic-link token；和 Worker 同名 secret 同值（Phase 3.3 新增） |
+| 主库 | PRIVATE_PASS | staticrypt 加密 private:true 文章 |
 | 私库 | MAIN_REPO_TOKEN | auto-transfer 写主库 |
-| 私库 | RESEND_API_KEY | 开封→hxz49 |
-| 私库 | RESEND_API_KEY_2 | 开封→dyz229 |
-| CF Worker | USER_MAP | 家人认证 |
-| CF Worker | GITHUB_TOKEN | 写私库 |
-| CF Worker | RESEND_API_KEY | 提交通知 |
+| CF Worker | GITHUB_TOKEN | 写私库 letters/ |
+| CF Worker | MAIN_REPO_TOKEN | /reveal-action 写主库 content/capsule/（Phase 3.4 新增；和私库的同名 secret 不是一回事，是另一枚 Yunze229 fine-grained PAT） |
+| CF Worker | RESEND_API_KEY | 提交通知 + Yunze anticipation + newsletter 群发（dyz229） |
+| CF Worker | TURNSTILE_SECRET | /submit + /subscribe 人机验证 |
+| CF Worker | BROADCAST_SECRET | /broadcast 鉴权 + /unsubscribe HMAC token 签名 |
+| CF Worker | REVEAL_ACTION_SECRET | /reveal-action HMAC 验证 |
+| CF Worker | RESEND_WEBHOOK_SECRET | /resend-webhook Svix 签名验证（Phase 4.2 新增） |
+| CF Worker | USER_MAP | 历史遗留，worker.js 不读取，相当于未使用 |
 
-### 邮件路由
-| 事件 | 收件人 |
-|---|---|
-| 新信件提交 | ADMIN_EMAIL |
-| 信件到期开封 | hxz49 + NOTIFY_EMAIL |
-| AI 草稿建议 | NOTIFY_EMAIL（不让 Yunze 看） |
+> 🪦 **已删除的 secrets**（2026-05-22 Phase 5）：主库 `RESEND_API_KEY`（hxz49）、私库 `RESEND_API_KEY` + `RESEND_API_KEY_2`。如旧文档/代码引用，那是 pre-migration 状态。
+
+### 邮件路由（2026-05-22 改造后）
+| 事件 | 收件人 | 发件人 | 内容要点 |
+|---|---|---|---|
+| 新信件提交 — 妈妈通知 | ADMIN_EMAIL | `Yunze 的时光胶囊 <capsule@duyunze.com>` | metadata + 文件路径；NO 正文 |
+| 新信件提交 — Yunze 期待 | NOTIFY_EMAIL | 同上 | 含 from + 标题 + 开封日；NO 正文 |
+| 信件到期开封 — 妈妈版 | ADMIN_EMAIL | 同上 | 完整正文 + footer 说"决定权在 Yunze"；无按钮 |
+| 信件到期开封 — Yunze 版 | NOTIFY_EMAIL | 同上 | 完整正文 + ✅ 公开 / 🤐 保密 magic-link 按钮 |
+| AI 草稿建议 | NOTIFY_EMAIL | `Yunze 的写作助手 <editor@duyunze.com>` | Claude 草稿改进建议（dyz229=Yunze 本人，**是给作者本人看的**，不是"不让他看"） |
+| Newsletter 新文章 | 所有 KV `sub:*` | `Yunze <news@duyunze.com>` | 双语主题 `📝 中文 · English`；含 RFC 8058 一键退订 |
+| Resend bounce/complaint webhook | Worker `/resend-webhook` | Resend（Svix）→ Worker | 自动写 `blocklist:` KV，自洁订阅列表 |
+| DMARC 聚合报告 | ADMIN_EMAIL（2026-05-22 Phase 4.3 后） | ISP（Gmail/Outlook 等） | XML 报告，给管理员（不再给 Yunze） |
+
+所有用户邮件都 `Reply-To: hxz49@hotmail.com`——回信归妈妈，不归 Yunze。
 
 ---
 
@@ -319,29 +385,24 @@ TITLE: [翻译后的标题]
 
 ---
 
-### 8.2 Resend（hxz49 账号）——时光胶囊邮件
+### 8.2 + 8.3 ⚠️ 已过时（2026-05-22 整合）
 
-**用途**：新信件提交通知 + 开封通知（发往 ADMIN_EMAIL）
+> 原 8.2（Resend hxz49 账号）和 8.3（Resend dyz229 账号）描述的"两账号并存"模型在 2026-05-22 Phase 1+5 后**已不存在**。
+> 现在用 **dyz229 单账号**。从零搭建按下面的合并版做。
 
-1. 打开 https://resend.com → 用 ADMIN_EMAIL 注册
-2. 左侧 **API Keys** → **Create API Key**，名称 `yunze-capsule`，权限选 **Full access**
-3. 复制 Key（`re_...`）
-4. 添加到私库 Secrets：`RESEND_API_KEY`
-5. 添加到 Cloudflare Worker Secrets：`RESEND_API_KEY`（见 8.4）
-6. **发件域名**：目前用 `onboarding@resend.dev`（Resend 测试域名，无需验证）
-   - 如需自定义发件人，左侧 **Domains** → Add Domain → 按提示加 DNS 记录
+### 8.2-NEW Resend 设置（**单账号 = dyz229**）
 
----
+**用途**：所有邮件——投递通知、开封通知（妈妈版+Yunze 版）、AI 草稿点评、Newsletter 群发
 
-### 8.3 Resend（dyz229 账号）——AI审查邮件
-
-**用途**：AI 草稿建议发往 NOTIFY_EMAIL，开封通知抄送 dyz229
-
-1. 打开 https://resend.com → 用 NOTIFY_EMAIL 注册（或已有账号登录）
-2. 左侧 **API Keys** → **Create API Key**，名称 `yunze-ai-review`
-3. 复制 Key
-4. 添加到主库 Secrets：`RESEND_API_KEY_2`
-5. 添加到私库 Secrets：`RESEND_API_KEY_2`
+1. 打开 https://resend.com → 用 NOTIFY_EMAIL（dyz229）登录
+2. **验证域名 `duyunze.com`**：左侧 **Domains** → **Add Domain** → 填 `duyunze.com` → 按提示在 Cloudflare DNS 加 SPF / DKIM / MX / DMARC 记录 → 等 Verified ✅。这一步完成后整个域下任意 `*@duyunze.com` 都能发件
+3. **创建 API Key**：左侧 **API Keys** → **Create API Key**，名称 `yunze-blog`，权限 **Full access** → 复制 `re_...`
+4. **加到 Worker Secrets**：`RESEND_API_KEY` = 这个 key（见 8.4）
+5. **加到主库 GH Actions Secrets**：`RESEND_API_KEY_2` = **同一个 key**（命名历史遗留——本来 `_2` 表示"第二个账号"，现在只有一个账号但名字没改，避免改动多个 call site；详见 plugin `architecture/SKILL-resend-accounts.md`）
+6. **配置 Webhook（Phase 4.2）**：左侧 **Webhooks** → **Add Endpoint**
+   - URL: `https://capsule.duyunze.com/resend-webhook`
+   - 勾选事件：✅ `email.bounced` + ✅ `email.complained`
+   - 保存后进详情页拷贝 **Signing Secret**（`whsec_...`）→ 加到 Worker Secrets：`RESEND_WEBHOOK_SECRET`
 
 ---
 
@@ -358,28 +419,29 @@ TITLE: [翻译后的标题]
 3. 名称填 `yunze-capsule`，点 **Deploy**
 4. 进入 Worker → **Edit Code** → 粘贴 `static/capsule-worker/worker.js` 的内容 → **Save and Deploy**
 
-#### 添加 Worker Secrets
+#### 添加 Worker Secrets（2026-05-22 改造后）
 
 进入 Worker → **Settings** → **Variables** → **Add variable**（类型选 **Secret**）：
 
 | Secret 名 | 值 | 说明 |
 |---|---|---|
-| `RESEND_API_KEY` | hxz49 账号的 Resend Key | 发提交通知邮件 |
-| `GITHUB_TOKEN` | hxz49 的 GitHub PAT（见 8.5） | 写私库 letters/ |
-| `USER_MAP` | JSON 字符串（见下方格式） | 家人身份认证 |
-| `TURNSTILE_SECRET` | Cloudflare Turnstile 密钥（见 8.7） | 防机器人（已激活） |
+| `RESEND_API_KEY` | **dyz229** 账号的 Resend Key（见 8.2-NEW） | 发所有邮件（提交通知、Yunze 期待、newsletter） |
+| `GITHUB_TOKEN` | hxz49 的 fine-grained PAT，scope: `hxz49/yunze-letters` contents:write（见 8.5 PAT 3） | 写私库 letters/ |
+| `MAIN_REPO_TOKEN` | **Yunze229** 的 fine-grained PAT，scope: `Yunze229/yunze229.github.io` contents:write | `/reveal-action` 写主库 content/capsule/ 文件改 `revealed:` 字段（Phase 3.4） |
+| `BROADCAST_SECRET` | 随机字符串；和主库 GH secret 同名同值 | `/broadcast` 鉴权 + `/unsubscribe` HMAC 签名 |
+| `REVEAL_ACTION_SECRET` | 随机 32 字节 hex；和主库 GH secret 同名同值 | `/reveal-action` HMAC 验证 magic-link token（Phase 3.4） |
+| `RESEND_WEBHOOK_SECRET` | Resend dashboard webhook 详情页的 `whsec_...` | `/resend-webhook` Svix 签名验证（Phase 4.2） |
+| `TURNSTILE_SECRET` | Cloudflare Turnstile 密钥（见 8.7） | `/submit` + `/subscribe` 防机器人 |
 
-**USER_MAP 格式**：
-```json
-{
-  "爷爷": "1234",
-  "奶奶": "5678",
-  "爸爸": "9012",
-  "外公": "3456",
-  "外婆": "7890"
-}
-```
-key = 姓名（下拉选项），value = 手机末4位
+> 🪦 旧的 `USER_MAP` 仍在 Worker secrets 里但 worker.js 不读取，可视作未使用。可以删但留着也没害处。
+
+**Worker 现有 endpoints（2026-05-22 改造后）**：
+- `POST /submit` — 家人投递胶囊（Turnstile + rate-limit）
+- `POST /subscribe` — 订阅 newsletter（Turnstile + rate-limit + blocklist 检查）
+- `POST /broadcast` — deploy.yml 触发新文章群发
+- `GET/POST /unsubscribe` — 一键退订（HMAC）
+- `GET /reveal-action` — Yunze 点 magic-link 按钮改 revealed:（HMAC）
+- `POST /resend-webhook` — Resend bounce/complaint 事件接收（Svix 签名）
 
 #### 绑定 KV（速率限制存储）
 
@@ -424,6 +486,21 @@ key = 姓名（下拉选项），value = 手机末4位
 2. 创建 Fine-grained token，仓库选 `yunze-letters`，权限 Contents: **Read and write**
 3. 复制后添加到 Cloudflare Worker Secrets：`GITHUB_TOKEN`
 
+#### PAT 4：Worker 用的 MAIN_REPO_TOKEN（Phase 3.4 新增）
+
+供 Worker `/reveal-action` 写主库 `content/capsule/<slug>.md` 改 `revealed:` 字段用。
+
+1. 登录 **Yunze229** 账号
+2. **Fine-grained tokens** → **Generate new token**
+3. 配置：
+   - Token name：`yunze-capsule-worker`
+   - Expiration：1 year（到期 regenerate）
+   - Resource owner：**Yunze229**
+   - Repository access：**Only select repositories** → 选 `yunze229.github.io`
+   - Permissions → **Contents**：**Read and write**
+4. 复制 token，加到 Cloudflare Worker Secrets：`MAIN_REPO_TOKEN`
+5. **不要和 PAT 1（私库用的 MAIN_REPO_TOKEN）混淆**——两个同名但 scope 不同、所有者不同、用途不同。PAT 1 给私库 GH Actions 用；PAT 4 给 Worker 用
+
 ---
 
 ### 8.6 GitHub Secrets 添加方法
@@ -436,8 +513,11 @@ key = 姓名（下拉选项），value = 手机末4位
 | Secret 名 | 来源 |
 |---|---|
 | `ANTHROPIC_API_KEY` | 8.1 |
-| `RESEND_API_KEY_2` | 8.3（dyz229 账号） |
-| `LETTERS_PAT` | 8.5 PAT2 |
+| `RESEND_API_KEY_2` | 8.2-NEW（dyz229 账号；现也是 capsule-unlock.yml 的 key） |
+| `LETTERS_PAT` | 8.5 PAT 2 |
+| `BROADCAST_SECRET` | 自生成；和 Worker 同值 |
+| `REVEAL_ACTION_SECRET` | 自生成（32 字节 hex）；和 Worker 同值（Phase 3.3） |
+| `PRIVATE_PASS` | 自生成；staticrypt 加密 private:true 文章用 |
 
 #### 私库（hxz49/yunze-letters）
 1. 打开 https://github.com/hxz49/yunze-letters
@@ -446,9 +526,9 @@ key = 姓名（下拉选项），value = 手机末4位
 需要添加的 Secrets：
 | Secret 名 | 来源 |
 |---|---|
-| `MAIN_REPO_TOKEN` | 8.5 PAT1 |
-| `RESEND_API_KEY` | 8.2（hxz49 账号） |
-| `RESEND_API_KEY_2` | 8.3（dyz229 账号） |
+| `MAIN_REPO_TOKEN` | 8.5 PAT 1 |
+
+> 🪦 原 `RESEND_API_KEY` + `RESEND_API_KEY_2` 已删（Phase 5，2026-05-22）——私库的 auto-transfer.yml 不再发邮件。
 
 ---
 
@@ -492,17 +572,26 @@ key = 姓名（下拉选项），value = 手机末4位
 
 ---
 
-### 8.9 从零搭建检查清单
+### 8.9 从零搭建检查清单（2026-05-22 改造后版本）
 
 按顺序操作，每步完成打勾：
 
-- [ ] 8.1 Anthropic API Key → 主库 ANTHROPIC_API_KEY
-- [ ] 8.2 Resend hxz49 账号 → 私库 RESEND_API_KEY + Worker RESEND_API_KEY
-- [ ] 8.3 Resend dyz229 账号 → 主库 RESEND_API_KEY_2 + 私库 RESEND_API_KEY_2
-- [ ] 8.5 PAT1（MAIN_REPO_TOKEN）→ 私库 Secret
-- [ ] 8.5 PAT2（LETTERS_PAT）→ 主库 Secret
-- [ ] 8.5 PAT3（Worker GITHUB_TOKEN）→ Cloudflare Worker Secret
-- [ ] 8.4 创建 KV namespace capsule-rate-limit，绑定到 Worker
+- [ ] 8.1 Anthropic API Key → 主库 `ANTHROPIC_API_KEY`
+- [ ] 8.2-NEW Resend dyz229 单账号 → 加 API Key 到 Worker `RESEND_API_KEY` + 主库 `RESEND_API_KEY_2`（同一个 key 两份）
+- [ ] 8.2-NEW Resend 域名验证 `duyunze.com` + 配置 Webhook → Worker `RESEND_WEBHOOK_SECRET`
+- [ ] 8.5 PAT 1（私库 `MAIN_REPO_TOKEN`，给 auto-transfer.yml 用）→ 私库 Secret
+- [ ] 8.5 PAT 2（主库 `LETTERS_PAT`，给 capsule-unlock.yml 用）→ 主库 Secret
+- [ ] 8.5 PAT 3（Worker `GITHUB_TOKEN`，写私库 letters/）→ Worker Secret
+- [ ] 8.5 PAT 4（Worker `MAIN_REPO_TOKEN`，写主库 content/capsule/）→ Worker Secret（Phase 3.4 新增）
+- [ ] 自生成 `BROADCAST_SECRET`（随机字符串）→ Worker + 主库 Secret（必须同值）
+- [ ] 自生成 `REVEAL_ACTION_SECRET`（32 字节 hex）→ Worker + 主库 Secret（必须同值；Phase 3.3 新增）
+- [ ] 自生成 `PRIVATE_PASS`（staticrypt 用）→ 主库 Secret
+- [ ] 8.4 创建 KV namespace（绑定名 `RATE_LIMIT`，namespace id 见 `wrangler.toml`）
+- [ ] 8.7 Turnstile site key + secret → hugo.toml + Worker `TURNSTILE_SECRET`
+- [ ] 8.8 GitHub OAuth App + CMS Auth Worker secrets (`GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET`)
+- [ ] Cloudflare DNS：SPF + DKIM + DMARC (`v=DMARC1; p=none; rua=mailto:hxz49@hotmail.com`)
+
+> Phase 4.2 webhook 端到端验证脚本：见 plugin `email-policy/SKILL-mechanisms.md`（提示需要给 Python urllib 显式设 User-Agent 否则被 CF bot fight mode 拦）。
 - [ ] 8.4 填写 USER_MAP（家人名单+手机末4位）→ Worker Secret
 - [ ] 8.4 部署 yunze-capsule Worker
 - [ ] 8.8 创建 GitHub OAuth App，部署 yunze-cms-auth Worker
