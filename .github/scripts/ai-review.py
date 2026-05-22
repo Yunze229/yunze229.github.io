@@ -128,8 +128,9 @@ for filepath in draft_files:
 
     try:
         r = resend.Emails.send({
-            'from': 'onboarding@resend.dev',
+            'from': 'Yunze 的写作助手 <editor@duyunze.com>',
             'to': ['dyz229@outlook.com'],
+            'reply_to': 'hxz49@hotmail.com',
             'subject': f'📝 Writing Edit: {title}',
             'html': html_body,
         })

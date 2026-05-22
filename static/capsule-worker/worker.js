@@ -10,9 +10,10 @@
 //   TURNSTILE_SECRET – Cloudflare Turnstile server-side secret
 //   BROADCAST_SECRET – shared secret guarding /broadcast against unauthorized calls
 
-const PRIVATE_REPO   = 'hxz49/yunze-letters';
-const NOTIFY_EMAIL   = 'hxz49@hotmail.com';
-const FROM_EMAIL     = 'onboarding@resend.dev';
+const PRIVATE_REPO    = 'hxz49/yunze-letters';
+const NOTIFY_EMAIL    = 'hxz49@hotmail.com';
+const REPLY_TO_EMAIL  = 'hxz49@hotmail.com';
+const FROM_EMAIL      = 'Yunze 的时光胶囊 <capsule@duyunze.com>';
 const NEWSLETTER_FROM = 'Yunze <news@duyunze.com>';
 const SITE_URL       = 'https://duyunze.com';
 const WORKER_URL     = 'https://capsule.duyunze.com';
@@ -112,7 +113,13 @@ async function sendEmail(apiKey, subject, html) {
   return fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: FROM_EMAIL, to: NOTIFY_EMAIL, subject, html }),
+    body: JSON.stringify({
+      from:     FROM_EMAIL,
+      to:       NOTIFY_EMAIL,
+      reply_to: REPLY_TO_EMAIL,
+      subject,
+      html,
+    }),
   });
 }
 
@@ -221,7 +228,7 @@ async function sendNewsletterEmail(apiKey, to, post, unsubLink) {
     body: JSON.stringify({
       from:    NEWSLETTER_FROM,
       to,
-      reply_to: 'dyz229@outlook.com',
+      reply_to: REPLY_TO_EMAIL,
       subject: `📝 ${post.title}`,
       html:    newsletterHtml(post, unsubLink),
       text:    newsletterText(post, unsubLink),

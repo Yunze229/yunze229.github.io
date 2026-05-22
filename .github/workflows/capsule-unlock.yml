@@ -17,7 +17,7 @@ jobs:
       - name: Transfer due letters and notify
         env:
           LETTERS_PAT:    ${{ secrets.LETTERS_PAT }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY_2 }}
         run: |
           python3 << 'PYEOF'
           import os, json, re, urllib.request, base64
@@ -29,7 +29,8 @@ jobs:
           TODAY         = date.today().isoformat()
           CAPSULE_DIR   = 'content/capsule'
           NOTIFY_EMAILS = ['hxz49@hotmail.com', 'dyz229@outlook.com']
-          FROM_EMAIL    = 'onboarding@resend.dev'
+          FROM_EMAIL    = 'Yunze 的时光胶囊 <capsule@duyunze.com>'
+          REPLY_TO      = 'hxz49@hotmail.com'
 
           def gh_api(url, method='GET', payload=None):
             headers = {
@@ -97,10 +98,11 @@ jobs:
               '</div>'
             )
             payload = {
-              'from':    FROM_EMAIL,
-              'to':      NOTIFY_EMAILS,
-              'subject': '\U0001f513 时光胶囊开封：' + from_zh + ' 写给 Yunze（' + unlock_date + '）',
-              'html':    html,
+              'from':     FROM_EMAIL,
+              'to':       NOTIFY_EMAILS,
+              'reply_to': REPLY_TO,
+              'subject':  '\U0001f513 时光胶囊开封：' + from_zh + ' 写给 Yunze（' + unlock_date + '）',
+              'html':     html,
             }
             req = urllib.request.Request(
               'https://api.resend.com/emails',
