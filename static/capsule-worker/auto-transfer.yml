@@ -1,7 +1,8 @@
 # Place this file at: hxz49/yunze-letters/.github/workflows/auto-transfer.yml
 # Secrets needed in hxz49/yunze-letters:
 #   MAIN_REPO_TOKEN  – PAT with contents:write on Yunze229/yunze229.github.io
-#   RESEND_API_KEY   – for notification emails
+# Email notifications: handled by main-repo capsule-unlock.yml (since 2026-05-22).
+# This workflow only does file sync (stub-preview + full transfer); no email.
 
 name: Auto Transfer Unlocked Letters
 
@@ -13,6 +14,10 @@ on:
   schedule:
     - cron: '0 16 * * *'   # 16:00 UTC = midnight Asia/Shanghai
   workflow_dispatch:
+
+concurrency:
+  group: auto-transfer
+  cancel-in-progress: false
 
 jobs:
   transfer:
@@ -26,26 +31,17 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install dependencies
-        run: pip install resend --quiet
-
       - name: Sync letters to main site
         env:
           MAIN_REPO_TOKEN: ${{ secrets.MAIN_REPO_TOKEN }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          RESEND_API_KEY_2: ${{ secrets.RESEND_API_KEY_2 }}
         run: |
           python3 << 'PYEOF'
           import os, re, json, base64, urllib.request, urllib.error
-          import resend
           from datetime import datetime, timezone, timedelta
 
           MAIN_REPO  = 'Yunze229/yunze229.github.io'
-          FROM_EMAIL = 'onboarding@resend.dev'
 
           main_token = os.environ['MAIN_REPO_TOKEN']
-          resend_key   = os.environ['RESEND_API_KEY']
-          resend_key_2 = os.environ.get('RESEND_API_KEY_2', '')
 
           TZ_MAP = {
               'Asia/Shanghai':       timedelta(hours=8),
@@ -83,22 +79,6 @@ jobs:
                   return False
               suppressed = base64.b64decode(data['content']).decode()
               return slug in suppressed.splitlines()
-
-          def send_email(subject, html):
-              for key, to in [(resend_key, 'hxz49@hotmail.com'), (resend_key_2, 'dyz229@outlook.com')]:
-                  if not key:
-                      continue
-                  try:
-                      resend.api_key = key
-                      r = resend.Emails.send({
-                          'from': FROM_EMAIL,
-                          'to': [to],
-                          'subject': subject,
-                          'html': html,
-                      })
-                      print(f'Email sent to {to}: {r.get("id", r)}')
-                  except Exception as e:
-                      print(f'Email error ({to}): {e}')
 
           def today_for_tz(tz_name):
               delta = TZ_MAP.get(tz_name, timedelta(hours=8))
@@ -222,27 +202,7 @@ jobs:
                       with open(fpath, 'w') as f:
                           f.write(raw.replace('transferred: false', 'transferred: true'))
                       any_private_changes = True
-                      # Send individual email with full bilingual body
-                      body_html = body.replace('\n', '<br>')
-                      from_display = f'{from_person} / {from_en_source}' if from_en_source else from_person
-                      title_display = f'{title} / {title_en_source}' if title_en_source else title
-                      en_section = (
-                          f'<hr>'
-                          f'<p style="color:#555;font-size:0.85em;margin-bottom:4px">English version:</p>'
-                          f'<div style="white-space:pre-wrap;font-family:serif;font-size:1rem;line-height:1.8">{body_en_source.replace(chr(10), "<br>")}</div>'
-                      ) if body_en_source else ''
-                      send_email(
-                          f'📬 时光胶囊开封：{from_person}写给Yunze — {title}',
-                          f'<p>一封写给 Yunze 的信已到达开封日。</p>'
-                          f'<p><strong>来自：</strong>{from_display}<br>'
-                          f'<strong>标题：</strong>{title_display}<br>'
-                          f'<strong>开封日：</strong>{unlock_date}</p>'
-                          f'<hr>'
-                          f'<div style="white-space:pre-wrap;font-family:serif;font-size:1rem;line-height:1.8">{body_html}</div>'
-                          f'{en_section}'
-                          f'<hr>'
-                          f'<p style="color:#888;font-size:0.9em">读完信件内容后，请登录 <a href="https://yunze229.github.io/admin/">CMS 后台</a> 勾选「确认已读」，再决定是否公开到博客。</p>'
-                      )
+                      # Email notification handled by main-repo capsule-unlock.yml
                   else:
                       print(f'  [ERROR] full transfer {fname}: HTTP {status} — {result}')
                       had_transfer_errors = True
