@@ -408,20 +408,24 @@ async function handleRequest(request, env, ctx, origin) {
         ).catch(e => console.error('Mom email error:', e))
       );
 
-      // Email #2 — to Yunze: anticipation, NO title, NO body (preserve mystery)
-      const c = EMAIL_COLORS;
+      // Email #2 — to Yunze: anticipation (includes title + from; NO body content)
+      const c        = EMAIL_COLORS;
+      const fromZhE  = escapeHtml(fromZh);
+      const fromEnE  = escapeHtml(fromEn);
+      const titleZhE = escapeHtml(titleZh);
+      const titleEnE = escapeHtml(titleEn);
       const anticipationHtml = `<!DOCTYPE html><html><body style="margin:0;padding:32px 16px;background:${c.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:${c.fg};">
   <div style="max-width:480px;margin:0 auto;background:${c.card};border:1px solid ${c.line};border-radius:8px;padding:32px;text-align:center;">
     <p style="font-size:3em;margin:0 0 12px;">💌</p>
-    <h2 style="margin:0 0 4px;font-size:1.3em;">你有一封新信</h2>
+    <h2 style="margin:0 0 4px;font-size:1.3em;">你有一封新的信</h2>
     <p style="color:${c.faint};font-size:0.9em;margin:0 0 24px;">You have a new letter</p>
     <p style="line-height:1.9;color:${c.fg};margin:0 0 14px;">
-      <strong>${fromZh}</strong> 给你写了一封信,<br>
+      <strong>${fromZhE}</strong> 给你写了一封《${titleZhE}》,<br>
       要等到 <strong>${unlock_date}</strong> 才能打开。
     </p>
     <p style="line-height:1.9;color:${c.muted};font-size:0.92em;margin:0;">
-      <strong>${fromEn}</strong> wrote you a letter,<br>
-      it opens on <strong>${unlock_date}</strong>.
+      <strong>${fromEnE}</strong> wrote you a letter titled<br>
+      "${titleEnE}", it opens on <strong>${unlock_date}</strong>.
     </p>
     <p style="font-size:2em;margin:28px 0 0;color:${c.faint};">⏳</p>
   </div>
@@ -430,7 +434,7 @@ async function handleRequest(request, env, ctx, origin) {
         sendEmail(
           env.RESEND_API_KEY,
           YUNZE_EMAIL,
-          `💝 你有一封新信,${unlock_date} 开封`,
+          `💝 你有一封来自${fromZh}的信，《${titleZh}》，于${unlock_date}打开`,
           anticipationHtml
         ).catch(e => console.error('Yunze anticipation email error:', e))
       );
