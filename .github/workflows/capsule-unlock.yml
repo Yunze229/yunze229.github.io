@@ -16,21 +16,25 @@ jobs:
 
       - name: Transfer due letters and notify
         env:
-          LETTERS_PAT:    ${{ secrets.LETTERS_PAT }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY_2 }}
+          LETTERS_PAT:          ${{ secrets.LETTERS_PAT }}
+          RESEND_API_KEY:       ${{ secrets.RESEND_API_KEY_2 }}
+          REVEAL_ACTION_SECRET: ${{ secrets.REVEAL_ACTION_SECRET }}
         run: |
           python3 << 'PYEOF'
-          import os, json, re, urllib.request, base64
+          import os, json, re, urllib.request, urllib.parse, base64, hmac, hashlib
           from datetime import date
 
           LETTERS_PAT   = os.environ['LETTERS_PAT']
           RESEND_KEY    = os.environ['RESEND_API_KEY']
+          REVEAL_SECRET = os.environ.get('REVEAL_ACTION_SECRET', '')
           PRIVATE_REPO  = 'hxz49/yunze-letters'
           TODAY         = date.today().isoformat()
           CAPSULE_DIR   = 'content/capsule'
-          NOTIFY_EMAILS = ['hxz49@hotmail.com', 'dyz229@outlook.com']
+          MOM_EMAIL     = 'hxz49@hotmail.com'
+          YUNZE_EMAIL   = 'dyz229@outlook.com'
           FROM_EMAIL    = 'Yunze 的时光胶囊 <capsule@duyunze.com>'
           REPLY_TO      = 'hxz49@hotmail.com'
+          REVEAL_URL    = 'https://capsule.duyunze.com/reveal-action'
 
           def gh_api(url, method='GET', payload=None):
             headers = {
@@ -62,8 +66,42 @@ jobs:
           def esc(text):
             return text.replace('&', '&amp;').replace('<', '&lt;').replace('\n', '<br>')
 
-          def send_unlock_email(from_zh, from_en, title_zh, title_en,
-                                date_written, unlock_date, body_zh, body_en):
+          def reveal_action_token(slug, action):
+            sig = hmac.new(
+              REVEAL_SECRET.encode('utf-8'),
+              (slug + '|' + action).encode('utf-8'),
+              hashlib.sha256
+            ).digest()
+            return base64.urlsafe_b64encode(sig).decode('ascii').rstrip('=')
+
+          def yunze_buttons_block(slug):
+            if not REVEAL_SECRET:
+              return ''
+            reveal_tok = reveal_action_token(slug, 'reveal')
+            keep_tok   = reveal_action_token(slug, 'keep')
+            slug_q     = urllib.parse.quote(slug, safe='')
+            reveal_url = REVEAL_URL + '?slug=' + slug_q + '&action=reveal&token=' + reveal_tok
+            keep_url   = REVEAL_URL + '?slug=' + slug_q + '&action=keep&token='   + keep_tok
+            return (
+              '<p style="margin:28px 0 8px;font-size:14px">想现在公开到博客吗?<br>'
+              '<span style="color:#888;font-size:13px">Want to share this letter on the blog now?</span></p>'
+              '<table style="border-collapse:separate;border-spacing:8px 0;margin:0 0 12px"><tr>'
+              '<td><a href="' + reveal_url + '" '
+              'style="background:#2a2a2a;color:#fff;padding:10px 18px;text-decoration:none;'
+              'border-radius:4px;display:inline-block;font-size:14px">&#x2705; 公开到博客</a></td>'
+              '<td><a href="' + keep_url + '" '
+              'style="background:#999;color:#fff;padding:10px 18px;text-decoration:none;'
+              'border-radius:4px;display:inline-block;font-size:14px">&#129296; 先不公开</a></td>'
+              '</tr></table>'
+              '<p style="font-size:12px;color:#888;line-height:1.7">'
+              '无论选哪个，都可以以后在 <a href="https://duyunze.com/admin">CMS</a> 改主意。<br>'
+              'Either choice can be changed later in CMS.'
+              '</p>'
+            )
+
+          def render_unlock_html(from_zh, from_en, title_zh, title_en,
+                                 date_written, unlock_date, body_zh, body_en,
+                                 footer_html):
             td = 'style="padding:4px 12px 4px 0;color:#888;white-space:nowrap"'
             table_rows = (
               '<tr><td ' + td + '>来自 From</td><td>' + from_zh + ' / ' + from_en + '</td></tr>'
@@ -79,29 +117,23 @@ jobs:
               '<h3 style="margin-top:24px">&#128221; Letter</h3>'
               '<p style="line-height:1.9">' + esc(body_en) + '</p>'
             ) if body_en else ''
-            footer = (
-              '<p style="color:#888;font-size:12px;line-height:1.7">'
-              '&#20449;&#20214;&#24050;&#33258;&#21160;&#25512;&#36827;&#21338;&#23458;&#65288;&#26410;&#20844;&#24320;&#65289;&#12290;'
-              '&#30331;&#24405; CMS &#8594; &#26102;&#20809;&#32029;&#22243;&#65292;'
-              '&#21457;&#24320;&#12300;&#20844;&#24320;&#21040;&#21338;&#23458;&#12301;&#21363;&#21487;&#12290;<br>'
-              'Letter pushed to blog (hidden). Log in to CMS and toggle revealed to publish.'
-              '</p>'
-            )
-            html = (
+            return (
               '<div style="font-family:sans-serif;font-size:15px;max-width:640px">'
-              '<h2>&#128274; 时光胶囊已到期</h2>'
+              '<h2>&#128140; 时光胶囊开封了</h2>'
               '<table style="border-collapse:collapse;font-size:14px">' + table_rows + '</table>'
               '<hr style="margin:20px 0;border:none;border-top:1px solid #eee">'
               + zh_block + en_block +
               '<hr style="margin:24px 0;border:none;border-top:1px solid #eee">'
-              + footer +
+              + footer_html +
               '</div>'
             )
+
+          def send_one(to_addr, subject, html):
             payload = {
               'from':     FROM_EMAIL,
-              'to':       NOTIFY_EMAILS,
+              'to':       [to_addr],
               'reply_to': REPLY_TO,
-              'subject':  '\U0001f48c 信开封了:' + from_zh + ' 写给 Yunze (' + title_zh + ')',
+              'subject':  subject,
               'html':     html,
             }
             req = urllib.request.Request(
@@ -115,9 +147,37 @@ jobs:
             )
             try:
               with urllib.request.urlopen(req) as r:
-                print('  Email sent to ' + str(NOTIFY_EMAILS))
+                print('  Email sent to ' + to_addr)
             except urllib.error.HTTPError as e:
-              print('  Email failed: ' + str(e.code) + ' ' + e.read().decode()[:200])
+              print('  Email failed (' + to_addr + '): ' + str(e.code) + ' ' + e.read().decode()[:200])
+
+          MOM_FOOTER = (
+            '<p style="color:#888;font-size:12px;line-height:1.7">'
+            '信件已自动推进博客（未公开）。决定权在 Yunze 这边（他会收到一封含按钮的邮件）。<br>'
+            'Letter pushed to blog (hidden). Publish decision is Yunze’s.'
+            '</p>'
+          )
+
+          def send_unlock_emails(slug, from_zh, from_en, title_zh, title_en,
+                                 date_written, unlock_date, body_zh, body_en):
+            mom_html = render_unlock_html(
+              from_zh, from_en, title_zh, title_en,
+              date_written, unlock_date, body_zh, body_en, MOM_FOOTER
+            )
+            yunze_html = render_unlock_html(
+              from_zh, from_en, title_zh, title_en,
+              date_written, unlock_date, body_zh, body_en, yunze_buttons_block(slug)
+            )
+            send_one(
+              MOM_EMAIL,
+              '\U0001f48c 信开封了:' + from_zh + ' 写给 Yunze (' + title_zh + ')',
+              mom_html
+            )
+            send_one(
+              YUNZE_EMAIL,
+              '\U0001f48c 你的信开了:' + from_zh + ' 写给你 — ' + title_zh,
+              yunze_html
+            )
 
           data, status = gh_api(
             'https://api.github.com/repos/' + PRIVATE_REPO + '/contents/letters'
@@ -191,8 +251,9 @@ jobs:
                 f.write(pub_content)
               print('  Wrote ' + pub_path)
 
-            send_unlock_email(
-              from_zh, from_en, title_zh, title_en,
+            slug = file_info['name'][:-3]  # strip .md
+            send_unlock_emails(
+              slug, from_zh, from_en, title_zh, title_en,
               date_written, unlock_date, body_zh, body_en
             )
 

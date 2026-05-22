@@ -5,13 +5,17 @@
 //   AI          – Cloudflare Workers AI
 //
 // Secrets (Cloudflare dashboard → Settings → Variables → Secrets):
-//   GITHUB_TOKEN     – PAT with write access to hxz49/yunze-letters
-//   RESEND_API_KEY   – Resend API key (dyz229 account, sends newsletter + capsule alerts)
-//   TURNSTILE_SECRET – Cloudflare Turnstile server-side secret
-//   BROADCAST_SECRET – shared secret guarding /broadcast against unauthorized calls
+//   GITHUB_TOKEN         – PAT with write access to hxz49/yunze-letters (capsule submit)
+//   MAIN_REPO_TOKEN      – PAT with contents:write on Yunze229/yunze229.github.io (reveal-action)
+//   RESEND_API_KEY       – Resend API key (dyz229 account, capsule + newsletter)
+//   TURNSTILE_SECRET     – Cloudflare Turnstile server-side secret
+//   BROADCAST_SECRET     – shared secret guarding /broadcast; also HMAC key for /unsubscribe
+//   REVEAL_ACTION_SECRET – HMAC key for capsule /reveal-action magic-link buttons
 
 const PRIVATE_REPO    = 'hxz49/yunze-letters';
+const MAIN_REPO       = 'Yunze229/yunze229.github.io';
 const NOTIFY_EMAIL    = 'hxz49@hotmail.com';
+const YUNZE_EMAIL     = 'dyz229@outlook.com';
 const REPLY_TO_EMAIL  = 'hxz49@hotmail.com';
 const FROM_EMAIL      = 'Yunze 的时光胶囊 <capsule@duyunze.com>';
 const NEWSLETTER_FROM = 'Yunze <news@duyunze.com>';
@@ -109,13 +113,13 @@ async function ghPut(token, repo, path, content, message) {
   });
 }
 
-async function sendEmail(apiKey, subject, html) {
+async function sendEmail(apiKey, to, subject, html) {
   return fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from:     FROM_EMAIL,
-      to:       NOTIFY_EMAIL,
+      to,
       reply_to: REPLY_TO_EMAIL,
       subject,
       html,
@@ -145,6 +149,45 @@ async function unsubToken(email, secret) {
   );
   return btoa(String.fromCharCode(...new Uint8Array(sig)))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// HMAC-SHA256 token for capsule reveal/keep magic links.
+// Signs "<slug>|<action>" with REVEAL_ACTION_SECRET. Same scheme as Python side
+// in capsule-unlock.yml so emailed link tokens match what the Worker computes.
+async function revealActionToken(slug, action, secret) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign(
+    'HMAC', key, new TextEncoder().encode(`${slug}|${action}`)
+  );
+  return btoa(String.fromCharCode(...new Uint8Array(sig)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function revealConfirmationHtml(action) {
+  const c = EMAIL_COLORS;
+  const emoji   = action === 'reveal' ? '✅' : '🤐';
+  const zhTitle = action === 'reveal' ? '已公开'  : '已设为不公开';
+  const enTitle = action === 'reveal' ? 'Made public' : 'Kept private';
+  const zhBody  = action === 'reveal' ? '现在博客上可以看到了' : '可以以后在 CMS 改主意';
+  const enBody  = action === 'reveal' ? 'Visible on the blog now' : 'You can change your mind later in CMS';
+  return `<!DOCTYPE html><html><body style="margin:0;padding:48px 24px;background:${c.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:${c.fg};text-align:center;">
+  <div style="max-width:480px;margin:0 auto;background:${c.card};border:1px solid ${c.line};border-radius:8px;padding:32px;">
+    <p style="font-size:2.5em;margin:0 0 12px;">${emoji}</p>
+    <h2 style="margin:0 0 8px;">${zhTitle}</h2>
+    <p style="color:${c.faint};font-size:0.92em;margin:0 0 18px;">${enTitle}</p>
+    <p style="color:${c.muted};line-height:1.7;margin:0 0 20px;">
+      ${zhBody}<br>
+      ${enBody}
+    </p>
+    <p style="margin:0;"><a href="${SITE_URL}" style="color:${c.fg};text-decoration:underline;">回到 / Back to duyunze.com</a></p>
+  </div>
+</body></html>`;
 }
 
 async function listSubscribers(kv) {
@@ -354,13 +397,42 @@ async function handleRequest(request, env, ctx, origin) {
         );
       }
 
+      // Email #1 — to mom (admin): metadata, NO body (she can read in private repo)
       ctx.waitUntil(
         sendEmail(
           env.RESEND_API_KEY,
+          NOTIFY_EMAIL,
           `📬 收到一封新信:${fromZh} → ${unlock_date}`,
           `<p><strong>${fromZh}</strong> 写了一封信，将于 <strong>${unlock_date}</strong> 开封。</p>
            <p>标题：${titleZh}</p><p>文件：<code>${filename}</code></p>`
-        ).catch(e => console.error('Email error:', e))
+        ).catch(e => console.error('Mom email error:', e))
+      );
+
+      // Email #2 — to Yunze: anticipation, NO title, NO body (preserve mystery)
+      const c = EMAIL_COLORS;
+      const anticipationHtml = `<!DOCTYPE html><html><body style="margin:0;padding:32px 16px;background:${c.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:${c.fg};">
+  <div style="max-width:480px;margin:0 auto;background:${c.card};border:1px solid ${c.line};border-radius:8px;padding:32px;text-align:center;">
+    <p style="font-size:3em;margin:0 0 12px;">💌</p>
+    <h2 style="margin:0 0 4px;font-size:1.3em;">你有一封新信</h2>
+    <p style="color:${c.faint};font-size:0.9em;margin:0 0 24px;">You have a new letter</p>
+    <p style="line-height:1.9;color:${c.fg};margin:0 0 14px;">
+      <strong>${fromZh}</strong> 给你写了一封信,<br>
+      要等到 <strong>${unlock_date}</strong> 才能打开。
+    </p>
+    <p style="line-height:1.9;color:${c.muted};font-size:0.92em;margin:0;">
+      <strong>${fromEn}</strong> wrote you a letter,<br>
+      it opens on <strong>${unlock_date}</strong>.
+    </p>
+    <p style="font-size:2em;margin:28px 0 0;color:${c.faint};">⏳</p>
+  </div>
+</body></html>`;
+      ctx.waitUntil(
+        sendEmail(
+          env.RESEND_API_KEY,
+          YUNZE_EMAIL,
+          `💝 你有一封新信,${unlock_date} 开封`,
+          anticipationHtml
+        ).catch(e => console.error('Yunze anticipation email error:', e))
       );
 
       return Response.json(
@@ -504,6 +576,98 @@ async function handleRequest(request, env, ctx, origin) {
   </div>
 </body></html>`;
       return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
+
+    // /reveal-action?slug=...&action=reveal|keep&token=...
+    // Magic-link from capsule unlock email — flips `revealed:` in main repo capsule file.
+    // Idempotent: same link clicked twice is a no-op the second time.
+    if (pathname === '/reveal-action' && request.method === 'GET') {
+      const url    = new URL(request.url);
+      const slug   = url.searchParams.get('slug')   || '';
+      const action = url.searchParams.get('action') || '';
+      const token  = url.searchParams.get('token')  || '';
+
+      if (!slug || !['reveal', 'keep'].includes(action) || !token || !env.REVEAL_ACTION_SECRET) {
+        return new Response('Invalid action link.', {
+          status: 400,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      }
+
+      const expected = await revealActionToken(slug, action, env.REVEAL_ACTION_SECRET);
+      if (token !== expected) {
+        return new Response('Invalid action link.', {
+          status: 400,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      }
+
+      // Fetch capsule file from main repo
+      const filePath = `content/capsule/${slug}.md`;
+      const apiUrl   = `https://api.github.com/repos/${MAIN_REPO}/contents/${encodeURIComponent(filePath).replace(/%2F/g, '/')}`;
+      const fileRes  = await fetch(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${env.MAIN_REPO_TOKEN}`,
+          'User-Agent':  'yunze-capsule-reveal',
+          Accept:        'application/vnd.github.v3+json',
+        },
+      });
+      if (!fileRes.ok) {
+        console.error('reveal-action: fetch failed', fileRes.status, await fileRes.text().catch(() => ''));
+        return new Response('Letter not found.', {
+          status: 404,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      }
+      const fileData = await fileRes.json();
+      const decoded  = atob(fileData.content.replace(/\n/g, ''));
+      // GitHub returns content as UTF-8 bytes base64-encoded; decode bytes → utf-8 string
+      const bytes    = Uint8Array.from(decoded, c => c.charCodeAt(0));
+      const current  = new TextDecoder('utf-8').decode(bytes);
+
+      const newValue = action === 'reveal' ? 'true' : 'false';
+      let updated;
+      if (/^revealed:\s*(true|false)\s*$/m.test(current)) {
+        updated = current.replace(/^revealed:\s*(true|false)\s*$/m, `revealed: ${newValue}`);
+      } else {
+        // No revealed field — inject before closing ---
+        updated = current.replace(/^(---\n[\s\S]*?)\n---/, `$1\nrevealed: ${newValue}\n---`);
+      }
+
+      // Idempotent: if value unchanged, skip commit but show confirmation
+      if (updated === current) {
+        return new Response(revealConfirmationHtml(action), {
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        });
+      }
+
+      // Commit back to main repo
+      const utf8Bytes = new TextEncoder().encode(updated);
+      const b64       = btoa(Array.from(utf8Bytes, b => String.fromCharCode(b)).join(''));
+      const putRes    = await fetch(apiUrl, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${env.MAIN_REPO_TOKEN}`,
+          'Content-Type': 'application/json',
+          'User-Agent':   'yunze-capsule-reveal',
+        },
+        body: JSON.stringify({
+          message: `capsule: ${action} via email link — ${slug}`,
+          content: b64,
+          sha:     fileData.sha,
+        }),
+      });
+      if (!putRes.ok) {
+        console.error('reveal-action: commit failed', putRes.status, await putRes.text().catch(() => ''));
+        return new Response(`Failed to update letter (HTTP ${putRes.status}).`, {
+          status: 500,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      }
+
+      return new Response(revealConfirmationHtml(action), {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
     }
 
     return new Response('Not Found', { status: 404 });
