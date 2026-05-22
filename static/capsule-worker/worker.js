@@ -5,12 +5,13 @@
 //   AI          – Cloudflare Workers AI
 //
 // Secrets (Cloudflare dashboard → Settings → Variables → Secrets):
-//   GITHUB_TOKEN         – PAT with write access to hxz49/yunze-letters (capsule submit)
-//   MAIN_REPO_TOKEN      – PAT with contents:write on Yunze229/yunze229.github.io (reveal-action)
-//   RESEND_API_KEY       – Resend API key (dyz229 account, capsule + newsletter)
-//   TURNSTILE_SECRET     – Cloudflare Turnstile server-side secret
-//   BROADCAST_SECRET     – shared secret guarding /broadcast; also HMAC key for /unsubscribe
-//   REVEAL_ACTION_SECRET – HMAC key for capsule /reveal-action magic-link buttons
+//   GITHUB_TOKEN          – PAT with write access to hxz49/yunze-letters (capsule submit)
+//   MAIN_REPO_TOKEN       – PAT with contents:write on Yunze229/yunze229.github.io (reveal-action)
+//   RESEND_API_KEY        – Resend API key (dyz229 account, capsule + newsletter)
+//   TURNSTILE_SECRET      – Cloudflare Turnstile server-side secret
+//   BROADCAST_SECRET      – shared secret guarding /broadcast; also HMAC key for /unsubscribe
+//   REVEAL_ACTION_SECRET  – HMAC key for capsule /reveal-action magic-link buttons
+//   RESEND_WEBHOOK_SECRET – Svix signing secret for /resend-webhook (bounce/complaint events)
 
 const PRIVATE_REPO    = 'hxz49/yunze-letters';
 const MAIN_REPO       = 'Yunze229/yunze229.github.io';
@@ -167,6 +168,49 @@ async function revealActionToken(slug, action, secret) {
   );
   return btoa(String.fromCharCode(...new Uint8Array(sig)))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// Verify a Svix-format webhook signature (Resend uses Svix). The signed payload
+// is "<svix_id>.<svix_timestamp>.<raw_body>". The signing secret comes in
+// "whsec_<base64>" form; we strip the prefix and base64-decode the key bytes.
+// The svix-signature header may contain multiple "v1,<sig>" entries space-
+// separated (during secret rotation). We accept if ANY matches.
+async function verifySvixSignature(svixId, svixTimestamp, svixSignature, rawBody, secret) {
+  if (!svixId || !svixTimestamp || !svixSignature || !secret) return false;
+
+  // Replay-attack guard: reject events older than 5 minutes (or with future timestamps).
+  const tsSec = parseInt(svixTimestamp, 10);
+  if (!Number.isFinite(tsSec)) return false;
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (Math.abs(nowSec - tsSec) > 300) return false;
+
+  const rawSecret = secret.startsWith('whsec_') ? secret.slice(6) : secret;
+  let keyBytes;
+  try {
+    keyBytes = Uint8Array.from(atob(rawSecret), c => c.charCodeAt(0));
+  } catch {
+    return false;
+  }
+
+  const key = await crypto.subtle.importKey(
+    'raw', keyBytes,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false, ['sign']
+  );
+  const sig = await crypto.subtle.sign(
+    'HMAC', key,
+    new TextEncoder().encode(`${svixId}.${svixTimestamp}.${rawBody}`)
+  );
+  const expected = btoa(String.fromCharCode(...new Uint8Array(sig)));
+
+  // Header form: "v1,<sig1> v1,<sig2>" — accept any match
+  const candidates = svixSignature
+    .split(' ')
+    .map(s => {
+      const i = s.indexOf(',');
+      return i >= 0 ? s.slice(i + 1) : '';
+    });
+  return candidates.includes(expected);
 }
 
 function revealConfirmationHtml(action) {
@@ -481,7 +525,19 @@ async function handleRequest(request, env, ctx, origin) {
         );
       }
 
-      const subKey = `sub:${email.toLowerCase()}`;
+      const emailLc = email.toLowerCase();
+
+      // Reject if email was previously blocklisted by /resend-webhook
+      // (hard bounce or spam complaint). Avoids re-adding known-bad addresses.
+      const blocklisted = await env.RATE_LIMIT.get(`blocklist:${emailLc}`);
+      if (blocklisted) {
+        return Response.json(
+          { error: '此邮箱无法订阅，请联系管理员 / This address can\'t be subscribed; contact admin' },
+          { status: 400, headers: corsHeaders(origin) }
+        );
+      }
+
+      const subKey = `sub:${emailLc}`;
       const existing = await env.RATE_LIMIT.get(subKey);
       if (existing) {
         return Response.json(
@@ -672,6 +728,58 @@ async function handleRequest(request, env, ctx, origin) {
       return new Response(revealConfirmationHtml(action), {
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       });
+    }
+
+    // POST /resend-webhook — Svix-signed webhook from Resend.
+    // On hard bounce or complaint: delete sub:<email>, add blocklist:<email>.
+    // Soft bounces and other event types are acknowledged with 200 but ignored.
+    if (pathname === '/resend-webhook' && request.method === 'POST') {
+      const rawBody = await request.text();
+      const svixId        = request.headers.get('svix-id');
+      const svixTimestamp = request.headers.get('svix-timestamp');
+      const svixSignature = request.headers.get('svix-signature');
+
+      const valid = await verifySvixSignature(
+        svixId, svixTimestamp, svixSignature, rawBody, env.RESEND_WEBHOOK_SECRET
+      );
+      if (!valid) {
+        return new Response('Invalid signature.', {
+          status: 400,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      }
+
+      let event;
+      try { event = JSON.parse(rawBody); } catch {
+        return new Response('Invalid JSON.', {
+          status: 400,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      }
+
+      const type = event?.type || '';
+      const to   = Array.isArray(event?.data?.to) ? event.data.to[0] : event?.data?.to;
+      const recipient = String(to || '').toLowerCase();
+
+      let action = 'ignored';
+      if (recipient) {
+        const isHardBounce =
+          type === 'email.bounced' &&
+          (event?.data?.bounce?.type === 'hard' || event?.data?.bounce?.subType === 'hard');
+        const isComplaint = type === 'email.complained';
+
+        if (isHardBounce || isComplaint) {
+          await env.RATE_LIMIT.delete(`sub:${recipient}`);
+          await env.RATE_LIMIT.put(
+            `blocklist:${recipient}`,
+            JSON.stringify({ reason: isHardBounce ? 'hard-bounce' : 'complaint', at: new Date().toISOString() })
+          );
+          action = isHardBounce ? 'blocklisted (hard bounce)' : 'blocklisted (complaint)';
+        }
+      }
+
+      console.log(`resend-webhook: ${type} for ${recipient || '(no recipient)'} → ${action}`);
+      return Response.json({ ok: true, action }, { status: 200 });
     }
 
     return new Response('Not Found', { status: 404 });
