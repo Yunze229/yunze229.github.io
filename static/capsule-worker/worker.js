@@ -229,7 +229,9 @@ async function sendNewsletterEmail(apiKey, to, post, unsubLink) {
       from:    NEWSLETTER_FROM,
       to,
       reply_to: REPLY_TO_EMAIL,
-      subject: `📝 ${post.title}`,
+      subject: post.title_zh
+        ? `📝 ${post.title_zh} · ${post.title}`
+        : `📝 ${post.title}`,
       html:    newsletterHtml(post, unsubLink),
       text:    newsletterText(post, unsubLink),
       headers: {
@@ -355,7 +357,7 @@ async function handleRequest(request, env, ctx, origin) {
       ctx.waitUntil(
         sendEmail(
           env.RESEND_API_KEY,
-          `📬 新的时光胶囊：${fromZh} → ${unlock_date}`,
+          `📬 收到一封新信:${fromZh} → ${unlock_date}`,
           `<p><strong>${fromZh}</strong> 写了一封信，将于 <strong>${unlock_date}</strong> 开封。</p>
            <p>标题：${titleZh}</p><p>文件：<code>${filename}</code></p>`
         ).catch(e => console.error('Email error:', e))

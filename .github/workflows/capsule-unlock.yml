@@ -101,7 +101,7 @@ jobs:
               'from':     FROM_EMAIL,
               'to':       NOTIFY_EMAILS,
               'reply_to': REPLY_TO,
-              'subject':  '\U0001f513 时光胶囊开封：' + from_zh + ' 写给 Yunze（' + unlock_date + '）',
+              'subject':  '\U0001f48c 信开封了:' + from_zh + ' 写给 Yunze (' + title_zh + ')',
               'html':     html,
             }
             req = urllib.request.Request(

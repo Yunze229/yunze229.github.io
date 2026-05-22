@@ -2,8 +2,15 @@
 [
   {{- range $i, $p := $pages -}}
   {{- if $i }},{{ end -}}
+  {{- $slug := "" -}}
+  {{- with $p.File }}{{ $slug = .ContentBaseName }}{{ end -}}
+  {{- $trans := index hugo.Data.translations $slug -}}
+  {{- if and (not $trans) $p.Params.title_zh -}}
+    {{- $trans = dict "title" $p.Params.title_zh -}}
+  {{- end -}}
   {
     "title": {{ $p.Title | jsonify }},
+    "title_zh": {{ (or (and $trans $trans.title) "") | jsonify }},
     "permalink": {{ $p.Permalink | jsonify }},
     "tags": {{ $p.Params.tags | jsonify }},
     "content": {{ $p.Plain | truncate 500 | jsonify }}
