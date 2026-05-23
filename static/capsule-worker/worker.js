@@ -45,6 +45,42 @@ function corsHeaders(origin) {
 
 const ALLOWED_VOICE_LOGINS = ['Yunze229', 'hxz49'];
 
+// Vocabulary Yunze actually uses in his diaries — biases Whisper transcription
+// and gives Claude correct spellings/translations during polish.
+// To add more entries: also update memory file `project_yunze_context.md`.
+// Sensitive names (classmates/teachers) should NOT be added here (this file is
+// in a public repo) — move to a Worker secret if needed.
+const YUNZE_CONTEXT = {
+  vocab: [
+    { en: 'Brazilian jiu-jitsu', zh: '巴西柔术', note: 'martial art Yunze practices' },
+    { en: 'CodeMind',            zh: 'CodeMind', note: 'coding class program he attends' },
+    { en: 'Edubus',              zh: 'Edubus',   note: 'place where his debate class meets' },
+    { en: 'Softland',            zh: 'Softland', note: 'where he carpets and does part-time helper work' },
+  ],
+};
+
+// Build Whisper initial_prompt — short, comma-separated, biases the model to
+// hear these proper nouns correctly instead of falling back to phonetic guesses.
+function buildWhisperPrompt() {
+  const terms = YUNZE_CONTEXT.vocab.map(v => v.en).join(', ');
+  return `Voice diary by Yunze, a 10-year-old bilingual student. He often mentions: ${terms}.`;
+}
+
+// Build a polish-prompt context block — gives Claude correct EN/ZH pairs so
+// polish doesn't invent bad translations (e.g., baobab ≠ 巴西柔术).
+function buildPolishVocabBlock() {
+  if (!YUNZE_CONTEXT.vocab.length) return '';
+  const lines = YUNZE_CONTEXT.vocab.map(v =>
+    `- "${v.en}" ↔ "${v.zh}"${v.note ? ` (${v.note})` : ''}`
+  );
+  return [
+    '',
+    'KNOWN VOCABULARY — use these exact spellings and translations when they appear:',
+    ...lines,
+    '',
+  ].join('\n');
+}
+
 // Verify a GitHub access token by calling /user and checking login allowlist.
 // Returns { ok: true, login } on success, { ok: false, status, error } on failure.
 async function verifyGitHubUser(token) {
@@ -80,9 +116,11 @@ function abToBase64(buf) {
 // Primary model: whisper-large-v3-turbo (better multilingual). Falls back to plain
 // whisper if turbo is unavailable or returns no text.
 async function transcribeAudio(ai, audioBuffer) {
+  const initial_prompt = buildWhisperPrompt();
   try {
     const result = await ai.run('@cf/openai/whisper-large-v3-turbo', {
       audio: abToBase64(audioBuffer),
+      initial_prompt,
     });
     if (result?.text) return { text: result.text, language: result.language || 'auto' };
   } catch (err) {
@@ -90,7 +128,7 @@ async function transcribeAudio(ai, audioBuffer) {
   }
   try {
     const audio  = Array.from(new Uint8Array(audioBuffer));
-    const result = await ai.run('@cf/openai/whisper', { audio });
+    const result = await ai.run('@cf/openai/whisper', { audio, initial_prompt });
     return { text: result?.text || result?.transcription || '', language: 'auto' };
   } catch (err) {
     return { error: String(err?.message || err) };
@@ -140,6 +178,10 @@ async function polishWithClaude(apiKey, transcript) {
     '"""',
     transcript,
     '"""',
+    buildPolishVocabBlock(),
+    'If the transcript contains words that sound like one of the KNOWN VOCABULARY items but',
+    'with a slightly off English spelling (e.g., "baobab trees" when "Brazilian jiu-jitsu" was',
+    'likely intended given context), prefer the canonical spelling from the vocabulary list.',
     '',
     'Return the JSON object as specified.',
   ].join('\n');
