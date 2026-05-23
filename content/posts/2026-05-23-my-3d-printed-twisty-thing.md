@@ -3,7 +3,7 @@ title: My 3D-Printed Twisty Thing
 date: 2026-05-22
 categories:
   - 日记
-cover: ''
+cover: images/uploads/2026-05-23-my-3d-printed-twisty-thing/IMG_6487.jpeg
 tags:
   - 日记
 private: false
