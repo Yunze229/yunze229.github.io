@@ -27,6 +27,21 @@ jobs:
           trans_dir = 'data/translations'
           os.makedirs(trans_dir, exist_ok=True)
 
+          def has_nonempty_body_zh(text):
+            # Empty quoted form: body_zh: '' or body_zh: ""
+            if re.search(r"^body_zh:\s*(''|\"\")\s*$", text, re.MULTILINE):
+              return False
+            # Block scalar: body_zh: |- then indented lines
+            m = re.search(r"^body_zh:\s*\|-?\s*\n((?:[ \t]+\S.*\n?)+)", text, re.MULTILINE)
+            if m:
+              return bool(m.group(1).strip())
+            # Inline non-empty: body_zh: 中文文字
+            m = re.search(r"^body_zh:\s*(\S.*)$", text, re.MULTILINE)
+            if m:
+              val = m.group(1).strip()
+              return val not in ("''", '""', '|', '|-', '>', '>-')
+            return False
+
           for filename in sorted(os.listdir(posts_dir)):
             if not filename.endswith('.md'):
               continue
@@ -38,11 +53,11 @@ jobs:
             if 'draft: true' in content or 'private: true' in content:
               continue
 
-            if 'title_zh:' in content:
-              print(f'Has title_zh, skipping AI translation: {slug}')
+            slug = filename.replace('.md', '')
+            if has_nonempty_body_zh(content):
+              print(f'body_zh manually filled, skipping AI translation: {slug}')
               continue
 
-            slug = filename.replace('.md', '')
             trans_file = os.path.join(trans_dir, slug + '.yaml')
 
             if os.path.exists(trans_file):
