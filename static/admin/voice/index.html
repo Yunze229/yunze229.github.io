@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+  <title>🎙️ 语音日记 / Voice Diary — Yunze</title>
+  <link rel="stylesheet" href="voice.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🎙️ 语音日记 / Voice Diary</h1>
+      <div class="user" id="user-info">
+        <span id="user-name">未登录 / Not signed in</span>
+        <a href="#" id="logout-link" class="hidden">退出 / Sign out</a>
+      </div>
+    </header>
+
+    <div id="alert-area"></div>
+
+    <section id="screen-login" class="panel login">
+      <p>请用 GitHub 登录后录制日记。<br>Sign in with GitHub to record your diary.</p>
+      <button class="primary" id="login-btn">🔐 用 GitHub 登录 / Sign in with GitHub</button>
+    </section>
+
+    <section id="screen-record" class="panel recorder hidden">
+      <button class="mic-btn" id="mic-btn" aria-label="开始录音">🎙️</button>
+      <div class="timer" id="timer">00:00</div>
+      <p class="hint">点麦克风开始 / 再点一次停止 · Max 5 min</p>
+    </section>
+
+    <section id="screen-processing" class="panel status hidden">
+      <div class="spinner"></div>
+      <p id="processing-text">处理中... / Processing...</p>
+      <div>
+        <span class="step" id="step-upload">上传 / Upload</span>
+        <span class="step" id="step-transcribe">转写 / Transcribe</span>
+        <span class="step" id="step-polish">润色 / Polish</span>
+      </div>
+    </section>
+
+    <section id="screen-edit" class="panel editor hidden">
+      <label>英文标题 / English title</label>
+      <input type="text" id="f-title-en" />
+
+      <label>中文标题 / 中文标题</label>
+      <input type="text" id="f-title-zh" />
+
+      <label>Slug (URL 路径，仅小写字母数字和短横线)</label>
+      <input type="text" id="f-slug" />
+
+      <label>标签 / Tags (回车添加)</label>
+      <div class="tags-input" id="f-tags">
+        <input type="text" id="f-tags-input" placeholder="按回车添加..." />
+      </div>
+
+      <label>英文正文 / English body</label>
+      <textarea class="body-en" id="f-body-en"></textarea>
+
+      <label>中文正文 / 中文正文</label>
+      <textarea class="body-zh" id="f-body-zh"></textarea>
+
+      <label>📖 学习笔记（仅你自己可见 / Only you can see this）</label>
+      <div class="notes" id="f-notes"></div>
+      <button class="secondary" type="button" id="add-note-btn">+ 添加一条 / Add note</button>
+
+      <div class="actions">
+        <button class="secondary" id="redo-btn">↺ 重录 / Re-record</button>
+        <button class="secondary" id="save-private-btn">🔒 保存私密日记 / Save private</button>
+        <button class="primary" id="publish-btn">✅ 发布到博客 / Publish</button>
+      </div>
+    </section>
+
+    <section id="screen-published" class="panel status hidden">
+      <p class="big-emoji">🎉</p>
+      <h2 id="published-title">已发布！ / Published!</h2>
+      <p id="published-text"></p>
+      <div class="actions">
+        <button class="primary" id="record-again-btn">再录一篇 / Record another</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="voice.js"></script>
+</body>
+</html>

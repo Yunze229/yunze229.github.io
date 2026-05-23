@@ -77,6 +77,38 @@ collections:
         required: false
         hint: "不填则由 AI 自动翻译；填了直接用，不再调用 AI"
 
+  - name: "learning"
+    label: "📖 学习笔记（仅你自己可见）"
+    label_singular: "学习笔记"
+    folder: "content/learning"
+    create: true
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    fields:
+      - label: "标题"
+        name: "title"
+        widget: "string"
+      - label: "日期"
+        name: "date"
+        widget: "datetime"
+        format: "YYYY-MM-DD"
+        date_format: "YYYY-MM-DD"
+        time_format: false
+      - label: "草稿（学习笔记永远 draft:true，不会出现在博客）"
+        name: "draft"
+        widget: "boolean"
+        default: true
+      - label: "对应日记 slug（可选）"
+        name: "source_slug"
+        widget: "string"
+        required: false
+      - label: "对应日记标题（可选）"
+        name: "source_title"
+        widget: "string"
+        required: false
+      - label: "笔记内容"
+        name: "body"
+        widget: "markdown"
+
   - name: "capsule"
     label: "时光胶囊"
     label_singular: "胶囊信件"

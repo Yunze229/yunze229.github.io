@@ -6,12 +6,13 @@
 //
 // Secrets (Cloudflare dashboard → Settings → Variables → Secrets):
 //   GITHUB_TOKEN          – PAT with write access to hxz49/yunze-letters (capsule submit)
-//   MAIN_REPO_TOKEN       – PAT with contents:write on Yunze229/yunze229.github.io (reveal-action)
+//   MAIN_REPO_TOKEN       – PAT with contents:write on Yunze229/yunze229.github.io (reveal-action + voice publish)
 //   RESEND_API_KEY        – Resend API key (dyz229 account, capsule + newsletter)
 //   TURNSTILE_SECRET      – Cloudflare Turnstile server-side secret
 //   BROADCAST_SECRET      – shared secret guarding /broadcast; also HMAC key for /unsubscribe
 //   REVEAL_ACTION_SECRET  – HMAC key for capsule /reveal-action magic-link buttons
 //   RESEND_WEBHOOK_SECRET – Svix signing secret for /resend-webhook (bounce/complaint events)
+//   ANTHROPIC_API_KEY     – Claude API key for /voice/polish (transcript → polished bilingual draft)
 
 const PRIVATE_REPO    = 'hxz49/yunze-letters';
 const MAIN_REPO       = 'Yunze229/yunze229.github.io';
@@ -34,10 +35,213 @@ function corsHeaders(origin) {
   const allowed = ALLOWED_ORIGINS.includes(origin);
   return {
     'Access-Control-Allow-Origin':  allowed ? origin : DEFAULT_ORIGIN,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age':       '86400',
   };
+}
+
+// ===== Voice diary helpers =====
+
+const ALLOWED_VOICE_LOGINS = ['Yunze229', 'hxz49'];
+
+// Verify a GitHub access token by calling /user and checking login allowlist.
+// Returns { ok: true, login } on success, { ok: false, status, error } on failure.
+async function verifyGitHubUser(token) {
+  if (!token) return { ok: false, status: 401, error: 'Missing token' };
+  const res = await fetch('https://api.github.com/user', {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept:        'application/vnd.github.v3+json',
+      'User-Agent':  'yunze-capsule-voice',
+    },
+  });
+  if (!res.ok) return { ok: false, status: 401, error: `GitHub /user ${res.status}` };
+  const user = await res.json();
+  const login = user?.login || '';
+  if (!ALLOWED_VOICE_LOGINS.includes(login)) {
+    return { ok: false, status: 403, error: `Not allowed: ${login}` };
+  }
+  return { ok: true, login };
+}
+
+// Convert ArrayBuffer to base64 string (chunked to avoid call-stack limits on big buffers).
+function abToBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
+}
+
+// Call Cloudflare Workers AI Whisper. Returns { text, language } or { error }.
+// Primary model: whisper-large-v3-turbo (better multilingual). Falls back to plain
+// whisper if turbo is unavailable or returns no text.
+async function transcribeAudio(ai, audioBuffer) {
+  try {
+    const result = await ai.run('@cf/openai/whisper-large-v3-turbo', {
+      audio: abToBase64(audioBuffer),
+    });
+    if (result?.text) return { text: result.text, language: result.language || 'auto' };
+  } catch (err) {
+    console.warn('whisper-large-v3-turbo failed, falling back:', err?.message || err);
+  }
+  try {
+    const audio  = Array.from(new Uint8Array(audioBuffer));
+    const result = await ai.run('@cf/openai/whisper', { audio });
+    return { text: result?.text || result?.transcription || '', language: 'auto' };
+  } catch (err) {
+    return { error: String(err?.message || err) };
+  }
+}
+
+const POLISH_SYSTEM_PROMPT = [
+  'You are an editing assistant for a 10-year-old bilingual blogger named Yunze.',
+  'Yunze speaks both English and Mandarin; his speech mixes the two freely.',
+  'Your job: take a raw voice transcript and turn it into a publishable bilingual diary entry,',
+  'PLUS extract a small list of English vocabulary or phrases worth learning.',
+  '',
+  'OUTPUT STRICTLY ONE JSON OBJECT — no prose, no markdown fences, no commentary.',
+  '',
+  'Schema:',
+  '{',
+  '  "title_en": "string, <= 60 chars, natural English title",',
+  '  "title_zh": "string, <= 30 chars, natural Chinese title",',
+  '  "slug":     "string, lowercase ASCII kebab-case, derived from title_en, <= 50 chars",',
+  '  "tags":     ["array of 2-5 short lowercase tags, English or Chinese single words"],',
+  '  "body_en":  "string, well-formed English markdown body (paragraphs separated by blank lines)",',
+  '  "body_zh":  "string, well-formed Chinese markdown body, faithful translation of body_en",',
+  '  "learning_notes": [',
+  '    {',
+  '      "phrase":     "English word or short phrase Yunze should remember",',
+  '      "you_said":   "what Yunze actually said (verbatim from transcript, may be wrong or awkward)",',
+  '      "correction": "natural / idiomatic English version",',
+  '      "why_zh":     "1-2 sentence Chinese explanation of the difference",',
+  '      "why_en":     "1-2 sentence English explanation of the difference"',
+  '    }',
+  '  ]',
+  '}',
+  '',
+  'Rules:',
+  '- Keep Yunze\'s voice — first person, casual, curious. Do not over-polish into adult prose.',
+  '- The body should be 2-5 paragraphs typically; do NOT invent events not in the transcript.',
+  '- If the transcript is short (<30 words), still produce a short polished version.',
+  '- learning_notes: 1-5 items. Pick phrases where Yunze used awkward grammar, wrong word, or unidiomatic phrasing. If everything sounded natural, return an empty array [].',
+  '- If learning_notes finds nothing, omit it as []; do NOT fabricate "mistakes" that were not present.',
+  '- slug uses only [a-z0-9-]; strip Chinese characters.',
+].join('\n');
+
+async function polishWithClaude(apiKey, transcript) {
+  const userMessage = [
+    'Raw voice transcript from Yunze (may contain ums, false starts, and bilingual mixing):',
+    '',
+    '"""',
+    transcript,
+    '"""',
+    '',
+    'Return the JSON object as specified.',
+  ].join('\n');
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key':         apiKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Type':      'application/json',
+    },
+    body: JSON.stringify({
+      model:      'claude-sonnet-4-6',
+      max_tokens: 4096,
+      system:     POLISH_SYSTEM_PROMPT,
+      messages:   [{ role: 'user', content: userMessage }],
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Claude API ${res.status}: ${errText.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  const text = data?.content?.[0]?.text || '';
+  // Claude sometimes wraps JSON in ```json fences despite instructions — strip them.
+  const clean = text.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+  let parsed;
+  try { parsed = JSON.parse(clean); } catch (err) {
+    throw new Error(`Polish JSON parse failed: ${err.message} :: ${clean.slice(0, 200)}`);
+  }
+  return parsed;
+}
+
+// Build the front matter + body for a posts/<slug>.md file.
+// When isPrivate is true, adds `private: true` so deploy.yml staticrypt-encrypts
+// the page and it disappears from index.json / list pages.
+function buildPostMarkdown({ title_en, title_zh, slug, tags, body_en, body_zh, date, isPrivate }) {
+  const yamlEscape = s => String(s).replace(/"/g, '\\"');
+  const tagsLine = Array.isArray(tags) && tags.length
+    ? `[${tags.map(t => `"${yamlEscape(t)}"`).join(', ')}]`
+    : '[]';
+  const lines = [
+    '---',
+    `title: "${yamlEscape(title_en)}"`,
+    `title_zh: "${yamlEscape(title_zh)}"`,
+    `date: ${date}`,
+    `categories: ["日记"]`,
+    `tags: ${tagsLine}`,
+    `voice: true`,
+  ];
+  if (isPrivate) lines.push('private: true');
+  lines.push(
+    'body_zh: |-',
+    ...String(body_zh || '').split('\n').map(l => `  ${l}`),
+    '---',
+    '',
+    body_en || '',
+    '',
+  );
+  return lines.join('\n');
+}
+
+// Build the front matter + body for a learning/<slug>.md file.
+// Always draft:true so production Hugo skips it; only visible via Sveltia CMS.
+function buildLearningMarkdown({ source_slug, source_title, learning_notes, date }) {
+  const yamlEscape = s => String(s).replace(/"/g, '\\"');
+  const bodyLines = [];
+  if (!Array.isArray(learning_notes) || learning_notes.length === 0) {
+    bodyLines.push('_今天没有挑出需要学习的英文。 / Nothing flagged today._', '');
+  } else {
+    for (const n of learning_notes) {
+      bodyLines.push(`### ${n.phrase || '(phrase)'}`);
+      bodyLines.push('');
+      bodyLines.push(`**你说的 / You said:** ${n.you_said || ''}`);
+      bodyLines.push('');
+      bodyLines.push(`**地道说法 / Natural English:** ${n.correction || ''}`);
+      bodyLines.push('');
+      if (n.why_zh) bodyLines.push(`**为什么:** ${n.why_zh}`);
+      if (n.why_en) bodyLines.push(`**Why:** ${n.why_en}`);
+      bodyLines.push('');
+    }
+  }
+  const lines = [
+    '---',
+    `title: "学习笔记 — ${date}"`,
+    `date: ${date}`,
+    'draft: true',
+    `source_slug: "${yamlEscape(source_slug)}"`,
+    `source_title: "${yamlEscape(source_title)}"`,
+    '---',
+    '',
+    ...bodyLines,
+  ];
+  return lines.join('\n');
+}
+
+function slugifyAscii(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 50) || 'diary';
 }
 
 // Rate limit: max 5 requests per IP per 60-second window.
@@ -780,6 +984,154 @@ async function handleRequest(request, env, ctx, origin) {
 
       console.log(`resend-webhook: ${type} for ${recipient || '(no recipient)'} → ${action}`);
       return Response.json({ ok: true, action }, { status: 200 });
+    }
+
+    // ===== Voice diary endpoints =====
+    // All voice/* endpoints require Authorization: Bearer <github-token>; the token's
+    // user.login must be in ALLOWED_VOICE_LOGINS. Voice content is written to main repo
+    // using MAIN_REPO_TOKEN (PAT), not the user token.
+
+    if (pathname.startsWith('/voice/') && request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+
+    if (pathname.startsWith('/voice/')) {
+      const authHeader = request.headers.get('Authorization') || '';
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+      const auth  = await verifyGitHubUser(token);
+      if (!auth.ok) {
+        return Response.json(
+          { error: `Unauthorized: ${auth.error} / 未授权` },
+          { status: auth.status, headers: corsHeaders(origin) }
+        );
+      }
+
+      if (pathname === '/voice/transcribe' && request.method === 'POST') {
+        let payload;
+        try { payload = await request.json(); } catch {
+          return Response.json({ error: '请求格式错误 / Bad request' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        const b64 = payload?.audio_base64 || '';
+        if (!b64) {
+          return Response.json({ error: '缺少音频数据 / Missing audio' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        let buf;
+        try {
+          const bin = atob(b64);
+          buf = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+        } catch {
+          return Response.json({ error: '音频解码失败 / Audio decode failed' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        const r = await transcribeAudio(env.AI, buf.buffer);
+        if (r.error) {
+          console.error('Whisper error:', r.error);
+          return Response.json({ error: `转写失败 / Transcription failed: ${r.error}` }, { status: 500, headers: corsHeaders(origin) });
+        }
+        return Response.json({ transcript: r.text, language: r.language, login: auth.login }, { headers: corsHeaders(origin) });
+      }
+
+      if (pathname === '/voice/polish' && request.method === 'POST') {
+        let payload;
+        try { payload = await request.json(); } catch {
+          return Response.json({ error: '请求格式错误 / Bad request' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        const transcript = String(payload?.transcript || '').trim();
+        if (!transcript) {
+          return Response.json({ error: '缺少转写文本 / Missing transcript' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        if (!env.ANTHROPIC_API_KEY) {
+          return Response.json({ error: 'Claude API key not configured / ANTHROPIC_API_KEY 未配置' }, { status: 500, headers: corsHeaders(origin) });
+        }
+        try {
+          const polished = await polishWithClaude(env.ANTHROPIC_API_KEY, transcript);
+          // Defensive defaults — Claude usually returns all fields but never trust.
+          polished.title_en       = String(polished.title_en || 'Untitled');
+          polished.title_zh       = String(polished.title_zh || '未命名');
+          polished.slug           = slugifyAscii(polished.slug || polished.title_en);
+          polished.tags           = Array.isArray(polished.tags) ? polished.tags.slice(0, 5).map(String) : [];
+          polished.body_en        = String(polished.body_en || transcript);
+          polished.body_zh        = String(polished.body_zh || '');
+          polished.learning_notes = Array.isArray(polished.learning_notes) ? polished.learning_notes : [];
+          return Response.json(polished, { headers: corsHeaders(origin) });
+        } catch (err) {
+          console.error('Polish error:', err?.stack || err);
+          return Response.json({ error: `润色失败 / Polish failed: ${err.message || err}` }, { status: 500, headers: corsHeaders(origin) });
+        }
+      }
+
+      if (pathname === '/voice/publish' && request.method === 'POST') {
+        let payload;
+        try { payload = await request.json(); } catch {
+          return Response.json({ error: '请求格式错误 / Bad request' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        const {
+          title_en, title_zh, slug: rawSlug, tags, body_en, body_zh,
+          learning_notes, private: isPrivate,
+        } = payload || {};
+
+        if (!title_en || !body_en) {
+          return Response.json({ error: '标题和正文必填 / title_en + body_en required' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        if (!env.MAIN_REPO_TOKEN) {
+          return Response.json({ error: 'MAIN_REPO_TOKEN 未配置' }, { status: 500, headers: corsHeaders(origin) });
+        }
+
+        const date     = new Date().toISOString().slice(0, 10);
+        const slug     = slugifyAscii(rawSlug || title_en);
+        const postPath = `content/posts/${date}-${slug}.md`;
+        const learnPath = `content/learning/${date}-${slug}.md`;
+        const privateFlag = isPrivate === true;
+
+        const postMd = buildPostMarkdown({
+          title_en, title_zh, slug, tags, body_en, body_zh, date, isPrivate: privateFlag,
+        });
+
+        const commitPrefix = privateFlag ? 'voice (private)' : 'voice';
+        const ghRes = await ghPut(
+          env.MAIN_REPO_TOKEN, MAIN_REPO, postPath, postMd,
+          `${commitPrefix}: ${date} ${title_en} (by ${auth.login})`
+        );
+        if (!ghRes.ok) {
+          const t = await ghRes.text().catch(() => '');
+          console.error('voice publish post failed', ghRes.status, t);
+          return Response.json({ error: `发布失败 / Publish failed (HTTP ${ghRes.status})` }, { status: 500, headers: corsHeaders(origin) });
+        }
+
+        // Only write learning file if there's content worth writing.
+        let learnUrl = null;
+        if (Array.isArray(learning_notes) && learning_notes.length > 0) {
+          const learnMd = buildLearningMarkdown({
+            source_slug: `${date}-${slug}`,
+            source_title: title_en,
+            learning_notes,
+            date,
+          });
+          const learnRes = await ghPut(
+            env.MAIN_REPO_TOKEN, MAIN_REPO, learnPath, learnMd,
+            `learning: ${date} ${title_en} (by ${auth.login})`
+          );
+          if (!learnRes.ok) {
+            const t = await learnRes.text().catch(() => '');
+            console.error('voice publish learning failed', learnRes.status, t);
+            // Don't fail the whole publish — the post is already up.
+          } else {
+            learnUrl = `https://github.com/${MAIN_REPO}/blob/main/${learnPath}`;
+          }
+        }
+
+        return Response.json({
+          message:    privateFlag
+            ? '已保存为私密日记。部署后输入密码可看 / Saved as private — visible after deploy with password'
+            : '已发布！部署完成后可在博客上看到 / Published — visible after deploy',
+          private:    privateFlag,
+          post_path:  postPath,
+          post_url:   `${SITE_URL}/posts/${date}-${slug}/`,
+          learn_url:  learnUrl,
+        }, { headers: corsHeaders(origin) });
+      }
+
+      return Response.json({ error: 'Voice endpoint not found' }, { status: 404, headers: corsHeaders(origin) });
     }
 
     return new Response('Not Found', { status: 404 });
