@@ -4,8 +4,41 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Yunze · 写作后台</title>
+  <style>
+    /* Floating voice-diary launcher — opens /admin/voice/ in a new tab. */
+    #voice-fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 99998;
+      background: #d97757;
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+      text-decoration: none;
+      box-shadow: 0 4px 14px rgba(217, 119, 87, 0.35);
+      opacity: 0.85;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    #voice-fab:hover {
+      opacity: 1;
+      transform: translateY(-2px);
+    }
+    @media (max-width: 640px) {
+      #voice-fab {
+        bottom: 16px;
+        right: 16px;
+        padding: 10px 14px;
+        font-size: 13px;
+      }
+    }
+  </style>
 </head>
 <body>
+  <a id="voice-fab" href="/admin/voice/" target="_blank" rel="noopener" title="录音→AI润色→一键发布">🎙️ 语音日记</a>
+
   <script src="https://unpkg.com/@sveltia/cms/dist/sveltia-cms.js"></script>
   <script>
     CMS.registerPreviewStyle('/admin/preview.css');

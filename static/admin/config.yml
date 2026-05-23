@@ -19,6 +19,8 @@ collections:
     preview_path: "posts/{{slug}}"
     media_folder: "static/images/uploads/{{slug}}"
     public_folder: "/images/uploads/{{slug}}"
+    sortable_fields: ["date", "title"]
+    sort: "date:desc"
     fields:
       - label: "标题"
         name: "title"
@@ -77,12 +79,70 @@ collections:
         required: false
         hint: "不填则由 AI 自动翻译；填了直接用，不再调用 AI"
 
+  - name: "private"
+    label: "🔒 私密日记"
+    label_singular: "私密日记"
+    folder: "content/private"
+    create: true
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    media_folder: "static/images/uploads/{{slug}}"
+    public_folder: "/images/uploads/{{slug}}"
+    sortable_fields: ["date", "title"]
+    sort: "date:desc"
+    fields:
+      - label: "标题"
+        name: "title"
+        widget: "string"
+      - label: "中文标题（可选）"
+        name: "title_zh"
+        widget: "string"
+        required: false
+      - label: "日期"
+        name: "date"
+        widget: "datetime"
+        format: "YYYY-MM-DD"
+        date_format: "YYYY-MM-DD"
+        time_format: false
+      - label: "分类"
+        name: "categories"
+        widget: "select"
+        multiple: true
+        required: false
+        options:
+          - { label: "日记", value: "日记" }
+          - { label: "学习笔记", value: "学习笔记" }
+          - { label: "随想", value: "随想" }
+        default: ["日记"]
+      - label: "标签"
+        name: "tags"
+        widget: "list"
+        allow_add: true
+        required: false
+      - label: "🔒 私密（私密日记自动加密，不可关闭）"
+        name: "private"
+        widget: "boolean"
+        default: true
+        hint: "本文件夹的所有文章都会被 staticrypt 加密"
+      - label: "草稿"
+        name: "draft"
+        widget: "boolean"
+        default: false
+      - label: "正文"
+        name: "body"
+        widget: "markdown"
+      - label: "中文正文（可选）"
+        name: "body_zh"
+        widget: "markdown"
+        required: false
+
   - name: "learning"
     label: "📖 学习笔记（仅你自己可见）"
     label_singular: "学习笔记"
     folder: "content/learning"
     create: true
     slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    sortable_fields: ["date", "title"]
+    sort: "date:desc"
     fields:
       - label: "标题"
         name: "title"
@@ -114,6 +174,8 @@ collections:
     label_singular: "胶囊信件"
     folder: "content/capsule"
     create: false
+    sortable_fields: ["date", "unlock_date", "title"]
+    sort: "date:desc"
     fields:
       - label: "标题（中文）"
         name: "title"

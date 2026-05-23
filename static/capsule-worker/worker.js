@@ -1079,9 +1079,14 @@ async function handleRequest(request, env, ctx, origin) {
 
         const date     = new Date().toISOString().slice(0, 10);
         const slug     = slugifyAscii(rawSlug || title_en);
-        const postPath = `content/posts/${date}-${slug}.md`;
-        const learnPath = `content/learning/${date}-${slug}.md`;
         const privateFlag = isPrivate === true;
+        // Private diaries go to content/private/ (separate folder, separate URL prefix,
+        // and the deploy.yml staticrypt step encrypts every file under there).
+        const postPath = privateFlag
+          ? `content/private/${date}-${slug}.md`
+          : `content/posts/${date}-${slug}.md`;
+        const learnPath = `content/learning/${date}-${slug}.md`;
+        const urlPrefix = privateFlag ? '/private' : '/posts';
 
         const postMd = buildPostMarkdown({
           title_en, title_zh, slug, tags, body_en, body_zh, date, isPrivate: privateFlag,
@@ -1126,7 +1131,7 @@ async function handleRequest(request, env, ctx, origin) {
             : '已发布！部署完成后可在博客上看到 / Published — visible after deploy',
           private:    privateFlag,
           post_path:  postPath,
-          post_url:   `${SITE_URL}/posts/${date}-${slug}/`,
+          post_url:   `${SITE_URL}${urlPrefix}/${date}-${slug}/`,
           learn_url:  learnUrl,
         }, { headers: corsHeaders(origin) });
       }

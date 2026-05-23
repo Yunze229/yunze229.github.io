@@ -38,30 +38,44 @@ jobs:
             exit 0
           fi
           ENCRYPTED=0
+          encrypt_page() {
+            local PAGE="$1" SLUG="$2"
+            if [ ! -f "$PAGE" ]; then
+              echo "[SKIP] $SLUG: $PAGE not found"
+              return 0
+            fi
+            local TMPDIR=$(mktemp -d)
+            npx --yes staticrypt@3 "$PAGE" --password "$PRIVATE_PASS" --short -d "$TMPDIR" 2>&1
+            if [ -f "$TMPDIR/index.html" ]; then
+              cp "$TMPDIR/index.html" "$PAGE"
+              echo "[ENCRYPTED] $SLUG"
+              ENCRYPTED=$((ENCRYPTED+1))
+            else
+              echo "[ERROR] $SLUG: encrypted file not found in $TMPDIR"
+              rm -rf "$TMPDIR"
+              exit 1
+            fi
+            rm -rf "$TMPDIR"
+          }
+          # Legacy: content/posts/ with private: true flag (kept for backward compat)
           for f in content/posts/*.md; do
             if grep -q "^private: true" "$f"; then
               SLUG=$(basename "$f" .md)
-              # Check for slug: override in frontmatter
               FM_SLUG=$(grep "^slug:" "$f" | head -1 | sed "s/^slug:[ '\"]*//;s/[ '\"]*$//")
               [ -n "$FM_SLUG" ] && SLUG="$FM_SLUG"
-              PAGE="public/posts/$SLUG/index.html"
-              if [ ! -f "$PAGE" ]; then
-                echo "[SKIP] $SLUG: $PAGE not found"
-                continue
-              fi
-              TMPDIR=$(mktemp -d)
-              npx --yes staticrypt@3 "$PAGE" --password "$PRIVATE_PASS" --short -d "$TMPDIR" 2>&1
-              if [ -f "$TMPDIR/index.html" ]; then
-                cp "$TMPDIR/index.html" "$PAGE"
-                echo "[ENCRYPTED] $SLUG"
-                ENCRYPTED=$((ENCRYPTED+1))
-              else
-                echo "[ERROR] $SLUG: encrypted file not found in $TMPDIR"
-                exit 1
-              fi
-              rm -rf "$TMPDIR"
+              encrypt_page "public/posts/$SLUG/index.html" "$SLUG"
             fi
           done
+          # New: every file under content/private/ is private — no grep needed
+          shopt -s nullglob
+          for f in content/private/*.md; do
+            [ "$(basename "$f")" = "_index.md" ] && continue
+            SLUG=$(basename "$f" .md)
+            FM_SLUG=$(grep "^slug:" "$f" | head -1 | sed "s/^slug:[ '\"]*//;s/[ '\"]*$//")
+            [ -n "$FM_SLUG" ] && SLUG="$FM_SLUG"
+            encrypt_page "public/private/$SLUG/index.html" "$SLUG"
+          done
+          shopt -u nullglob
           echo "Done. $ENCRYPTED posts encrypted."
 
       - name: Upload artifact
