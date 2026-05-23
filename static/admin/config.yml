@@ -19,8 +19,11 @@ collections:
     preview_path: "posts/{{slug}}"
     media_folder: "static/images/uploads/{{slug}}"
     public_folder: "/images/uploads/{{slug}}"
-    sortable_fields: ["date", "title"]
-    sort: "date:desc"
+    sortable_fields:
+      fields: ["date", "title"]
+      default:
+        field: "date"
+        direction: "descending"
     fields:
       - label: "标题"
         name: "title"
@@ -87,8 +90,11 @@ collections:
     slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
     media_folder: "static/images/uploads/{{slug}}"
     public_folder: "/images/uploads/{{slug}}"
-    sortable_fields: ["date", "title"]
-    sort: "date:desc"
+    sortable_fields:
+      fields: ["date", "title"]
+      default:
+        field: "date"
+        direction: "descending"
     fields:
       - label: "标题"
         name: "title"
@@ -141,8 +147,11 @@ collections:
     folder: "content/learning"
     create: true
     slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
-    sortable_fields: ["date", "title"]
-    sort: "date:desc"
+    sortable_fields:
+      fields: ["date", "title"]
+      default:
+        field: "date"
+        direction: "descending"
     fields:
       - label: "标题"
         name: "title"
@@ -174,8 +183,11 @@ collections:
     label_singular: "胶囊信件"
     folder: "content/capsule"
     create: false
-    sortable_fields: ["date", "unlock_date", "title"]
-    sort: "date:desc"
+    sortable_fields:
+      fields: ["date", "unlock_date", "title"]
+      default:
+        field: "date"
+        direction: "descending"
     fields:
       - label: "标题（中文）"
         name: "title"
