@@ -3,7 +3,7 @@ title: My 3D-Printed Twisty Thing
 date: 2026-05-22
 categories:
   - 日记
-cover: images/uploads/2026-05-23-my-3d-printed-twisty-thing/IMG_6487.jpeg
+cover: ''
 tags:
   - 日记
 private: false
@@ -22,6 +22,8 @@ body_zh: |-
 ---
 
 Today, I went to Happy Hippo to pick up my **twisty thing**. It's this super satisfying 3D-printed toy — I actually asked the owner to print it just for me!
+
+![](/images/uploads/IMG_6487.jpeg)
 
 The cool thing about it is that you can twist it any way you want — forward, backward, fold it under, even flip it all the way around. It's the kind of toy you just can't put down. When I got there, the black part was already printed, but I couldn't play with it yet, because the green part was still being printed. So I had to be patient and wait a little longer.
 
