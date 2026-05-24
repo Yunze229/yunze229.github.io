@@ -116,7 +116,7 @@ collections:
       - { label: "笔记内容", name: "body", widget: "markdown" }
 
   - name: "reviews"
-    label: "📋 审查记录（mecha 反馈）"
+    label: "📋 审查记录（AI 审稿）"
     label_singular: "审查"
     folder: "data/reviews"
     create: false
@@ -129,7 +129,7 @@ collections:
     fields:
       - { label: "审查对应的文章 slug", name: "slug", widget: "string", readonly: true }
       - { label: "审查时间", name: "date", widget: "datetime", readonly: true }
-      - { label: "mecha 审查内容", name: "body", widget: "markdown", readonly: true }
+      - { label: "AI 审稿内容", name: "body", widget: "markdown", readonly: true }
 
   - name: "settings"
     label: "网站设置"

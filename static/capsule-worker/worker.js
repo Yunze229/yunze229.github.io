@@ -5,8 +5,9 @@
 //   AI          – Cloudflare Workers AI
 //
 // Secrets (Cloudflare dashboard → Settings → Variables → Secrets):
-//   GITHUB_TOKEN          – PAT with write access to hxz49/yunze-letters (capsule submit)
-//   MAIN_REPO_TOKEN       – PAT with contents:write on Yunze229/yunze229.github.io (reveal-action + voice publish)
+//   GITHUB_TOKEN              – PAT with write access to hxz49/yunze-letters (capsule submit)
+//   MAIN_REPO_TOKEN           – PAT with contents:write on Yunze229/yunze229.github.io (reveal-action only)
+//   PRIVATE_REPO_WRITE_TOKEN  – PAT with contents:write on Yunze229/yunze-private (voice publish)
 //   RESEND_API_KEY        – Resend API key (dyz229 account, capsule + newsletter)
 //   TURNSTILE_SECRET      – Cloudflare Turnstile server-side secret
 //   BROADCAST_SECRET      – shared secret guarding /broadcast; also HMAC key for /unsubscribe
@@ -14,8 +15,9 @@
 //   RESEND_WEBHOOK_SECRET – Svix signing secret for /resend-webhook (bounce/complaint events)
 //   ANTHROPIC_API_KEY     – Claude API key for /voice/polish (transcript → polished bilingual draft)
 
-const PRIVATE_REPO    = 'hxz49/yunze-letters';
-const MAIN_REPO       = 'Yunze229/yunze229.github.io';
+const PRIVATE_REPO         = 'hxz49/yunze-letters';   // mom's capsule letter store
+const MAIN_REPO            = 'Yunze229/yunze229.github.io';
+const PRIVATE_CONTENT_REPO = 'Yunze229/yunze-private'; // Yunze's posts + diaries
 const NOTIFY_EMAIL    = 'hxz49@hotmail.com';
 const YUNZE_EMAIL     = 'dyz229@outlook.com';
 const REPLY_TO_EMAIL  = 'hxz49@hotmail.com';
@@ -215,9 +217,11 @@ async function polishWithClaude(apiKey, transcript) {
   return parsed;
 }
 
-// Build the front matter + body for a posts/<slug>.md file.
-// When isPrivate is true, adds `private: true` so deploy.yml staticrypt-encrypts
-// the page and it disappears from index.json / list pages.
+// Build the front matter + body for a posts/<slug>.md file in yunze-private.
+// `make_public` controls deploy-time fan-out:
+//   true  → content/posts/<slug>/   (public, no encryption)
+//   false → content/private/<slug>/ (staticrypt-encrypted)
+// (Hugo reserves `published` as a date field, so we use `make_public` instead.)
 function buildPostMarkdown({ title_en, title_zh, slug, tags, body_en, body_zh, date, isPrivate }) {
   const yamlEscape = s => String(s).replace(/"/g, '\\"');
   const tagsLine = Array.isArray(tags) && tags.length
@@ -228,19 +232,17 @@ function buildPostMarkdown({ title_en, title_zh, slug, tags, body_en, body_zh, d
     `title: "${yamlEscape(title_en)}"`,
     `title_zh: "${yamlEscape(title_zh)}"`,
     `date: ${date}`,
+    `make_public: ${!isPrivate}`,
     `categories: ["日记"]`,
     `tags: ${tagsLine}`,
     `voice: true`,
-  ];
-  if (isPrivate) lines.push('private: true');
-  lines.push(
     'body_zh: |-',
     ...String(body_zh || '').split('\n').map(l => `  ${l}`),
     '---',
     '',
     body_en || '',
     '',
-  );
+  ];
   return lines.join('\n');
 }
 
@@ -1120,19 +1122,17 @@ async function handleRequest(request, env, ctx, origin) {
         if (!title_en || !body_en) {
           return Response.json({ error: '标题和正文必填 / title_en + body_en required' }, { status: 400, headers: corsHeaders(origin) });
         }
-        if (!env.MAIN_REPO_TOKEN) {
-          return Response.json({ error: 'MAIN_REPO_TOKEN 未配置' }, { status: 500, headers: corsHeaders(origin) });
+        if (!env.PRIVATE_REPO_WRITE_TOKEN) {
+          return Response.json({ error: 'PRIVATE_REPO_WRITE_TOKEN 未配置' }, { status: 500, headers: corsHeaders(origin) });
         }
 
         const date     = new Date().toISOString().slice(0, 10);
         const slug     = slugifyAscii(rawSlug || title_en);
         const privateFlag = isPrivate === true;
-        // Private diaries go to content/private/ (separate folder, separate URL prefix,
-        // and the deploy.yml staticrypt step encrypts every file under there).
-        const postPath = privateFlag
-          ? `content/private/${date}-${slug}.md`
-          : `content/posts/${date}-${slug}.md`;
-        const learnPath = `content/learning/${date}-${slug}.md`;
+        // All voice posts land in yunze-private/posts/. The deploy.yml in the main
+        // repo distributes by `make_public` to /posts/ or /private/ at build time.
+        const postPath  = `posts/${date}-${slug}.md`;
+        const learnPath = `learning/${date}-${slug}.md`;
         const urlPrefix = privateFlag ? '/private' : '/posts';
 
         const postMd = buildPostMarkdown({
@@ -1141,7 +1141,7 @@ async function handleRequest(request, env, ctx, origin) {
 
         const commitPrefix = privateFlag ? 'voice (private)' : 'voice';
         const ghRes = await ghPut(
-          env.MAIN_REPO_TOKEN, MAIN_REPO, postPath, postMd,
+          env.PRIVATE_REPO_WRITE_TOKEN, PRIVATE_CONTENT_REPO, postPath, postMd,
           `${commitPrefix}: ${date} ${title_en} (by ${auth.login})`
         );
         if (!ghRes.ok) {
@@ -1160,7 +1160,7 @@ async function handleRequest(request, env, ctx, origin) {
             date,
           });
           const learnRes = await ghPut(
-            env.MAIN_REPO_TOKEN, MAIN_REPO, learnPath, learnMd,
+            env.PRIVATE_REPO_WRITE_TOKEN, PRIVATE_CONTENT_REPO, learnPath, learnMd,
             `learning: ${date} ${title_en} (by ${auth.login})`
           );
           if (!learnRes.ok) {
@@ -1168,7 +1168,8 @@ async function handleRequest(request, env, ctx, origin) {
             console.error('voice publish learning failed', learnRes.status, t);
             // Don't fail the whole publish — the post is already up.
           } else {
-            learnUrl = `https://github.com/${MAIN_REPO}/blob/main/${learnPath}`;
+            // Note: this link only works for logged-in members of yunze-private.
+            learnUrl = `https://github.com/${PRIVATE_CONTENT_REPO}/blob/main/${learnPath}`;
           }
         }
 
