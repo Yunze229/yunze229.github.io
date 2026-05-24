@@ -48,7 +48,7 @@ jobs:
           # Ensure all target dirs exist (the public repo may have only _index.md
           # checked in, so the directories may be missing on a fresh checkout).
           mkdir -p content/posts content/private content/learning
-          mkdir -p data/translations data/reviews
+          mkdir -p data/translations
           mkdir -p static/images/uploads
 
           shopt -s nullglob
@@ -58,7 +58,6 @@ jobs:
           IMAGE_DIRS=0
           TRANS_COUNT=0
           DATA_COUNT=0
-          REVIEW_COUNT=0
 
           # Distribute posts by `make_public` flag.
           # (Hugo reserves `published` as a date field — using a custom name avoids
@@ -106,17 +105,14 @@ jobs:
             fi
           done
 
-          # mecha review notes (optional)
-          if [ -d .private-src/data/reviews ]; then
-            mkdir -p data/reviews
-            for f in .private-src/data/reviews/*.md; do
-              cp "$f" data/reviews/
-              REVIEW_COUNT=$((REVIEW_COUNT+1))
-            done
-          fi
+          # AI review notes (data/reviews/*.md) intentionally NOT copied here.
+          # They're consumed by the CMS admin's 'reviews' collection, which
+          # reads directly from the private repo via the Sveltia GitHub
+          # backend — no main-repo deploy needed. Hugo would also choke on
+          # them anyway (data/ only accepts json/yaml/toml).
 
           shopt -u nullglob
-          echo "Staged: $POSTS_PUB published posts, $POSTS_PRIV private posts, $LEARNING_COUNT learning notes, $IMAGE_DIRS image dirs, $TRANS_COUNT translations, $DATA_COUNT data files, $REVIEW_COUNT review notes."
+          echo "Staged: $POSTS_PUB published posts, $POSTS_PRIV private posts, $LEARNING_COUNT learning notes, $IMAGE_DIRS image dirs, $TRANS_COUNT translations, $DATA_COUNT data files."
 
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
