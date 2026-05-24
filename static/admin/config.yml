@@ -27,19 +27,19 @@ collections:
     media_folder: "../images/uploads/{{slug}}"
     public_folder: "/images/uploads/{{slug}}"
     thumbnail: "cover"
-    summary: "{{title}} — {{#if published}}🌐 公开{{else}}🔒 私密{{/if}}"
+    summary: "{{title}} — {{#if make_public}}🌐 公开{{else}}🔒 私密{{/if}}"
     sortable_fields:
-      fields: ["date", "title", "published"]
+      fields: ["date", "title", "make_public"]
       default:
         field: "date"
         direction: "descending"
     fields:
       - { label: "标题", name: "title", widget: "string", hint: "文章标题" }
       - label: "🌐 公开到博客（关 = 仅自己可见，加密）"
-        name: "published"
+        name: "make_public"
         widget: "boolean"
         default: false
-        hint: "开 → 部署到 /posts/<slug>/ 公开；关 → /private/<slug>/ 用密码访问"
+        hint: "开 → 部署到 /posts/<slug>/ 公开；关 → /private/<slug>/ 用密码访问。Hugo 保留了 published 这个字段名，所以我们用 make_public"
       - label: "日期"
         name: "date"
         widget: "datetime"

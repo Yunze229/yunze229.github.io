@@ -60,11 +60,13 @@ jobs:
           DATA_COUNT=0
           REVIEW_COUNT=0
 
-          # Distribute posts by `published` flag.
-          # published: true  -> content/posts/  (public, no encryption)
-          # otherwise        -> content/private/ (encrypted at end of build)
+          # Distribute posts by `make_public` flag.
+          # (Hugo reserves `published` as a date field — using a custom name avoids
+          # the "not a parsable date" build error.)
+          # make_public: true -> content/posts/  (public, no encryption)
+          # otherwise         -> content/private/ (encrypted at end of build)
           for f in .private-src/posts/*.md; do
-            if grep -qE '^published:[[:space:]]*true' "$f"; then
+            if grep -qE '^make_public:[[:space:]]*true' "$f"; then
               cp "$f" content/posts/
               POSTS_PUB=$((POSTS_PUB+1))
             else
