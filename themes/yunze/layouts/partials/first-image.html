@@ -1,0 +1,24 @@
+{{/*
+  first-image — return the URL of a post's representative image.
+
+  Lookup order:
+    1. .Params.cover (frontmatter, manual override)
+    2. First <img src="..."> inside .Content (Hugo-rendered HTML)
+
+  Returns an empty string when nothing is found. Callers must guard with `if`.
+  Whitespace is suppressed via {{- -}} so the output is safe to use in
+  attributes and JSON.
+*/ -}}
+{{- $url := "" -}}
+{{- with .Params.cover -}}
+  {{- $url = . -}}
+{{- else -}}
+  {{- $match := findRE `<img[^>]+src=["']([^"']+)["']` .Content 1 -}}
+  {{- with $match -}}
+    {{- $inner := findRE `src=["']([^"']+)["']` (index . 0) 1 -}}
+    {{- with $inner -}}
+      {{- $url = replaceRE `^src=["']|["']$` "" (index . 0) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- $url -}}

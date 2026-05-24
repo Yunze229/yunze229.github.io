@@ -1,4 +1,16 @@
-{{- $pages := where .Site.RegularPages "Params.private" "ne" true -}}
+{{/*
+  Source list for /index.json — also the source the Newsletter Worker
+  reads as "latest post". Two filters:
+    1. private posts are never broadcast
+    2. capsule letters are only broadcast after Yunze chooses to reveal
+       them (revealed: true). Unrevealed letters stay private even after
+       auto-transfer writes them to content/capsule/.
+*/}}
+{{- $posts   := where .Site.RegularPages "Section" "posts" -}}
+{{- $posts    = where $posts "Params.private" "ne" true -}}
+{{- $capsule := where .Site.RegularPages "Section" "capsule" -}}
+{{- $capsule  = where $capsule "Params.revealed" true -}}
+{{- $pages   := sort (union $posts $capsule) "Date" "desc" -}}
 [
   {{- range $i, $p := $pages -}}
   {{- if $i }},{{ end -}}
@@ -8,11 +20,15 @@
   {{- if and (not $trans) $p.Params.title_zh -}}
     {{- $trans = dict "title" $p.Params.title_zh -}}
   {{- end -}}
+  {{- $cover := partial "first-image.html" $p -}}
+  {{- $coverAbs := "" -}}
+  {{- with $cover }}{{ $coverAbs = . | absURL }}{{ end -}}
   {
     "title": {{ $p.Title | jsonify }},
     "title_zh": {{ (or (and $trans $trans.title) "") | jsonify }},
     "permalink": {{ $p.Permalink | jsonify }},
     "tags": {{ $p.Params.tags | jsonify }},
+    "cover": {{ $coverAbs | jsonify }},
     "content": {{ $p.Plain | truncate 500 | jsonify }}
   }
   {{- end -}}

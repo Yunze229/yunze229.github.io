@@ -38,13 +38,6 @@
             {{ .Title }}
           {{ end }}
         </a>
-        {{ with .Params.categories }}
-        {{ $catEn := dict "作品" "Projects" "日记" "Journal" "技能笔记" "Skills" "手册" "Manual" "旅行" "Travel" "随想" "Thoughts" "读书" "Reading" "学习笔记" "Study Notes" }}
-        <span class="post-private-badge">
-          <span class="lang-zh-inline">{{ index . 0 }}</span>
-          <span class="lang-en-inline">{{ index $catEn (index . 0) | default (index . 0) }}</span>
-        </span>
-        {{ end }}
       </li>
       {{ end }}
     </ul>

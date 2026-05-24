@@ -516,13 +516,18 @@ function newsletterHtml(post, unsubLink) {
   const c = EMAIL_COLORS;
   const title   = escapeHtml(post.title);
   const link    = escapeHtml(post.permalink);
-  const raw     = (post.content || '').trim();
+  const cover   = post.cover ? escapeHtml(post.cover) : '';
+  const raw     = (post.content || post.summary || '').trim();
   const summary = escapeHtml(raw.length > 320 ? raw.slice(0, 320).trim() + '…' : raw);
   const unsub   = escapeHtml(unsubLink);
+  const coverBlock = cover
+    ? `<a href="${link}" style="display:block;margin:0 0 20px;text-decoration:none;"><img src="${cover}" alt="" width="600" style="width:100%;max-width:100%;height:auto;border-radius:6px;display:block;border:1px solid ${c.line};"></a>`
+    : '';
   return `<!DOCTYPE html><html><body style="margin:0;padding:24px;background:${c.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:${c.fg};">
   <div style="max-width:600px;margin:0 auto;background:${c.card};border:1px solid ${c.line};border-radius:8px;padding:28px 32px;">
     <p style="color:${c.faint};font-size:0.82em;margin:0 0 6px;letter-spacing:0.04em;text-transform:uppercase;">Yunze 写了新文章 · New post from Yunze</p>
     <h2 style="margin:4px 0 18px;font-size:1.45em;line-height:1.3;color:${c.fg};">${title}</h2>
+    ${coverBlock}
     <p style="line-height:1.75;color:${c.muted};white-space:pre-wrap;">${summary}</p>
     <p style="margin:28px 0 8px;">
       <a href="${link}" style="background:${c.fg};color:${c.card};text-decoration:none;padding:11px 22px;border-radius:6px;display:inline-block;font-size:0.95em;">阅读全文 · Read full post →</a>

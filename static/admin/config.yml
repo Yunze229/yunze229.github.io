@@ -19,6 +19,7 @@ collections:
     preview_path: "posts/{{slug}}"
     media_folder: "static/images/uploads/{{slug}}"
     public_folder: "/images/uploads/{{slug}}"
+    thumbnail: "cover"
     sortable_fields:
       fields: ["date", "title"]
       default:

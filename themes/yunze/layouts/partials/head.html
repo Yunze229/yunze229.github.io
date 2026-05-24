@@ -1,8 +1,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{ if .IsHome }}{{ .Site.Title }}{{ else }}{{ .Title }} · {{ .Site.Title }}{{ end }}</title>
-<meta name="description" content="{{ if .Description }}{{ .Description }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+{{ $pageTitle := cond .IsHome .Site.Title (printf "%s · %s" .Title .Site.Title) }}
+{{ $desc := cond (ne .Description "") .Description .Site.Params.description }}
+{{ $cover := "" }}
+{{ if .IsPage }}{{ $cover = partial "first-image.html" . }}{{ end }}
+{{ $ogImage := "" }}
+{{ with $cover }}{{ $ogImage = . | absURL }}{{ end }}
+<title>{{ $pageTitle }}</title>
+<meta name="description" content="{{ $desc }}">
 <link rel="alternate" type="application/rss+xml" title="{{ .Site.Title }}" href="{{ .Site.BaseURL }}index.xml">
+<meta property="og:title" content="{{ $pageTitle }}">
+<meta property="og:description" content="{{ $desc }}">
+<meta property="og:type" content="{{ cond .IsPage "article" "website" }}">
+<meta property="og:url" content="{{ .Permalink }}">
+<meta property="og:site_name" content="{{ .Site.Title }}">
+{{ with $ogImage }}<meta property="og:image" content="{{ . }}">{{ end }}
+<meta name="twitter:card" content="{{ cond (ne $ogImage "") "summary_large_image" "summary" }}">
+<meta name="twitter:title" content="{{ $pageTitle }}">
+<meta name="twitter:description" content="{{ $desc }}">
+{{ with $ogImage }}<meta name="twitter:image" content="{{ . }}">{{ end }}
 {{ $css := resources.Get "css/main.css" | minify | fingerprint }}
 <link rel="stylesheet" href="{{ $css.Permalink }}" integrity="{{ $css.Data.Integrity }}">
 <script>
