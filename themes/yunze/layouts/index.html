@@ -28,8 +28,10 @@
         <a class="post-title-link" href="{{ .Permalink }}">
           {{ $slug := .File.ContentBaseName }}
           {{ $trans := index hugo.Data.translations $slug }}
-          {{ if and (not $trans) .Params.title_zh }}
-            {{ $trans = dict "title" .Params.title_zh }}
+          {{/* Frontmatter title_zh always wins over AI translation when set */}}
+          {{ with .Params.title_zh }}
+            {{ if $trans }}{{ $trans = merge $trans (dict "title" .) }}
+            {{ else }}{{ $trans = dict "title" . }}{{ end }}
           {{ end }}
           {{ if $trans }}
             <span class="lang-zh-inline">{{ $trans.title }}</span>

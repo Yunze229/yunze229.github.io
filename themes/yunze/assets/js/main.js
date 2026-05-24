@@ -179,31 +179,81 @@ if (searchInput) {
     .then(r => r.json())
     .then(data => { index = data; });
 
+  const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+  const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Build an excerpt centered on the first match. Picks the language-matching
+  // source (zh body if the match is there, otherwise en) so a zh query yields
+  // a zh snippet. Falls back to the first 120 chars when nothing matches.
+  function buildExcerpt(p, q) {
+    const lc = q.toLowerCase();
+    const zh = p.content_zh || '';
+    const en = p.content || '';
+    let source = '';
+    if (zh.toLowerCase().includes(lc)) source = zh;
+    else if (en.toLowerCase().includes(lc)) source = en;
+    else source = zh || en;
+
+    if (!source) return '';
+    const idx = source.toLowerCase().indexOf(lc);
+    let snippet, prefix = '', suffix = '';
+    if (idx === -1) {
+      snippet = source.substring(0, 120).trim();
+      if (source.length > 120) suffix = '…';
+    } else {
+      const start = Math.max(0, idx - 30);
+      const end = Math.min(source.length, idx + q.length + 80);
+      snippet = source.substring(start, end).trim();
+      if (start > 0) prefix = '…';
+      if (end < source.length) suffix = '…';
+    }
+    const escaped = escapeHtml(snippet);
+    const highlighted = escaped.replace(new RegExp(escapeRegex(q), 'gi'), '<mark>$&</mark>');
+    return prefix + highlighted + suffix;
+  }
+
+  function buildTitle(p, q) {
+    const en = escapeHtml(p.title || '');
+    const zh = escapeHtml(p.title_zh || '');
+    const re = new RegExp(escapeRegex(q), 'gi');
+    const hlEn = en.replace(re, '<mark>$&</mark>');
+    const hlZh = zh.replace(re, '<mark>$&</mark>');
+    if (zh && en && zh !== en) {
+      return `<span class="lang-zh-inline">${hlZh}</span><span class="lang-en-inline">${hlEn}</span>`;
+    }
+    return hlEn || hlZh;
+  }
+
   searchInput.addEventListener('input', () => {
-    const q = searchInput.value.trim().toLowerCase();
+    const q = searchInput.value.trim();
+    const lc = q.toLowerCase();
     searchResults.innerHTML = '';
     if (!q || !index) return;
 
     const hits = index.filter(p =>
-      (p.title || '').toLowerCase().includes(q) ||
-      (p.content || '').toLowerCase().includes(q) ||
-      (p.tags || []).some(t => t.toLowerCase().includes(q))
+      (p.title || '').toLowerCase().includes(lc) ||
+      (p.title_zh || '').toLowerCase().includes(lc) ||
+      (p.content || '').toLowerCase().includes(lc) ||
+      (p.content_zh || '').toLowerCase().includes(lc) ||
+      (p.tags || []).some(t => t.toLowerCase().includes(lc))
     ).slice(0, 20);
 
     if (!hits.length) {
-      searchResults.innerHTML = '<li style="padding:16px 0;color:var(--fg-muted);font-size:0.9rem;">没有找到相关文章</li>';
+      searchResults.innerHTML = '<li style="padding:16px 0;color:var(--fg-muted);font-size:0.9rem;">没有找到相关文章 / No results</li>';
       return;
     }
 
     hits.forEach(p => {
       const li = document.createElement('li');
       li.className = 'search-result-item';
-      const excerpt = (p.content || '').substring(0, 120).trim();
+      const excerpt = buildExcerpt(p, q);
       li.innerHTML = `
         <div class="search-result-title">
-          <a href="${p.permalink}">${p.title}</a>
+          <a href="${escapeHtml(p.permalink)}">${buildTitle(p, q)}</a>
         </div>
-        ${excerpt ? `<div class="search-result-excerpt">${excerpt}…</div>` : ''}
+        ${excerpt ? `<div class="search-result-excerpt">${excerpt}</div>` : ''}
       `;
       searchResults.appendChild(li);
     });

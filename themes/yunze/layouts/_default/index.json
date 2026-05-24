@@ -17,19 +17,33 @@
   {{- $slug := "" -}}
   {{- with $p.File }}{{ $slug = .ContentBaseName }}{{ end -}}
   {{- $trans := index hugo.Data.translations $slug -}}
-  {{- if and (not $trans) $p.Params.title_zh -}}
-    {{- $trans = dict "title" $p.Params.title_zh -}}
+  {{/* Frontmatter title_zh / body_zh always override the AI translation
+       when present and non-empty. Without this, an AI-generated trans yaml
+       silently masks the value the user typed into the CMS. */}}
+  {{- if $p.Params.title_zh -}}
+    {{- if $trans -}}
+      {{- $trans = merge $trans (dict "title" $p.Params.title_zh) -}}
+    {{- else -}}
+      {{- $trans = dict "title" $p.Params.title_zh "content" ($p.Params.body_zh | default "") -}}
+    {{- end -}}
+  {{- else if and (not $trans) $p.Params.body_zh -}}
+    {{- $trans = dict "title" $p.Title "content" $p.Params.body_zh -}}
   {{- end -}}
   {{- $cover := partial "first-image.html" $p -}}
   {{- $coverAbs := "" -}}
   {{- with $cover }}{{ $coverAbs = . | absURL }}{{ end -}}
+  {{/* contentZh: prefer AI translation, fall back to handwritten body_zh.
+       markdownify → plainify strips markdown syntax for plain-text matching. */}}
+  {{- $contentZh := "" -}}
+  {{- with $trans }}{{ with .content }}{{ $contentZh = . | markdownify | plainify }}{{ end }}{{ end -}}
   {
     "title": {{ $p.Title | jsonify }},
     "title_zh": {{ (or (and $trans $trans.title) "") | jsonify }},
     "permalink": {{ $p.Permalink | jsonify }},
     "tags": {{ $p.Params.tags | jsonify }},
     "cover": {{ $coverAbs | jsonify }},
-    "content": {{ $p.Plain | truncate 500 | jsonify }}
+    "content": {{ $p.Plain | jsonify }},
+    "content_zh": {{ $contentZh | jsonify }}
   }
   {{- end -}}
 ]
