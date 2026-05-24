@@ -7,3 +7,27 @@ static/capsule-worker/node_modules/
 .tokenize/
 **/.tokenize/
 **/.wrangler/
+
+# Content lives in Yunze229/yunze-private; deploy.yml pulls it at build time.
+# .md files under these paths must NEVER be committed to this public repo.
+# _index.md is allowed because Hugo needs it to render the section.
+content/posts/*.md
+!content/posts/_index.md
+content/private/*.md
+!content/private/_index.md
+content/learning/*.md
+!content/learning/_index.md
+content/capsule/*.md
+!content/capsule/_index.md
+# AI translations also live in the private repo.
+data/translations/*.yaml
+# Data yaml managed via CMS, in the private repo.
+data/nav.yaml
+data/books.yaml
+data/gears.yaml
+data/travel.yaml
+data/skills.yaml
+# Uploaded images live in the private repo (slug subdirs).
+static/images/uploads/
+# Build-time staging directory for the private repo checkout.
+.private-src/

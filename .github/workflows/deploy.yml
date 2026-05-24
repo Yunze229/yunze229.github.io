@@ -3,6 +3,8 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  repository_dispatch:
+    types: [private-content-update]
   workflow_dispatch:
 
 permissions:
@@ -19,6 +21,100 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check private repo token
+        id: check_token
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          if [ -n "$PRIVATE_REPO_TOKEN" ]; then
+            echo "available=true" >> $GITHUB_OUTPUT
+          else
+            echo "available=false" >> $GITHUB_OUTPUT
+            echo "::warning::PRIVATE_REPO_TOKEN not set — private content section will be empty"
+          fi
+
+      - name: Checkout private content
+        if: steps.check_token.outputs.available == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: Yunze229/yunze-private
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          path: .private-src
+
+      - name: Stage private content into Hugo tree
+        if: steps.check_token.outputs.available == 'true'
+        run: |
+          # Ensure all target dirs exist (the public repo may have only _index.md
+          # checked in, so the directories may be missing on a fresh checkout).
+          mkdir -p content/posts content/private content/learning
+          mkdir -p data/translations data/reviews
+          mkdir -p static/images/uploads
+
+          shopt -s nullglob
+          POSTS_PUB=0
+          POSTS_PRIV=0
+          LEARNING_COUNT=0
+          IMAGE_DIRS=0
+          TRANS_COUNT=0
+          DATA_COUNT=0
+          REVIEW_COUNT=0
+
+          # Distribute posts by `published` flag.
+          # published: true  -> content/posts/  (public, no encryption)
+          # otherwise        -> content/private/ (encrypted at end of build)
+          for f in .private-src/posts/*.md; do
+            if grep -qE '^published:[[:space:]]*true' "$f"; then
+              cp "$f" content/posts/
+              POSTS_PUB=$((POSTS_PUB+1))
+            else
+              cp "$f" content/private/
+              POSTS_PRIV=$((POSTS_PRIV+1))
+            fi
+          done
+
+          # Learning notes — always draft:true, Hugo skips them.
+          # Kept in tree so admin can list them, but no HTML is generated.
+          for f in .private-src/learning/*.md; do
+            cp "$f" content/learning/
+            LEARNING_COUNT=$((LEARNING_COUNT+1))
+          done
+
+          # Image uploads — copy whole tree so {{slug}} subdirs preserved.
+          if [ -d .private-src/images/uploads ]; then
+            mkdir -p static/images/uploads
+            cp -R .private-src/images/uploads/. static/images/uploads/
+            IMAGE_DIRS=$(find .private-src/images/uploads -mindepth 1 -maxdepth 1 -type d | wc -l)
+          fi
+
+          # AI translations
+          if [ -d .private-src/data/translations ]; then
+            mkdir -p data/translations
+            for f in .private-src/data/translations/*.yaml; do
+              cp "$f" data/translations/
+              TRANS_COUNT=$((TRANS_COUNT+1))
+            done
+          fi
+
+          # Individual data yaml files
+          for name in nav books gears travel skills; do
+            if [ -f ".private-src/data/$name.yaml" ]; then
+              cp ".private-src/data/$name.yaml" "data/$name.yaml"
+              DATA_COUNT=$((DATA_COUNT+1))
+            fi
+          done
+
+          # mecha review notes (optional)
+          if [ -d .private-src/data/reviews ]; then
+            mkdir -p data/reviews
+            for f in .private-src/data/reviews/*.md; do
+              cp "$f" data/reviews/
+              REVIEW_COUNT=$((REVIEW_COUNT+1))
+            done
+          fi
+
+          shopt -u nullglob
+          echo "Staged: $POSTS_PUB published posts, $POSTS_PRIV private posts, $LEARNING_COUNT learning notes, $IMAGE_DIRS image dirs, $TRANS_COUNT translations, $DATA_COUNT data files, $REVIEW_COUNT review notes."
 
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
@@ -57,16 +153,7 @@ jobs:
             fi
             rm -rf "$TMPDIR"
           }
-          # Legacy: content/posts/ with private: true flag (kept for backward compat)
-          for f in content/posts/*.md; do
-            if grep -q "^private: true" "$f"; then
-              SLUG=$(basename "$f" .md)
-              FM_SLUG=$(grep "^slug:" "$f" | head -1 | sed "s/^slug:[ '\"]*//;s/[ '\"]*$//")
-              [ -n "$FM_SLUG" ] && SLUG="$FM_SLUG"
-              encrypt_page "public/posts/$SLUG/index.html" "$SLUG"
-            fi
-          done
-          # New: every file under content/private/ is private — no grep needed
+          # Every file under content/private/ is private — encrypt all rendered pages.
           shopt -s nullglob
           for f in content/private/*.md; do
             [ "$(basename "$f")" = "_index.md" ] && continue
@@ -76,7 +163,7 @@ jobs:
             encrypt_page "public/private/$SLUG/index.html" "$SLUG"
           done
           shopt -u nullglob
-          echo "Done. $ENCRYPTED posts encrypted."
+          echo "Done. $ENCRYPTED private posts encrypted."
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -96,6 +183,6 @@ jobs:
 
       - name: Trigger Newsletter Broadcast
         run: |
-          curl -X POST https://yunze-capsule.dyz229.workers.dev/broadcast \
+          curl -X POST https://capsule.duyunze.com/broadcast \
             -H "Content-Type: application/json" \
             -d '{"secret": "${{ secrets.BROADCAST_SECRET }}"}'

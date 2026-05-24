@@ -1,35 +1,45 @@
+# Sveltia CMS — backend points at Yunze229/yunze-private (the private content repo).
+# Static files (index.html, this config, voice/) live in the public main repo so the
+# admin is served from duyunze.com, but every write goes to the private repo.
+#
+# Collections that need access to data living in the PUBLIC main repo (e.g. the
+# `capsule` read-only listing for mom's letters) have been retired — reveal/keep
+# decisions are now made via the magic-link buttons in the unlock emails.
 backend:
   name: github
-  repo: Yunze229/yunze229.github.io
+  repo: Yunze229/yunze-private
   branch: main
   base_url: https://auth.duyunze.com
 
-media_folder: "static/images/uploads"
+media_folder: "images/uploads"
 public_folder: "/images/uploads"
 
 locale: zh_Hans
 
 collections:
   - name: "posts"
-    label: "文章"
+    label: "📝 写作"
     label_singular: "文章"
-    folder: "content/posts"
+    folder: "posts"
     create: true
     slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
     preview_path: "posts/{{slug}}"
-    media_folder: "static/images/uploads/{{slug}}"
+    media_folder: "../images/uploads/{{slug}}"
     public_folder: "/images/uploads/{{slug}}"
     thumbnail: "cover"
+    summary: "{{title}} — {{#if published}}🌐 公开{{else}}🔒 私密{{/if}}"
     sortable_fields:
-      fields: ["date", "title"]
+      fields: ["date", "title", "published"]
       default:
         field: "date"
         direction: "descending"
     fields:
-      - label: "标题"
-        name: "title"
-        widget: "string"
-        hint: "文章标题"
+      - { label: "标题", name: "title", widget: "string", hint: "文章标题" }
+      - label: "🌐 公开到博客（关 = 仅自己可见，加密）"
+        name: "published"
+        widget: "boolean"
+        default: false
+        hint: "开 → 部署到 /posts/<slug>/ 公开；关 → /private/<slug>/ 用密码访问"
       - label: "日期"
         name: "date"
         widget: "datetime"
@@ -59,11 +69,6 @@ collections:
         widget: "list"
         allow_add: true
         hint: "用回车添加标签"
-      - label: "🔒 私密文章（仅自己可见）"
-        name: "private"
-        widget: "boolean"
-        default: false
-        hint: "开启后文章不会在首页和分类页出现"
       - label: "草稿"
         name: "draft"
         widget: "boolean"
@@ -83,69 +88,10 @@ collections:
         required: false
         hint: "不填则由 AI 自动翻译；填了直接用，不再调用 AI"
 
-  - name: "private"
-    label: "🔒 私密日记"
-    label_singular: "私密日记"
-    folder: "content/private"
-    create: true
-    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
-    media_folder: "static/images/uploads/{{slug}}"
-    public_folder: "/images/uploads/{{slug}}"
-    sortable_fields:
-      fields: ["date", "title"]
-      default:
-        field: "date"
-        direction: "descending"
-    fields:
-      - label: "标题"
-        name: "title"
-        widget: "string"
-      - label: "中文标题（可选）"
-        name: "title_zh"
-        widget: "string"
-        required: false
-      - label: "日期"
-        name: "date"
-        widget: "datetime"
-        format: "YYYY-MM-DD"
-        date_format: "YYYY-MM-DD"
-        time_format: false
-      - label: "分类"
-        name: "categories"
-        widget: "select"
-        multiple: true
-        required: false
-        options:
-          - { label: "日记", value: "日记" }
-          - { label: "学习笔记", value: "学习笔记" }
-          - { label: "随想", value: "随想" }
-        default: ["日记"]
-      - label: "标签"
-        name: "tags"
-        widget: "list"
-        allow_add: true
-        required: false
-      - label: "🔒 私密（私密日记自动加密，不可关闭）"
-        name: "private"
-        widget: "boolean"
-        default: true
-        hint: "本文件夹的所有文章都会被 staticrypt 加密"
-      - label: "草稿"
-        name: "draft"
-        widget: "boolean"
-        default: false
-      - label: "正文"
-        name: "body"
-        widget: "markdown"
-      - label: "中文正文（可选）"
-        name: "body_zh"
-        widget: "markdown"
-        required: false
-
   - name: "learning"
-    label: "📖 学习笔记（仅你自己可见）"
+    label: "📖 学习笔记"
     label_singular: "学习笔记"
-    folder: "content/learning"
+    folder: "learning"
     create: true
     slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
     sortable_fields:
@@ -154,86 +100,36 @@ collections:
         field: "date"
         direction: "descending"
     fields:
-      - label: "标题"
-        name: "title"
-        widget: "string"
+      - { label: "标题", name: "title", widget: "string" }
       - label: "日期"
         name: "date"
         widget: "datetime"
         format: "YYYY-MM-DD"
         date_format: "YYYY-MM-DD"
         time_format: false
-      - label: "草稿（学习笔记永远 draft:true，不会出现在博客）"
+      - label: "草稿（学习笔记永远 draft:true，不构建网页）"
         name: "draft"
         widget: "boolean"
         default: true
-      - label: "对应日记 slug（可选）"
-        name: "source_slug"
-        widget: "string"
-        required: false
-      - label: "对应日记标题（可选）"
-        name: "source_title"
-        widget: "string"
-        required: false
-      - label: "笔记内容"
-        name: "body"
-        widget: "markdown"
+      - { label: "对应日记 slug（可选）", name: "source_slug", widget: "string", required: false }
+      - { label: "对应日记标题（可选）", name: "source_title", widget: "string", required: false }
+      - { label: "笔记内容", name: "body", widget: "markdown" }
 
-  - name: "capsule"
-    label: "时光胶囊"
-    label_singular: "胶囊信件"
-    folder: "content/capsule"
+  - name: "reviews"
+    label: "📋 审查记录（mecha 反馈）"
+    label_singular: "审查"
+    folder: "data/reviews"
     create: false
+    extension: "md"
     sortable_fields:
-      fields: ["date", "unlock_date", "title"]
+      fields: ["date", "slug"]
       default:
         field: "date"
         direction: "descending"
     fields:
-      - label: "标题（中文）"
-        name: "title"
-        widget: "string"
-      - label: "标题（英文，可选）"
-        name: "title_en"
-        widget: "string"
-        required: false
-        hint: "不填则中英文都显示中文标题"
-      - label: "写信日期"
-        name: "date"
-        widget: "datetime"
-        type: date
-        format: "YYYY-MM-DD"
-      - label: "开封日"
-        name: "unlock_date"
-        widget: "string"
-      - label: "写信人"
-        name: "from"
-        widget: "string"
-      - label: "写信人（英文）"
-        name: "from_en"
-        widget: "string"
-        required: false
-        hint: "AI自动填写，如：Mom / Dad / Grandpa / Grandma"
-      - label: "信的内容（中文）"
-        name: "body"
-        widget: "markdown"
-        required: false
-        readonly: true
-      - label: "信的内容（英文）"
-        name: "body_en"
-        widget: "text"
-        required: false
-        readonly: true
-      - label: "✅ 确认已读"
-        name: "read_by_admin"
-        widget: "boolean"
-        default: false
-        hint: "读完信件内容后勾选"
-      - label: "🌐 公开到博客"
-        name: "revealed"
-        widget: "boolean"
-        default: false
-        hint: "确认已读后再开启；开启后信的内容会出现在博客上"
+      - { label: "审查对应的文章 slug", name: "slug", widget: "string", readonly: true }
+      - { label: "审查时间", name: "date", widget: "datetime", readonly: true }
+      - { label: "mecha 审查内容", name: "body", widget: "markdown", readonly: true }
 
   - name: "settings"
     label: "网站设置"
@@ -247,59 +143,24 @@ collections:
             widget: "list"
             label_singular: "菜单项"
             fields:
-              - label: "中文名"
-                name: "name_zh"
-                widget: "string"
-              - label: "英文名"
-                name: "name_en"
-                widget: "string"
-              - label: "链接"
-                name: "url"
-                widget: "string"
-                required: false
-                hint: "有子菜单时留空"
-              - label: "Section（高亮检测）"
-                name: "section"
-                widget: "string"
-                required: false
-                hint: "页面的 section 名，如 being / capsule，有子菜单时留空"
-              - label: "页面描述（中文）"
-                name: "desc_zh"
-                widget: "string"
-                required: false
-                hint: "显示在页面标题下方，如：以代码记录成长的轨迹"
-              - label: "页面描述（英文）"
-                name: "desc_en"
-                widget: "string"
-                required: false
+              - { label: "中文名", name: "name_zh", widget: "string" }
+              - { label: "英文名", name: "name_en", widget: "string" }
+              - { label: "链接", name: "url", widget: "string", required: false, hint: "有子菜单时留空" }
+              - { label: "Section（高亮检测）", name: "section", widget: "string", required: false, hint: "页面的 section 名，如 being / capsule，有子菜单时留空" }
+              - { label: "页面描述（中文）", name: "desc_zh", widget: "string", required: false }
+              - { label: "页面描述（英文）", name: "desc_en", widget: "string", required: false }
               - label: "子菜单项"
                 name: "children"
                 widget: "list"
                 required: false
                 label_singular: "子菜单项"
                 fields:
-                  - label: "中文名"
-                    name: "name_zh"
-                    widget: "string"
-                  - label: "英文名"
-                    name: "name_en"
-                    widget: "string"
-                  - label: "链接"
-                    name: "url"
-                    widget: "string"
-                  - label: "Section（高亮检测）"
-                    name: "section"
-                    widget: "string"
-                    required: false
-                  - label: "页面描述（中文）"
-                    name: "desc_zh"
-                    widget: "string"
-                    required: false
-                    hint: "显示在页面标题下方"
-                  - label: "页面描述（英文）"
-                    name: "desc_en"
-                    widget: "string"
-                    required: false
+                  - { label: "中文名", name: "name_zh", widget: "string" }
+                  - { label: "英文名", name: "name_en", widget: "string" }
+                  - { label: "链接", name: "url", widget: "string" }
+                  - { label: "Section", name: "section", widget: "string", required: false }
+                  - { label: "页面描述（中文）", name: "desc_zh", widget: "string", required: false }
+                  - { label: "页面描述（英文）", name: "desc_en", widget: "string", required: false }
 
       - name: "gears"
         label: "装备 Gears"
@@ -310,24 +171,15 @@ collections:
             widget: "list"
             label_singular: "分类"
             fields:
-              - label: "分类名（中文）"
-                name: "name_zh"
-                widget: "string"
-              - label: "分类名（英文）"
-                name: "name_en"
-                widget: "string"
+              - { label: "分类名（中文）", name: "name_zh", widget: "string" }
+              - { label: "分类名（英文）", name: "name_en", widget: "string" }
               - label: "工具列表"
                 name: "items"
                 widget: "list"
                 label_singular: "工具"
                 fields:
-                  - label: "名称"
-                    name: "name"
-                    widget: "string"
-                  - label: "链接"
-                    name: "url"
-                    widget: "string"
-                    required: false
+                  - { label: "名称", name: "name", widget: "string" }
+                  - { label: "链接", name: "url", widget: "string", required: false }
                   - label: "图标类型"
                     name: "icon_type"
                     widget: "select"
@@ -336,29 +188,11 @@ collections:
                       - { label: "自动抓取网站图标", value: "favicon" }
                       - { label: "Emoji", value: "emoji" }
                       - { label: "上传图片", value: "upload" }
-                  - label: "Emoji（图标类型选Emoji时填）"
-                    name: "icon_emoji"
-                    widget: "string"
-                    required: false
-                  - label: "图片（图标类型选上传时填）"
-                    name: "icon_image"
-                    widget: "image"
-                    required: false
-                  - label: "一句话评价（中文）"
-                    name: "desc_zh"
-                    widget: "string"
-                    required: false
-                  - label: "一句话评价（英文）"
-                    name: "desc_en"
-                    widget: "string"
-                    required: false
-                  - label: "评分（1-5）"
-                    name: "rating"
-                    widget: "number"
-                    value_type: "int"
-                    min: 1
-                    max: 5
-                    required: false
+                  - { label: "Emoji", name: "icon_emoji", widget: "string", required: false }
+                  - { label: "图片", name: "icon_image", widget: "image", required: false }
+                  - { label: "一句话评价（中文）", name: "desc_zh", widget: "string", required: false }
+                  - { label: "一句话评价（英文）", name: "desc_en", widget: "string", required: false }
+                  - { label: "评分（1-5）", name: "rating", widget: "number", value_type: "int", min: 1, max: 5, required: false }
                   - label: "使用状态"
                     name: "status"
                     widget: "select"
@@ -378,37 +212,11 @@ collections:
             label_singular: "国家/地区"
             summary: "{{fields.name_zh}} ({{fields.code}}) — {{fields.year}}"
             fields:
-              - label: "ISO 国家码"
-                name: "code"
-                widget: "string"
-                hint: "ISO 3166-1 alpha-2，如 CN、US、JP（大写两位字母）"
-              - label: "中文名"
-                name: "name_zh"
-                widget: "string"
-              - label: "英文名"
-                name: "name_en"
-                widget: "string"
-              - label: "首次到访年份"
-                name: "year"
-                widget: "number"
-                value_type: "int"
-                min: 1900
-                max: 2100
-              - label: "去过的城市（中文）"
-                name: "cities_zh"
-                widget: "list"
-                allow_add: true
-                required: false
-              - label: "去过的城市（英文）"
-                name: "cities_en"
-                widget: "list"
-                allow_add: true
-                required: false
-              - label: "备注（中文）"
-                name: "notes_zh"
-                widget: "string"
-                required: false
-              - label: "备注（英文）"
-                name: "notes_en"
-                widget: "string"
-                required: false
+              - { label: "ISO 国家码", name: "code", widget: "string", hint: "ISO 3166-1 alpha-2，如 CN、US、JP" }
+              - { label: "中文名", name: "name_zh", widget: "string" }
+              - { label: "英文名", name: "name_en", widget: "string" }
+              - { label: "首次到访年份", name: "year", widget: "number", value_type: "int", min: 1900, max: 2100 }
+              - { label: "去过的城市（中文）", name: "cities_zh", widget: "list", allow_add: true, required: false }
+              - { label: "去过的城市（英文）", name: "cities_en", widget: "list", allow_add: true, required: false }
+              - { label: "备注（中文）", name: "notes_zh", widget: "string", required: false }
+              - { label: "备注（英文）", name: "notes_en", widget: "string", required: false }
