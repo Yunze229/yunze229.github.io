@@ -52,8 +52,38 @@
           <button class="lang-btn active" data-lang="zh">中</button>
           <button class="lang-btn" data-lang="en">EN</button>
         </div>
+
+        <a id="auth-btn" class="sign-in-btn" href="https://auth.duyunze.com/login" data-state="loading">Sign in</a>
       </div>
 
     </div>
   </div>
 </header>
+<script>
+  // Resolve sign-in state from auth.duyunze.com/me. Cookie scoped to .duyunze.com.
+  // Hidden until resolved (CSS visibility:hidden) so we don't flash "Sign in"
+  // for logged-in users.
+  (function() {
+    var btn = document.getElementById('auth-btn');
+    if (!btn) return;
+    var next = encodeURIComponent(location.href);
+    var loginHref  = 'https://auth.duyunze.com/login?next=' + next;
+    var logoutHref = 'https://auth.duyunze.com/logout?next=' + next;
+    function showLoggedOut() {
+      btn.textContent = 'Sign in';
+      btn.title = '登录 / Sign in';
+      btn.href = loginHref;
+      btn.removeAttribute('data-state');
+    }
+    function showLoggedIn(user) {
+      btn.textContent = user.name;
+      btn.title = '点击退出登录 / Click to sign out';
+      btn.href = logoutHref;
+      btn.removeAttribute('data-state');
+    }
+    fetch('https://auth.duyunze.com/me', { credentials: 'include' })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(user) { user ? showLoggedIn(user) : showLoggedOut(); })
+      .catch(showLoggedOut);
+  })();
+</script>

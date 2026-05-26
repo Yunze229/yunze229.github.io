@@ -10,6 +10,7 @@
   --private-bg: #fff8e1;
   --private-border: #f0c040;
   --dot-color: #f1f2f2;
+  --radius-pill: 999px;
 }
 
 [data-theme="dark"] {
@@ -223,6 +224,32 @@ a:hover {
   display: flex;
   gap: 2px;
   margin-left: 4px;
+}
+
+/* Sign in / Sign out pill button */
+.sign-in-btn {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 6px 14px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.sign-in-btn:hover {
+  border-color: var(--fg);
+  color: var(--fg);
+  background: var(--tag-bg);
+  border-bottom: 1px solid var(--fg);
+}
+.sign-in-btn[data-state="loading"] {
+  visibility: hidden;
 }
 
 /* Main */
