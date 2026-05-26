@@ -10,11 +10,10 @@
 | Path | Method | Purpose | Who calls it |
 |---|---|---|---|
 | `/auth` | GET | **[Legacy]** Kick off Sveltia OAuth | `/admin/` login button |
-| `/callback` | GET | **[Legacy]** Sveltia OAuth callback → postMessage token | GitHub OAuth redirect |
+| `/callback` | GET | **[Shared]** Sveltia OR site GitHub callback (dispatched by cookie) | GitHub OAuth redirect |
 | `/login` | GET | Sign-in chooser HTML page (GitHub or Google) | duyunze.com header button |
 | `/login/github` | GET | Kick off GitHub OAuth (site flow) | login chooser |
 | `/login/google` | GET | Kick off Google OAuth | login chooser |
-| `/callback/github` | GET | Site GitHub callback → set cookie + redirect | GitHub OAuth redirect |
 | `/callback/google` | GET | Site Google callback → set cookie + redirect | Google OAuth redirect |
 | `/logout` | GET | Clear cookie + redirect | duyunze.com header button |
 | `/me` | GET | JSON `{provider, id, name, email}` or 401 | duyunze.com JS (CORS) |
@@ -66,19 +65,18 @@ Or in CF dashboard → Workers → yunze-cms-auth → Settings → Variables and
 
 ## GitHub OAuth App configuration
 
-The existing GitHub OAuth App (Client ID `Ov23libVHZUemiraJHc7`, owner: dyz229 GitHub account) needs **one extra callback URL** added:
+The existing GitHub OAuth App (Client ID `Ov23libVHZUemiraJHc7`, name "Yunze Blog CMS") **needs no change**. GitHub OAuth Apps allow only one callback URL (multiple URLs are a GitHub Apps feature). To work within that, this worker shares `/callback` between both flows and dispatches on cookie presence:
 
-1. Go to GitHub → Settings → Developer settings → OAuth Apps → click the app
-2. In "Authorization callback URL" — GitHub now supports multiple (one per line):
-   ```
-   https://auth.duyunze.com/callback
-   https://auth.duyunze.com/callback/github
-   ```
-3. Save
+- `/login/github` sets a short-lived `yunze_oauth_state` cookie before redirecting to GitHub
+- `/callback` checks for that cookie:
+  - **Cookie present** → site sign-in flow (verify state, exchange code, set session cookie)
+  - **Cookie absent** → legacy Sveltia flow (exchange code, postMessage back to /admin/)
 
 The same `client_id` + `client_secret` are reused for both flows. Different `scope` requested per flow:
 - Legacy `/auth` → `scope=repo,user` (Sveltia needs repo write)
 - New `/login/github` → `scope=read:user user:email` (site auth only needs identity)
+
+> ⚠️ Subtle interaction: if a user starts a site login (sets the state cookie), abandons it, and within 10 minutes tries to log into /admin/ via the Sveltia flow, the stale state cookie would route them to the wrong branch. State verification will fail (the new GitHub callback has no matching code+state), and they'll be bounced to `/login?err=state_mismatch`. They retry, the cookie is cleared on the error redirect, and the next /admin/ attempt works. Acceptable.
 
 ## Google OAuth App configuration
 

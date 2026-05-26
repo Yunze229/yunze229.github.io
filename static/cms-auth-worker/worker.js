@@ -69,15 +69,23 @@ export default {
     try {
       if (request.method === 'OPTIONS') return preflight(request);
 
-      // --- Legacy Sveltia CMS flow (UNCHANGED contract) ---
-      if (path === '/auth')     return cmsAuth(url);
-      if (path === '/callback') return cmsCallback(url, env);
+      // --- Legacy Sveltia CMS flow + shared GitHub callback ---
+      // GitHub OAuth Apps only support a single callback URL, so /callback
+      // is shared between the legacy Sveltia flow and the new site sign-in
+      // flow. Dispatch by presence of the site flow's state cookie: only
+      // /login/github sets `yunze_oauth_state`, so Sveltia callbacks never
+      // enter the site branch.
+      if (path === '/auth') return cmsAuth(url);
+      if (path === '/callback') {
+        return readCookie(request, STATE_COOKIE_NAME)
+          ? siteCallbackGitHub(request, url, env)
+          : cmsCallback(url, env);
+      }
 
       // --- Site sign-in flow ---
       if (path === '/login')              return loginChooser(url);
       if (path === '/login/github')       return siteLoginStart(url, 'github');
       if (path === '/login/google')       return siteLoginStart(url, 'google');
-      if (path === '/callback/github')    return siteCallbackGitHub(request, url, env);
       if (path === '/callback/google')    return siteCallbackGoogle(request, url, env);
       if (path === '/logout')             return siteLogout(request, url, env);
       if (path === '/me' || path === '/me.json') return siteMe(request, env);
@@ -157,8 +165,11 @@ async function siteLoginStart(url, provider) {
   if (provider === 'github') {
     const params = new URLSearchParams({
       client_id:    SITE_GITHUB_CLIENT_ID,
+      // The OAuth App is registered with a single callback URL (/callback),
+      // shared with the legacy Sveltia flow. Routing happens in the worker
+      // based on cookie presence — see the /callback handler at the top.
       scope:        'read:user user:email',
-      redirect_uri: `${url.origin}/callback/github`,
+      redirect_uri: `${url.origin}/callback`,
       state,
       allow_signup: 'false',
     });
