@@ -1,3 +1,10 @@
+/* Phase E.2 — universal [hidden] override.
+   The `hidden` HTML attribute defaults to `display: none` via the
+   browser stylesheet, but any class with `display: inline-block` /
+   `display: flex` (like .comments-cta or .reply-hint below) wins by
+   specificity. !important here is the simplest fix. */
+[hidden] { display: none !important; }
+
 /* Phase E.2 — Comment editor + thread styles.
    Loaded by partials/comments.html only on pages that include it.
    Tokens reuse main.css's catalog where possible; component-local sizes
