@@ -17,13 +17,37 @@
     for (const k in screens) screens[k].classList.toggle('hidden', k !== name);
   }
 
-  function showAlert(message, type) {
+  function showAlert(message, type, opts) {
     const area = document.getElementById('alert-area');
+    area.innerHTML = '';
     const div  = document.createElement('div');
     div.className = 'alert ' + (type || 'error');
     div.textContent = message;
-    area.innerHTML = '';
     area.appendChild(div);
+    if (opts && opts.rescueBlob && opts.rescueBlob.size > 0) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'secondary';
+      btn.style.marginTop = 'var(--space-3)';
+      btn.textContent = '⬇️ 下载原始录音 / Download original recording';
+      btn.addEventListener('click', () => {
+        const b = opts.rescueBlob;
+        const ext = b.type.includes('webm') ? 'webm'
+                  : b.type.includes('mp4')  ? 'mp4'
+                  : b.type.includes('ogg')  ? 'ogg'
+                  : 'audio';
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const url = URL.createObjectURL(b);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'voice-rescue-' + stamp + '.' + ext;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      });
+      area.appendChild(btn);
+    }
     if (type === 'success') setTimeout(() => { div.remove(); }, 8000);
   }
   function clearAlert() { document.getElementById('alert-area').innerHTML = ''; }
@@ -202,7 +226,7 @@
     let audio_base64;
     try { audio_base64 = await blobToBase64(blob); }
     catch (err) {
-      showAlert('音频读取失败 / Audio read failed: ' + err.message);
+      showAlert('音频读取失败 / Audio read failed: ' + err.message, 'error', { rescueBlob: blob });
       showScreen('record');
       return;
     }
@@ -224,7 +248,7 @@
       transcript = data.transcript || '';
       if (!transcript.trim()) throw new Error('转写结果为空 / Empty transcript');
     } catch (err) {
-      showAlert('转写失败 / Transcribe failed: ' + err.message);
+      showAlert('转写失败 / Transcribe failed: ' + err.message, 'error', { rescueBlob: blob });
       showScreen('record');
       return;
     }
@@ -244,7 +268,7 @@
       if (!r.ok) throw new Error(data.error || 'polish ' + r.status);
       polished = data;
     } catch (err) {
-      showAlert('润色失败 / Polish failed: ' + err.message);
+      showAlert('润色失败 / Polish failed: ' + err.message, 'error', { rescueBlob: blob });
       showScreen('record');
       return;
     }
