@@ -45,7 +45,10 @@ function corsHeaders(origin) {
 
 // ===== Voice diary helpers =====
 
-const ALLOWED_VOICE_LOGINS = ['Yunze229', 'hxz49'];
+// ALLOWED_VOICE_LOGINS retired 2026-05-26 (Phase D) — voice diary now
+// reads the shared `allow:github:<login>` KV entries written by
+// yunze-cms-auth. Adding a family member to KV once gates voice +
+// capsule + future comments in one shot. See verifyGitHubUser below.
 
 // Vocabulary Yunze actually uses in his diaries — biases Whisper transcription
 // and gives Claude correct spellings/translations during polish.
@@ -83,9 +86,11 @@ function buildPolishVocabBlock() {
   ].join('\n');
 }
 
-// Verify a GitHub access token by calling /user and checking login allowlist.
-// Returns { ok: true, login } on success, { ok: false, status, error } on failure.
-async function verifyGitHubUser(token) {
+// Verify a GitHub access token by calling /user and checking the unified
+// `allow:github:<login>` KV allowlist (same namespace + entries used by
+// yunze-cms-auth's site sign-in flow). Returns { ok: true, login, name }
+// on success, { ok: false, status, error } on failure.
+async function verifyGitHubUser(token, env) {
   if (!token) return { ok: false, status: 401, error: 'Missing token' };
   const res = await fetch('https://api.github.com/user', {
     headers: {
@@ -97,10 +102,14 @@ async function verifyGitHubUser(token) {
   if (!res.ok) return { ok: false, status: 401, error: `GitHub /user ${res.status}` };
   const user = await res.json();
   const login = user?.login || '';
-  if (!ALLOWED_VOICE_LOGINS.includes(login)) {
-    return { ok: false, status: 403, error: `Not allowed: ${login}` };
+  if (!login) return { ok: false, status: 401, error: 'No login on GitHub user' };
+  // KV keys are stored lowercase by the site sign-in flow — match that here.
+  const raw = await env.RATE_LIMIT.get('allow:github:' + login.toLowerCase());
+  if (!raw) {
+    return { ok: false, status: 403, error: `Not on family allowlist: ${login}` };
   }
-  return { ok: true, login };
+  let entry; try { entry = JSON.parse(raw); } catch { entry = {}; }
+  return { ok: true, login, name: entry.name || login };
 }
 
 // Convert ArrayBuffer to base64 string (chunked to avoid call-stack limits on big buffers).
@@ -1090,9 +1099,11 @@ async function handleRequest(request, env, ctx, origin) {
     }
 
     // ===== Voice diary endpoints =====
-    // All voice/* endpoints require Authorization: Bearer <github-token>; the token's
-    // user.login must be in ALLOWED_VOICE_LOGINS. Voice content is written to main repo
-    // using MAIN_REPO_TOKEN (PAT), not the user token.
+    // All voice/* endpoints require Authorization: Bearer <github-token>; the
+    // token's user.login must have a matching `allow:github:<login>` entry
+    // in KV (same allowlist used by the site sign-in flow). Voice content is
+    // written to the private repo using PRIVATE_REPO_WRITE_TOKEN (PAT),
+    // not the user's token.
 
     if (pathname.startsWith('/voice/') && request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -1101,7 +1112,7 @@ async function handleRequest(request, env, ctx, origin) {
     if (pathname.startsWith('/voice/')) {
       const authHeader = request.headers.get('Authorization') || '';
       const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-      const auth  = await verifyGitHubUser(token);
+      const auth  = await verifyGitHubUser(token, env);
       if (!auth.ok) {
         return Response.json(
           { error: `Unauthorized: ${auth.error} / 未授权` },
