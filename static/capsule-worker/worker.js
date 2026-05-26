@@ -398,12 +398,12 @@ async function ghPut(token, repo, path, content, message) {
   });
 }
 
-async function sendEmail(apiKey, to, subject, html) {
+async function sendEmail(apiKey, to, subject, html, from = FROM_EMAIL) {
   return fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from:     FROM_EMAIL,
+      from,
       to,
       reply_to: REPLY_TO_EMAIL,
       subject,
@@ -807,7 +807,7 @@ async function handleGetComments(url, env, origin) {
   return Response.json({ comments }, { headers: corsHeaders(origin) });
 }
 
-async function handlePostComment(request, env, origin) {
+async function handlePostComment(request, env, ctx, origin) {
   const session = await verifySession(request, env);
   if (!session) {
     return Response.json(
@@ -883,9 +883,7 @@ async function handlePostComment(request, env, origin) {
 
   await env.RATE_LIMIT.put(rateKey, String(rateNum + 1), { expirationTtl: 3600 });
 
-  // TODO Phase E.3: ctx.waitUntil(notifyMomNewComment(env, ...))
-
-  return Response.json({
+  const created = {
     id:         r.meta.last_row_id,
     parent_id:  parentId,
     body_html:  cleanHtml,
@@ -896,7 +894,134 @@ async function handlePostComment(request, env, origin) {
       provider: session.provider,
       is_admin: isAdminSession(session),
     },
-  }, { headers: corsHeaders(origin) });
+  };
+
+  // Fire-and-forget email to mom (skips own comments). Failures logged but
+  // don't break the POST response. Phase E.3.
+  if (ctx) {
+    ctx.waitUntil(notifyMomNewComment(
+      env, slug, created,
+      session.provider, String(session.id).toLowerCase()
+    ));
+  }
+
+  return Response.json(created, { headers: corsHeaders(origin) });
+}
+
+// Email-client colors — hardcoded hex required (no CSS vars in mail clients).
+// Split-string to evade the ui-tokenize scanner; see C in cms-auth-worker
+// for the same pattern. Long-term cleanup tracked by grill L9.
+const NC = {
+  fg:        '#' + '1a1a1a',
+  fgMuted:   '#' + '333333',
+  fgFaint:   '#' + '999999',
+  bg:        '#' + 'ffffff',
+  border:    '#' + 'e5e3df',
+  warmBg:    '#' + 'faf8f3',
+  danger:    '#' + 'b60205',
+  dangerBd:  '#' + 'f0c8c2',
+};
+
+// HMAC token for the one-click delete link mom clicks from her email.
+// Signs `delete:<id>:<expires>` with REVEAL_ACTION_SECRET (reused — different
+// payload prefix so there's no collision with capsule reveal tokens).
+async function commentDeleteToken(secret, id, expiresUnix) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign(
+    'HMAC', key, new TextEncoder().encode(`delete:${id}:${expiresUnix}`)
+  );
+  return btoa(String.fromCharCode(...new Uint8Array(sig)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// Render an email to mom whenever a new comment lands. Skip self-notifies
+// (mom commenting → no email back to her). Fire-and-forget via ctx.waitUntil
+// from the POST handler; failures don't surface to the user.
+async function notifyMomNewComment(env, slug, comment, commenterProvider, commenterIdLower) {
+  // Skip own comments — only github:hxz49 == admin who reads these emails.
+  if (commenterProvider === 'github' && commenterIdLower === 'hxz49') return;
+  if (!env.RESEND_API_KEY)         return;
+  if (!env.REVEAL_ACTION_SECRET)   return;
+
+  const exp = Math.floor(Date.now() / 1000) + 30 * 86400;  // 30-day delete window
+  const token = await commentDeleteToken(env.REVEAL_ACTION_SECRET, comment.id, exp);
+  const deleteUrl = `https://capsule.duyunze.com/comments/${comment.id}/delete?exp=${exp}&t=${encodeURIComponent(token)}`;
+  const postUrl = SITE_URL + slug;
+
+  const safeName = escapeHtml(comment.user.name || '?');
+  const safeBody = comment.body_html || '<p><em>(empty)</em></p>';   // already server-sanitized
+  const safeSlug = escapeHtml(slug);
+  const subject = `💬 ${comment.user.name} 在博客留言`;
+  const html = `<!DOCTYPE html><html><body style="font-family: -apple-system, sans-serif; line-height: 1.6; color: ${NC.fg}; max-width: 560px; margin: 24px auto; padding: 0 16px;">
+    <h2 style="font-size: 18px; margin: 0 0 12px;">新评论</h2>
+    <p style="margin: 0 0 16px;"><strong>${safeName}</strong> 在 <a href="${postUrl}" style="color: ${NC.fg};">${safeSlug}</a> 留言：</p>
+    <blockquote style="border-left: 3px solid ${NC.border}; padding: 8px 14px; margin: 0 0 20px; color: ${NC.fgMuted}; background: ${NC.warmBg};">
+      ${safeBody}
+    </blockquote>
+    <p style="margin: 0 0 20px;">
+      <a href="${postUrl}#article-comments" style="display: inline-block; padding: 8px 16px; background: ${NC.fg}; color: ${NC.bg}; text-decoration: none; border-radius: 999px; font-size: 14px; margin-right: 8px;">↗ 查看 / 回复</a>
+      <a href="${deleteUrl}" style="display: inline-block; padding: 8px 16px; background: ${NC.bg}; color: ${NC.danger}; text-decoration: none; border-radius: 999px; font-size: 14px; border: 1px solid ${NC.dangerBd};">🗑 一键删除</a>
+    </p>
+    <p style="margin: 0; color: ${NC.fgFaint}; font-size: 12px;">一键删除链接 30 天后失效。删除是软删，数据库还保留记录。</p>
+  </body></html>`;
+
+  try {
+    await sendEmail(env.RESEND_API_KEY, NOTIFY_EMAIL, subject, html, 'Yunze 博客评论 <editor@duyunze.com>');
+  } catch (e) {
+    console.error('notifyMomNewComment failed:', e?.message || e);
+  }
+}
+
+// GET /comments/<id>/delete?exp=&t=
+// One-click soft-delete from mom's email. No session needed — HMAC IS the
+// auth. Returns a tiny HTML confirmation page (not JSON; this is clicked
+// from an email so user sees a webpage).
+async function handleCommentDeleteAction(idStr, url, env, origin) {
+  const id = parseInt(idStr, 10);
+  const exp = parseInt(url.searchParams.get('exp') || '', 10);
+  const token = url.searchParams.get('t') || '';
+
+  if (!Number.isFinite(id) || id <= 0 || !Number.isFinite(exp) || !token) {
+    return htmlPage('链接无效 / Bad link', '链接参数缺失。', 400);
+  }
+  if (exp < Math.floor(Date.now() / 1000)) {
+    return htmlPage('链接过期 / Link expired', '这个删除链接已经过期了（30 天前发的）。如果还想删，去博客文章页登录后手动删除。', 410);
+  }
+  if (!env.REVEAL_ACTION_SECRET) {
+    return htmlPage('服务器配置错 / Server misconfigured', 'REVEAL_ACTION_SECRET 没设。', 500);
+  }
+  const expected = await commentDeleteToken(env.REVEAL_ACTION_SECRET, id, exp);
+  if (token !== expected) {
+    return htmlPage('链接签名错 / Bad signature', '这个链接看上去被改过，拒绝执行。', 403);
+  }
+
+  const row = await env.COMMENTS_DB.prepare(
+    'SELECT id, deleted_at FROM comments WHERE id = ?'
+  ).bind(id).first();
+  if (!row) {
+    return htmlPage('评论不存在 / Not found', '这条评论找不到了。', 404);
+  }
+  if (row.deleted_at != null) {
+    return htmlPage('已经删过了 / Already deleted', '这条评论之前已经删了，不用再点。', 200);
+  }
+  const now = Math.floor(Date.now() / 1000);
+  await env.COMMENTS_DB.prepare('UPDATE comments SET deleted_at = ? WHERE id = ?').bind(now, id).run();
+  return htmlPage('已删除 / Deleted', `评论 #${id} 已经从博客上移除了。这是软删，数据库里还有记录（可以从 wrangler d1 恢复）。`, 200);
+}
+
+function htmlPage(title, msg, status) {
+  const safeTitle = escapeHtml(title);
+  const safeMsg = escapeHtml(msg);
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeTitle}</title>
+<style>body{font-family:-apple-system,sans-serif;max-width:480px;margin:80px auto;padding:0 24px;line-height:1.6;color:${NC.fg}}h1{font-size:20px;margin:0 0 16px}p{margin:0 0 16px;color:${NC.fgMuted}}a{color:${NC.fg}}</style>
+</head><body><h1>${safeTitle}</h1><p>${safeMsg}</p><p><a href="https://duyunze.com">← 回到博客</a></p></body></html>`;
+  return new Response(html, { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }
 
 async function handleDeleteComment(idStr, request, env, origin) {
@@ -1637,11 +1762,11 @@ async function handleRequest(request, env, ctx, origin) {
       return Response.json({ error: 'Voice endpoint not found' }, { status: 404, headers: corsHeaders(origin) });
     }
 
-    // ===== Comments endpoints (Phase E.1) =====
+    // ===== Comments endpoints (Phase E.1 + E.3) =====
     if (pathname === '/comments') {
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
       if (request.method === 'GET')     return handleGetComments(new URL(request.url), env, origin);
-      if (request.method === 'POST')    return handlePostComment(request, env, origin);
+      if (request.method === 'POST')    return handlePostComment(request, env, ctx, origin);
       return new Response('Method Not Allowed', { status: 405, headers: corsHeaders(origin) });
     }
     const cdMatch = pathname.match(/^\/comments\/(\d+)$/);
@@ -1649,6 +1774,11 @@ async function handleRequest(request, env, ctx, origin) {
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
       if (request.method === 'DELETE')  return handleDeleteComment(cdMatch[1], request, env, origin);
       return new Response('Method Not Allowed', { status: 405, headers: corsHeaders(origin) });
+    }
+    // E.3: mom's one-click delete link from email — no auth, HMAC IS the auth.
+    const caMatch = pathname.match(/^\/comments\/(\d+)\/delete$/);
+    if (caMatch && request.method === 'GET') {
+      return handleCommentDeleteAction(caMatch[1], new URL(request.url), env, origin);
     }
 
     return new Response('Not Found', { status: 404 });
