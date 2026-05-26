@@ -217,12 +217,15 @@ collections:
     folder: "data/reviews"
     create: false
     extension: "md"
+    identifier_field: "title"
+    summary: "{{title}}"
     sortable_fields:
-      fields: ["date", "slug"]
+      fields: ["date", "title", "slug"]
       default:
         field: "date"
         direction: "descending"
     fields:
+      - { label: "源文章标题", name: "title", widget: "string", readonly: true }
       - { label: "审查对应的文章 slug", name: "slug", widget: "string", readonly: true }
       - { label: "审查时间", name: "date", widget: "datetime", readonly: true }
       - { label: "AI 审稿内容", name: "body", widget: "markdown", readonly: true }
