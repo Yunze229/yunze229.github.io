@@ -104,10 +104,12 @@
 
   <script>
   // Wrap window.fetch to surface real upload progress for GitHub media commits.
+  // Sveltia commits via GraphQL createCommitOnBranch — a single POST whose JSON
+  // body contains every changed file (markdown + images) as base64 strings, so
+  // one big POST → one progress card representing the whole save.
   // Must run before sveltia-cms.js so its fetch calls go through our wrapper.
   (function() {
-    var CONTENTS_RE = /api\.github\.com\/repos\/[^/]+\/[^/]+\/contents\/images\/uploads\//;
-    var BLOBS_RE    = /api\.github\.com\/repos\/[^/]+\/[^/]+\/git\/blobs(\?|$)/;
+    var GRAPHQL_RE = /\/\/api\.github\.com\/graphql(\?|$)/;
     var _fetch = window.fetch.bind(window);
 
     var stackEl = null;
@@ -126,19 +128,19 @@
       return (n / 1024 / 1024).toFixed(1) + ' MB';
     }
 
-    function nameFromUrl(url, fallback) {
-      try {
-        var path = new URL(url).pathname;
-        var last = path.split('/').pop();
-        return last ? decodeURIComponent(last) : fallback;
-      } catch (e) { return fallback; }
+    // Sveltia bundles markdown + every changed image into one GraphQL POST as
+    // base64 inside JSON. Base64 is ASCII so byte size ≈ JS string length.
+    function isCommitBody(body) {
+      return typeof body === 'string'
+          && body.length >= 50 * 1024
+          && body.indexOf('createCommitOnBranch') >= 0;
     }
-
-    function sizeFromBody(body) {
-      if (typeof body !== 'string') return 0;
-      var m = body.match(/"content"\s*:\s*"([^"]*)"/);
-      if (!m) return 0;
-      return Math.floor(m[1].length * 3 / 4);
+    function labelFromCommitBody(body) {
+      var md = body.match(/"path"\s*:\s*"([^"]*\.md)"/);
+      if (md) return '📤 ' + md[1].split('/').pop();
+      var any = body.match(/"path"\s*:\s*"([^"]+)"/);
+      if (any) return '📤 ' + any[1].split('/').pop();
+      return '📤 提交中';
     }
 
     function makeCard(label, sizeBytes) {
@@ -186,27 +188,15 @@
       return h;
     }
 
-    var blobCounter = 0;
-
     window.fetch = function(input, init) {
       var url    = typeof input === 'string' ? input : (input && input.url) || '';
       var method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
-
-      var isContents = method === 'PUT'  && CONTENTS_RE.test(url);
-      var isBlob     = method === 'POST' && BLOBS_RE.test(url);
-      if (!isContents && !isBlob) return _fetch(input, init);
+      if (method !== 'POST' || !GRAPHQL_RE.test(url)) return _fetch(input, init);
 
       var body = init && init.body;
-      if (typeof body !== 'string') return _fetch(input, init);
+      if (!isCommitBody(body)) return _fetch(input, init);
 
-      var size = sizeFromBody(body);
-      if (size < 50 * 1024) return _fetch(input, init);
-
-      var label = isContents
-        ? '📤 ' + nameFromUrl(url, '上传中')
-        : '📤 图片 ' + (++blobCounter);
-
-      var ui = makeCard(label, size);
+      var ui = makeCard(labelFromCommitBody(body), body.length);
       function fade(ms) {
         setTimeout(function() {
           if (ui.card.parentNode) ui.card.parentNode.removeChild(ui.card);
