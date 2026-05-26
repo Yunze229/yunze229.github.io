@@ -4,8 +4,6 @@
   --fg-muted: #666666;
   --fg-faint: #999999;
   --border: #e5e3df;
-  --accent: #1a1a1a;
-  --accent-hover: #444444;
   --code-bg: #f2f1ef;
   --tag-bg: #eeece9;
   --tag-fg: #555555;
@@ -20,8 +18,6 @@
   --fg-muted: #aaaaaa;
   --fg-faint: #555555;
   --border: #2a2a2a;
-  --accent: #e8e8e8;
-  --accent-hover: #bbbbbb;
   --code-bg: #1e1e1e;
   --tag-bg: #222222;
   --tag-fg: #aaaaaa;
@@ -232,7 +228,7 @@ a:hover {
 /* Main */
 .site-main {
   padding: 48px 0;
-  min-height: calc(100vh - 200px);
+  min-height: calc(100dvh - 200px);
 }
 
 /* Language toggle */
@@ -653,7 +649,7 @@ a:hover {
 }
 
 /* Responsive */
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   html { font-size: 16px; }
 
   .header-inner {
@@ -987,7 +983,7 @@ a:hover {
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
 }
-@media (max-width: 600px) { .gear-grid { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .gear-grid { grid-template-columns: 1fr; } }
 
 .gear-card {
   display: flex;
@@ -1097,7 +1093,7 @@ a.gear-name:hover { text-decoration: underline; }
 
 .country-notes { font-size: 0.82rem; color: var(--fg-muted); font-style: italic; }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   #world-map { height: 260px; }
   .country-item { flex-wrap: wrap; }
 }
