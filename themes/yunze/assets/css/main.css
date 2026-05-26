@@ -821,31 +821,60 @@ a:hover {
   margin-top: 0.5rem;
 }
 
-/* ── Article footer: discuss on GitHub ── */
-.article-discuss {
-  margin-top: 3rem;
-  padding-top: 1.4rem;
+/* ── Article footer: Comments (visual shell — backend in Phase E) ── */
+.article-comments {
+  margin-top: 4rem;
+  padding-top: 2.5rem;
   border-top: 1px solid var(--border);
 }
-.discuss-lede {
-  font-size: 0.85rem;
-  color: var(--fg-muted);
-  margin: 0 0 12px;
+
+.comments-title {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin: 0 0 1.4rem;
+  font-family: Georgia, "Songti SC", "STSong", "Times New Roman", serif;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
-.discuss-link {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 14px;
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  font-size: 0.85rem;
+.comments-title .title-word { display: inline; }
+.comments-count {
+  font-family: inherit;
+  font-size: 0.7rem;
   font-weight: 500;
-  text-decoration: none;
-  transition: border-color 0.15s, background 0.15s;
+  color: var(--fg-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
-.discuss-link:hover { border-color: var(--fg); background: var(--tag-bg); }
+.comments-count .lang-zh { letter-spacing: 0.05em; }
+
+.comments-cta {
+  display: inline-block;
+  font-size: 1.05rem;
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 5px;
+  border-bottom: none;
+  transition: opacity 0.15s;
+}
+.comments-cta:hover {
+  opacity: 0.65;
+  border-bottom: none;
+}
+
+.comments-placeholder {
+  font-size: 0.95rem;
+  color: var(--fg-muted);
+  line-height: 1.7;
+  margin: 0;
+}
+.comments-placeholder a {
+  color: var(--fg);
+  border-bottom: 1px solid var(--fg-faint);
+}
 
 /* ── Letter submission form ── */
 .ct-wrap { margin-top: 2.5rem; }
