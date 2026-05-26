@@ -85,50 +85,12 @@
   </div>
   {{ end }}
 
-  {{/* Comments — visual shell only. Backend (D1 + Tiptap editor + comment
-       list) lands in Phase E (see [[yunze-blog-comments]] memory).
-       Logged-out: serif heading + underlined "Sign in to read…" CTA.
-       Logged-in: same heading + "Coming soon" placeholder (not a fake
-       editor — Phase E will replace this block). */}}
-  <section class="article-comments" id="article-comments">
-    <h2 class="comments-title">
-      <span class="title-word">
-        <span class="lang-zh">评论</span>
-        <span class="lang-en">Comments</span>
-      </span>
-      <span class="comments-count" id="comments-count">
-        <span class="lang-zh">即将上线</span>
-        <span class="lang-en">COMING SOON</span>
-      </span>
-    </h2>
-
-    {{/* Logged-out CTA — shown by default, hidden by JS if /me returns 200. */}}
-    <a class="comments-cta" id="comments-cta" href="https://auth.duyunze.com/login">
-      <span class="lang-zh">登录后阅读 / 加入讨论 →</span>
-      <span class="lang-en">Sign in to read and join the discussion →</span>
-    </a>
-
-    {{/* Logged-in placeholder — hidden by default, revealed by JS when signed in. */}}
-    <p class="comments-placeholder" id="comments-placeholder" hidden>
-      <span class="lang-zh">评论编辑器下次开工时上线（Tiptap + D1，~8h 工作量）。期间发现错别字 / 想反馈，去 <a href="https://github.com/Yunze229/blog-feedback/issues/new/choose">GitHub Issues</a>。</span>
-      <span class="lang-en">The full Tiptap editor lands next session (~8h work). Meanwhile, file typos or suggestions on <a href="https://github.com/Yunze229/blog-feedback/issues/new/choose">GitHub Issues</a>.</span>
-    </p>
-  </section>
-  <script>
-    (function() {
-      var cta  = document.getElementById('comments-cta');
-      var ph   = document.getElementById('comments-placeholder');
-      if (!cta) return;
-      var next = encodeURIComponent(location.href);
-      cta.href = 'https://auth.duyunze.com/login?next=' + next;
-      fetch('https://auth.duyunze.com/me', { credentials: 'include' })
-        .then(function(r) { return r.ok ? r.json() : null; })
-        .then(function(user) {
-          if (user) { cta.hidden = true; ph.hidden = false; }
-        })
-        .catch(function() { /* keep default logged-out CTA */ });
-    })();
-  </script>
+  {{/* Phase E.2 — comments partial renders the full editor + thread.
+       Private posts intentionally skip comments (see [[yunze-blog-comments]]
+       decision #8). */}}
+  {{ if not .Params.private }}
+    {{ partial "comments.html" . }}
+  {{ end }}
 </article>
 
 {{ end }}

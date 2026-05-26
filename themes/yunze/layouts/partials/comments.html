@@ -1,0 +1,84 @@
+{{/* Phase E.2 — full comment editor + thread renderer.
+     Replaces the inline placeholder block in _default/single.html.
+
+     Bundling: comments.js imports Tiptap + extensions from node_modules.
+     Hugo's js.Build (esbuild) resolves and bundles. CSS is shipped as a
+     standalone fingerprinted file (no js processing needed).
+*/}}
+
+{{ $js  := resources.Get "js/comments.js" }}
+{{ $bundle := $js | js.Build (dict "minify" hugo.IsProduction "target" "es2018" "format" "iife") | fingerprint }}
+{{ $css := resources.Get "css/comments.css" | fingerprint }}
+<link rel="stylesheet" href="{{ $css.RelPermalink }}">
+
+<section class="article-comments" id="article-comments" data-slug="{{ .RelPermalink }}">
+  <h2 class="comments-title">
+    <span class="title-word">
+      <span class="lang-zh">评论</span>
+      <span class="lang-en">Comments</span>
+    </span>
+    {{/* `comments-count` is updated by JS once /comments returns. Starts
+         with the same "COMING SOON" placeholder used pre-Phase E so the
+         shell looks consistent during the brief load window. */}}
+    <span class="comments-count" id="comments-count">
+      <span class="lang-zh">加载中…</span>
+      <span class="lang-en">LOADING…</span>
+    </span>
+  </h2>
+
+  {{/* Logged-out CTA (toggled by JS). */}}
+  <a class="comments-cta" id="comments-cta" href="https://auth.duyunze.com/login" hidden>
+    <span class="lang-zh">登录后阅读 / 加入讨论 →</span>
+    <span class="lang-en">Sign in to read and join the discussion →</span>
+  </a>
+
+  {{/* Logged-in editor (toggled by JS). Starts hidden to avoid flashing the
+       editor for not-yet-resolved auth state. */}}
+  <div class="comments-editor-wrap" id="comments-editor-wrap" hidden>
+    <div class="comments-editor-box">
+      <div class="comments-toolbar" role="toolbar" aria-label="Editor toolbar">
+        <select id="tb-block" class="tb-select" aria-label="Block type">
+          <option value="paragraph">Paragraph</option>
+          <option value="h2">Heading 2</option>
+          <option value="h3">Heading 3</option>
+        </select>
+        <span class="tb-sep" aria-hidden="true"></span>
+        <button id="tb-bold"      class="tb-btn" type="button" title="Bold (⌘B)"            ><b>B</b></button>
+        <button id="tb-italic"    class="tb-btn" type="button" title="Italic (⌘I)"          ><i>I</i></button>
+        <button id="tb-strike"    class="tb-btn" type="button" title="Strikethrough"        ><s>S</s></button>
+        <button id="tb-code"      class="tb-btn" type="button" title="Inline code"          >&lt;&gt;</button>
+        <button id="tb-codeblock" class="tb-btn" type="button" title="Code block"           >&lt;/&gt;</button>
+        <span class="tb-sep" aria-hidden="true"></span>
+        <button id="tb-ul"        class="tb-btn" type="button" title="Bullet list"          >•</button>
+        <button id="tb-ol"        class="tb-btn" type="button" title="Numbered list"        >1.</button>
+        <button id="tb-task"      class="tb-btn" type="button" title="Task list"            >☑</button>
+        <span class="tb-sep" aria-hidden="true"></span>
+        <button id="tb-link"      class="tb-btn" type="button" title="Insert link"          >🔗</button>
+        <span class="tb-sep" aria-hidden="true"></span>
+        <button id="tb-quote"     class="tb-btn" type="button" title="Quote"                >"</button>
+        <button id="tb-hr"        class="tb-btn" type="button" title="Horizontal divider"   >—</button>
+      </div>
+      <div id="comments-editor" class="comments-editor"></div>
+    </div>
+
+    <div id="reply-hint" class="reply-hint" hidden>
+      <span class="lang-zh">回复 <strong id="reply-hint-name"></strong></span>
+      <span class="lang-en">Replying to <strong id="reply-hint-name-en"></strong></span>
+      <button id="reply-cancel" class="reply-cancel" type="button" aria-label="Cancel reply">×</button>
+    </div>
+
+    <div class="comments-actions">
+      <button id="comments-submit" class="comments-submit" type="button" disabled>
+        <span class="lang-zh">发表评论</span>
+        <span class="lang-en">Post comment</span>
+      </button>
+      <span id="comments-counter" class="comments-counter">0 / 2000</span>
+    </div>
+
+    <p id="comments-msg" class="comments-msg" role="alert" aria-live="polite" hidden></p>
+  </div>
+
+  <div id="comments-list" class="comments-list"></div>
+</section>
+
+<script src="{{ $bundle.RelPermalink }}" defer></script>

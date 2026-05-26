@@ -1,0 +1,19 @@
+{
+  "name": "yunze-blog",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Front-end build deps for duyunze.com — currently the Tiptap comment editor bundled via Hugo js.Build (Phase E.2).",
+  "scripts": {
+    "build": "hugo --minify",
+    "dev":   "hugo server -D"
+  },
+  "dependencies": {
+    "@tiptap/core":                       "^2.10.0",
+    "@tiptap/starter-kit":                "^2.10.0",
+    "@tiptap/extension-link":             "^2.10.0",
+    "@tiptap/extension-placeholder":      "^2.10.0",
+    "@tiptap/extension-character-count":  "^2.10.0",
+    "@tiptap/extension-task-list":        "^2.10.0",
+    "@tiptap/extension-task-item":        "^2.10.0"
+  }
+}

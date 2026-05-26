@@ -129,6 +129,14 @@ jobs:
           shopt -u nullglob
           echo "Staged: $POSTS_PUB published posts, $POSTS_PRIV private posts, $PROJECTS_COUNT projects, $MANUAL_COUNT manuals, $LEARNING_COUNT learning notes, $IMAGE_DIRS image dirs, $TRANS_COUNT translations, $DATA_COUNT data files."
 
+      - name: Setup Node (for Hugo js.Build → esbuild → Tiptap)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install npm deps (Tiptap + extensions for comment editor)
+        run: npm ci --no-audit --no-fund
+
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
         with:
