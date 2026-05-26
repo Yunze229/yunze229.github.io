@@ -36,10 +36,15 @@ const DEFAULT_ORIGIN = ALLOWED_ORIGINS[0];
 function corsHeaders(origin) {
   const allowed = ALLOWED_ORIGINS.includes(origin);
   return {
-    'Access-Control-Allow-Origin':  allowed ? origin : DEFAULT_ORIGIN,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Max-Age':       '86400',
+    'Access-Control-Allow-Origin':      allowed ? origin : DEFAULT_ORIGIN,
+    'Access-Control-Allow-Methods':     'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers':     'Content-Type, Authorization',
+    // Required so the browser sends/exposes cookies on cross-origin requests
+    // from the .duyunze.com surfaces (capsule submit + comments). MUST echo
+    // a specific origin when this is true — never use '*'.
+    'Access-Control-Allow-Credentials': 'true',
+    'Vary':                             'Origin',
+    'Access-Control-Max-Age':           '86400',
   };
 }
 
@@ -611,6 +616,320 @@ async function sendNewsletterEmail(apiKey, to, post, unsubLink) {
       },
     }),
   });
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Comments (Phase E.1) — backend for the article comment widget.
+//
+// Three endpoints:
+//   GET    /comments?slug=<pathname>    — fetch thread, public read
+//   POST   /comments                    — create comment, requires session
+//   DELETE /comments/:id                — soft-delete, owner-or-admin only
+//
+// Auth: yunze_session HttpOnly cookie issued by auth.duyunze.com (read via
+// verifySession() defined above). Allowlist enforcement is implicit — only
+// users who passed `allow:<provider>:<id>` could have a session in the
+// first place.
+//
+// Storage: D1 database `yunze-comments` bound as env.COMMENTS_DB. Schema in
+// migrations/0001_init_comments.sql.
+//
+// Nesting: 2 levels max (top-level + 1 reply). POST flattens deeper attempts
+// — replying to a 1st-level reply X re-targets parent_id to X.parent_id.
+// ──────────────────────────────────────────────────────────────────────────
+
+const COMMENT_MAX_LEN = 2000;             // body plain-text char cap
+const COMMENT_RATE_PER_USER_PER_HOUR = 20;
+const ADMIN_GITHUB_LOGINS = new Set(['yunze229', 'hxz49']); // lowercased
+
+function isAdminSession(session) {
+  return !!session
+    && session.provider === 'github'
+    && ADMIN_GITHUB_LOGINS.has(String(session.id).toLowerCase());
+}
+
+// Sanitize Tiptap-produced HTML through a strict tag/attr whitelist.
+// Uses Cloudflare Workers' built-in HTMLRewriter (no external dep).
+//
+// Allowed tags: p h2 h3 strong em s code pre ul ol li input(checkbox) a
+//               blockquote hr br
+// Disallowed tags are stripped (content kept) — except `script`, `style`,
+// `iframe`, `object`, `embed`, `form` whose CONTENT is removed too.
+// All `<a>` get rel="noopener noreferrer nofollow" target="_blank" and
+// hrefs that aren't http/https are dropped.
+// All inline style, class, on*= handlers are removed.
+async function sanitizeCommentHtml(rawHtml) {
+  const allowedTags = new Set([
+    'p', 'h2', 'h3', 'strong', 'em', 's', 'code', 'pre',
+    'ul', 'ol', 'li', 'input', 'a', 'blockquote', 'hr', 'br',
+  ]);
+  const dropEntirely = new Set([
+    'script', 'style', 'iframe', 'object', 'embed', 'form',
+    'meta', 'link', 'svg', 'math', 'video', 'audio', 'noscript',
+  ]);
+  const safeHrefRe = /^https?:\/\//i;
+
+  // Wrap so HTMLRewriter parses it as a fragment inside <body>; we strip
+  // the wrapper after.
+  const wrapped = '<!DOCTYPE html><html><body>' + (rawHtml || '') + '</body></html>';
+  const baseResponse = new Response(wrapped, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+
+  const rewriter = new HTMLRewriter()
+    .on('*', {
+      element(el) {
+        const tag = el.tagName;  // already lowercased by HTMLRewriter
+
+        if (dropEntirely.has(tag)) {
+          el.remove();
+          return;
+        }
+        if (!allowedTags.has(tag) && tag !== 'body' && tag !== 'html') {
+          // Unknown tag → strip wrapper but keep inner content.
+          el.removeAndKeepContent();
+          return;
+        }
+
+        // Collect attrs first; removeAttribute during attribute iteration
+        // is undefined behavior per Cloudflare docs.
+        const toRemove = [];
+        for (const [name] of el.attributes) {
+          const lname = name.toLowerCase();
+          let keep = false;
+          if (tag === 'a' && (lname === 'href')) keep = true;
+          else if (tag === 'input' && (lname === 'type' || lname === 'checked' || lname === 'disabled')) keep = true;
+          // Drop everything else: class, style, on*=, data-*, id, etc.
+          if (!keep) toRemove.push(name);
+        }
+        for (const name of toRemove) el.removeAttribute(name);
+
+        // Per-tag fixups.
+        if (tag === 'a') {
+          const href = el.getAttribute('href') || '';
+          if (!safeHrefRe.test(href)) el.removeAttribute('href');
+          el.setAttribute('rel', 'noopener noreferrer nofollow');
+          el.setAttribute('target', '_blank');
+        }
+        if (tag === 'input') {
+          const type = (el.getAttribute('type') || '').toLowerCase();
+          if (type !== 'checkbox') {
+            // Tiptap task lists use checkbox; any other input gets stripped.
+            el.removeAndKeepContent();
+          } else {
+            el.setAttribute('disabled', '');  // checkboxes are display-only
+          }
+        }
+      },
+    });
+
+  const out = rewriter.transform(baseResponse);
+  const fullHtml = await out.text();
+  const m = fullHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  return m ? m[1].trim() : '';
+}
+
+// Approximate plain-text length of (already-sanitized) HTML for the 2000-char cap.
+function plainTextLen(html) {
+  return String(html || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi,  '&')
+    .replace(/&lt;/gi,   '<')
+    .replace(/&gt;/gi,   '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi,  "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+    .length;
+}
+
+// Fetch the users row for a session, inserting if missing. Returns the row.
+// Updates name/avatar if they changed (allowlist edit, GitHub avatar change).
+async function getOrCreateCommentUser(db, session) {
+  const pid = String(session.id).toLowerCase();
+  const existing = await db.prepare(
+    'SELECT id, name, avatar, is_blocked FROM users WHERE provider = ? AND provider_id = ?'
+  ).bind(session.provider, pid).first();
+
+  if (existing) {
+    if (existing.name !== session.name) {
+      await db.prepare('UPDATE users SET name = ? WHERE id = ?').bind(session.name, existing.id).run();
+    }
+    return {
+      id: existing.id,
+      name: session.name,
+      avatar: existing.avatar,
+      is_blocked: existing.is_blocked,
+    };
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const r = await db.prepare(
+    'INSERT INTO users (provider, provider_id, email, name, avatar, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ).bind(
+    session.provider, pid, session.email || null, session.name, null, now
+  ).run();
+
+  return {
+    id: r.meta.last_row_id,
+    name: session.name,
+    avatar: null,
+    is_blocked: 0,
+  };
+}
+
+async function handleGetComments(url, env, origin) {
+  const slug = url.searchParams.get('slug') || '';
+  if (!slug || slug.length > 500) {
+    return Response.json({ error: 'slug required (<= 500 chars)' }, { status: 400, headers: corsHeaders(origin) });
+  }
+
+  const { results } = await env.COMMENTS_DB.prepare(`
+    SELECT c.id, c.parent_id, c.body_html, c.created_at,
+           u.provider, u.provider_id, u.name, u.avatar
+    FROM comments c
+    JOIN users u ON u.id = c.user_id
+    WHERE c.slug = ? AND c.deleted_at IS NULL
+    ORDER BY c.created_at ASC
+  `).bind(slug).all();
+
+  const comments = (results || []).map(r => ({
+    id:         r.id,
+    parent_id:  r.parent_id,
+    body_html:  r.body_html,
+    created_at: r.created_at,
+    user: {
+      name:     r.name,
+      avatar:   r.avatar,
+      provider: r.provider,
+      is_admin: r.provider === 'github' && ADMIN_GITHUB_LOGINS.has(String(r.provider_id).toLowerCase()),
+    },
+  }));
+  return Response.json({ comments }, { headers: corsHeaders(origin) });
+}
+
+async function handlePostComment(request, env, origin) {
+  const session = await verifySession(request, env);
+  if (!session) {
+    return Response.json(
+      { error: '请先登录后再评论 / Please sign in first', login_url: 'https://auth.duyunze.com/login' },
+      { status: 401, headers: corsHeaders(origin) }
+    );
+  }
+
+  let body;
+  try { body = await request.json(); } catch {
+    return Response.json({ error: '请求格式错误 / Bad request' }, { status: 400, headers: corsHeaders(origin) });
+  }
+  const { slug, parent_id: rawParentId, body_html: rawHtml } = body || {};
+  if (!slug || typeof slug !== 'string' || slug.length > 500) {
+    return Response.json({ error: 'slug required (<= 500 chars)' }, { status: 400, headers: corsHeaders(origin) });
+  }
+  if (!rawHtml || typeof rawHtml !== 'string') {
+    return Response.json({ error: 'body_html required' }, { status: 400, headers: corsHeaders(origin) });
+  }
+  if (rawHtml.length > 20000) {
+    // Pre-sanitize length cap to protect HTMLRewriter from pathological input.
+    return Response.json({ error: '正文太长 / Body too long' }, { status: 400, headers: corsHeaders(origin) });
+  }
+
+  // Sanitize, then check plain-text length.
+  const cleanHtml = await sanitizeCommentHtml(rawHtml);
+  const len = plainTextLen(cleanHtml);
+  if (len === 0) {
+    return Response.json({ error: '评论是空的 / Comment is empty' }, { status: 400, headers: corsHeaders(origin) });
+  }
+  if (len > COMMENT_MAX_LEN) {
+    return Response.json({ error: `评论超过 ${COMMENT_MAX_LEN} 字 / Comment exceeds ${COMMENT_MAX_LEN} chars (now ${len})` }, { status: 400, headers: corsHeaders(origin) });
+  }
+
+  // Per-user hourly rate limit (separate from per-IP `/submit` limit).
+  const rateKey = `crl:${session.provider}:${String(session.id).toLowerCase()}`;
+  const rateRaw = await env.RATE_LIMIT.get(rateKey);
+  const rateNum = rateRaw ? parseInt(rateRaw, 10) : 0;
+  if (rateNum >= COMMENT_RATE_PER_USER_PER_HOUR) {
+    return Response.json(
+      { error: `评论太频繁，请稍后再试 / Too many comments this hour (limit ${COMMENT_RATE_PER_USER_PER_HOUR})` },
+      { status: 429, headers: corsHeaders(origin) }
+    );
+  }
+
+  // Resolve parent_id with 2-level flattening: a reply to a 1st-level reply
+  // attaches to that reply's parent (= sibling, same depth).
+  let parentId = null;
+  if (rawParentId != null) {
+    const pid = parseInt(rawParentId, 10);
+    if (Number.isFinite(pid)) {
+      const parent = await env.COMMENTS_DB.prepare(
+        'SELECT id, parent_id, slug, deleted_at FROM comments WHERE id = ?'
+      ).bind(pid).first();
+      if (parent && parent.deleted_at == null && parent.slug === slug) {
+        parentId = parent.parent_id || parent.id;
+      }
+      // Silently null out parent_id for invalid/cross-post references rather
+      // than 400 — the comment still saves as top-level.
+    }
+  }
+
+  const user = await getOrCreateCommentUser(env.COMMENTS_DB, session);
+  if (user.is_blocked) {
+    return Response.json({ error: 'forbidden' }, { status: 403, headers: corsHeaders(origin) });
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const r = await env.COMMENTS_DB.prepare(`
+    INSERT INTO comments (slug, user_id, parent_id, body_html, body_len, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(slug, user.id, parentId, cleanHtml, len, now).run();
+
+  await env.RATE_LIMIT.put(rateKey, String(rateNum + 1), { expirationTtl: 3600 });
+
+  // TODO Phase E.3: ctx.waitUntil(notifyMomNewComment(env, ...))
+
+  return Response.json({
+    id:         r.meta.last_row_id,
+    parent_id:  parentId,
+    body_html:  cleanHtml,
+    created_at: now,
+    user: {
+      name:     user.name,
+      avatar:   user.avatar,
+      provider: session.provider,
+      is_admin: isAdminSession(session),
+    },
+  }, { headers: corsHeaders(origin) });
+}
+
+async function handleDeleteComment(idStr, request, env, origin) {
+  const session = await verifySession(request, env);
+  if (!session) {
+    return Response.json({ error: 'sign in required' }, { status: 401, headers: corsHeaders(origin) });
+  }
+
+  const id = parseInt(idStr, 10);
+  if (!Number.isFinite(id) || id <= 0) {
+    return Response.json({ error: 'bad id' }, { status: 400, headers: corsHeaders(origin) });
+  }
+
+  const row = await env.COMMENTS_DB.prepare(`
+    SELECT c.id, c.deleted_at, u.provider, u.provider_id
+    FROM comments c JOIN users u ON u.id = c.user_id
+    WHERE c.id = ?
+  `).bind(id).first();
+  if (!row || row.deleted_at != null) {
+    return Response.json({ error: 'not found' }, { status: 404, headers: corsHeaders(origin) });
+  }
+
+  const isOwn = (
+    row.provider === session.provider
+    && String(row.provider_id).toLowerCase() === String(session.id).toLowerCase()
+  );
+  if (!isOwn && !isAdminSession(session)) {
+    return Response.json({ error: 'forbidden' }, { status: 403, headers: corsHeaders(origin) });
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  await env.COMMENTS_DB.prepare('UPDATE comments SET deleted_at = ? WHERE id = ?').bind(now, id).run();
+  return Response.json({ ok: true }, { headers: corsHeaders(origin) });
 }
 
 export default {
@@ -1316,6 +1635,20 @@ async function handleRequest(request, env, ctx, origin) {
       }
 
       return Response.json({ error: 'Voice endpoint not found' }, { status: 404, headers: corsHeaders(origin) });
+    }
+
+    // ===== Comments endpoints (Phase E.1) =====
+    if (pathname === '/comments') {
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
+      if (request.method === 'GET')     return handleGetComments(url, env, origin);
+      if (request.method === 'POST')    return handlePostComment(request, env, origin);
+      return new Response('Method Not Allowed', { status: 405, headers: corsHeaders(origin) });
+    }
+    const cdMatch = pathname.match(/^\/comments\/(\d+)$/);
+    if (cdMatch) {
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
+      if (request.method === 'DELETE')  return handleDeleteComment(cdMatch[1], request, env, origin);
+      return new Response('Method Not Allowed', { status: 405, headers: corsHeaders(origin) });
     }
 
     return new Response('Not Found', { status: 404 });

@@ -17,3 +17,11 @@ bucket_name = "yunze-media"
 
 [ai]
 binding = "AI"
+
+# Phase E.1 — D1 database for comments. Migrations live in ./migrations/.
+# Apply with: wrangler d1 migrations apply yunze-comments --remote
+[[d1_databases]]
+binding = "COMMENTS_DB"
+database_name = "yunze-comments"
+database_id = "5efb3b1a-faa5-49dc-867a-d12899e59a58"
+migrations_dir = "migrations"
