@@ -1,0 +1,29 @@
+name = "yunze-cms-auth"
+main = "worker.js"
+compatibility_date = "2026-05-26"
+workers_dev = false
+
+# Account: dyz229's iCloud Cloudflare account (id 6605ac53…).
+# Use `wrangler whoami` to confirm before deploy.
+#
+# Custom domain: auth.duyunze.com (configured in CF dashboard → Workers → Domains).
+# Do not remove `routes` if the dashboard route disappears for any reason.
+
+# Shared KV namespace with yunze-capsule worker.
+# Holds: allow:<provider>:<id>, session:<uuid>. (Also rate-limit / subscriber
+# keys from the capsule worker — same physical namespace, different prefixes.
+# See M12 in grill-report-2026-05-26.md for the eventual split plan.)
+[[kv_namespaces]]
+binding = "ALLOWLIST"
+id = "e7b601c5751b41d4afe7e2bab4360f17"
+
+# Secrets — DO NOT put values here. Set via `wrangler secret put NAME` or in
+# the CF dashboard. See DESIGN.md for the full list and ./README.md for how
+# to set each.
+#
+# Required:
+#   GITHUB_CLIENT_SECRET         (existing — for legacy /auth Sveltia flow)
+#   SITE_GITHUB_CLIENT_SECRET    (NEW — for /login/github site flow; may be same value)
+#   GOOGLE_CLIENT_ID             (NEW — public, but env-driven for ease of rotation)
+#   GOOGLE_CLIENT_SECRET         (NEW)
+#   ALLOWED_RETURN_HOSTS         (NEW — comma list, e.g. "duyunze.com,www.duyunze.com")
