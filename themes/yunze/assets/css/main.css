@@ -821,6 +821,32 @@ a:hover {
   margin-top: 0.5rem;
 }
 
+/* ── Article footer: discuss on GitHub ── */
+.article-discuss {
+  margin-top: 3rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--border);
+}
+.discuss-lede {
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  margin: 0 0 12px;
+}
+.discuss-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.discuss-link:hover { border-color: var(--fg); background: var(--tag-bg); }
+
 /* ── Letter submission form ── */
 .ct-wrap { margin-top: 2.5rem; }
 

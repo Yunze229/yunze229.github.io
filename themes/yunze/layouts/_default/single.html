@@ -84,6 +84,20 @@
     {{ end }}
   </div>
   {{ end }}
+
+  {{/* Discuss this post — links to the public feedback repo with the
+       post title pre-filled so the reader doesn't have to paste it. */}}
+  {{ $discussTitle := printf "Re: %s" .Title }}
+  <div class="article-discuss">
+    <p class="discuss-lede">
+      <span class="lang-zh">看到错别字 / 想给点反馈 / 有建议？</span>
+      <span class="lang-en">Spotted a typo, have feedback, or an idea?</span>
+    </p>
+    <a class="discuss-link" href="https://github.com/Yunze229/blog-feedback/issues/new/choose?{{ querify "title" $discussTitle }}" target="_blank" rel="noopener">
+      <span class="lang-zh">💬 在 GitHub 上开 issue</span>
+      <span class="lang-en">💬 Open an issue on GitHub</span>
+    </a>
+  </div>
 </article>
 
 {{ end }}
