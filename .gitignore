@@ -31,3 +31,7 @@ data/skills.yaml
 static/images/uploads/
 # Build-time staging directory for the private repo checkout.
 .private-src/
+
+# grill multi-agent review reports — written next to the audited code,
+# would otherwise get accidentally pushed to GitHub Pages.
+grill-report-*.md
