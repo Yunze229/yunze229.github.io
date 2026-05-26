@@ -7,9 +7,8 @@
   {{ partial "section-tagline.html" . }}
 </div>
 
-{{ $posts := where site.RegularPages "Section" "posts" }}
-{{ $posts = where $posts ".Params.private" "ne" true }}
-{{ $projects := where $posts ".Params.categories" "intersect" (slice "作品") }}
+{{ $projects := where site.RegularPages "Section" "projects" }}
+{{ $projects = where $projects ".Params.private" "ne" true }}
 
 {{ if $projects }}
 <div class="projects-grid">

@@ -47,7 +47,7 @@ jobs:
         run: |
           # Ensure all target dirs exist (the public repo may have only _index.md
           # checked in, so the directories may be missing on a fresh checkout).
-          mkdir -p content/posts content/private content/learning
+          mkdir -p content/posts content/private content/learning content/projects content/manual
           mkdir -p data/translations
           mkdir -p static/images/uploads
 
@@ -55,6 +55,8 @@ jobs:
           POSTS_PUB=0
           POSTS_PRIV=0
           LEARNING_COUNT=0
+          PROJECTS_COUNT=0
+          MANUAL_COUNT=0
           IMAGE_DIRS=0
           TRANS_COUNT=0
           DATA_COUNT=0
@@ -72,6 +74,19 @@ jobs:
               cp "$f" content/private/
               POSTS_PRIV=$((POSTS_PRIV+1))
             fi
+          done
+
+          # Projects — always public, dedicated section so /projects/<slug>/ URLs work
+          # and the gallery / cover-card layout activates via .Section == "projects".
+          for f in .private-src/projects/*.md; do
+            cp "$f" content/projects/
+            PROJECTS_COUNT=$((PROJECTS_COUNT+1))
+          done
+
+          # Manuals — always public, dedicated section so /manual/<slug>/ URLs work.
+          for f in .private-src/manual/*.md; do
+            cp "$f" content/manual/
+            MANUAL_COUNT=$((MANUAL_COUNT+1))
           done
 
           # Learning notes — always draft:true, Hugo skips them.
@@ -112,7 +127,7 @@ jobs:
           # them anyway (data/ only accepts json/yaml/toml).
 
           shopt -u nullglob
-          echo "Staged: $POSTS_PUB published posts, $POSTS_PRIV private posts, $LEARNING_COUNT learning notes, $IMAGE_DIRS image dirs, $TRANS_COUNT translations, $DATA_COUNT data files."
+          echo "Staged: $POSTS_PUB published posts, $POSTS_PRIV private posts, $PROJECTS_COUNT projects, $MANUAL_COUNT manuals, $LEARNING_COUNT learning notes, $IMAGE_DIRS image dirs, $TRANS_COUNT translations, $DATA_COUNT data files."
 
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3

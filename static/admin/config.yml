@@ -56,18 +56,114 @@ collections:
           - { label: "技能笔记", value: "技能笔记" }
           - { label: "旅行", value: "旅行" }
           - { label: "书单", value: "书单" }
-          - { label: "作品 | PROJECTS", value: "作品" }
-          - { label: "手册 | MANUALS", value: "手册" }
         default: ["日记"]
-      - label: "封面图片（作品页专用）"
-        name: "cover"
-        widget: "image"
-        required: false
-        hint: "仅作品页显示，推荐 16:9 比例"
+        hint: "作品和手册现在有独立标签，不再从这里选"
       - label: "标签"
         name: "tags"
         widget: "list"
         allow_add: true
+        hint: "用回车添加标签"
+      - label: "草稿"
+        name: "draft"
+        widget: "boolean"
+        default: false
+      - label: "正文"
+        name: "body"
+        widget: "markdown"
+        hint: "支持 Markdown 格式"
+      - label: "中文标题（可选）"
+        name: "title_zh"
+        widget: "string"
+        required: false
+        hint: "不填则由 AI 自动翻译；填了直接用，不再调用 AI"
+      - label: "中文正文（可选）"
+        name: "body_zh"
+        widget: "markdown"
+        required: false
+        hint: "不填则由 AI 自动翻译；填了直接用，不再调用 AI"
+
+  - name: "projects"
+    label: "🎨 作品 | PROJECTS"
+    label_singular: "作品"
+    folder: "projects"
+    create: true
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    preview_path: "projects/{{slug}}"
+    media_folder: "../images/uploads/{{slug}}"
+    public_folder: "/images/uploads/{{slug}}"
+    thumbnail: "cover"
+    summary: "{{title}}"
+    sortable_fields:
+      fields: ["date", "title"]
+      default:
+        field: "date"
+        direction: "descending"
+    fields:
+      - { label: "标题", name: "title", widget: "string", hint: "作品名称" }
+      - label: "日期"
+        name: "date"
+        widget: "datetime"
+        format: "YYYY-MM-DD"
+        date_format: "YYYY-MM-DD"
+        time_format: false
+      - label: "封面图片"
+        name: "cover"
+        widget: "image"
+        required: true
+        hint: "作品卡片必须的封面，推荐 16:9 比例"
+      - label: "标签"
+        name: "tags"
+        widget: "list"
+        allow_add: true
+        required: false
+        hint: "用回车添加标签"
+      - label: "草稿"
+        name: "draft"
+        widget: "boolean"
+        default: false
+      - label: "正文"
+        name: "body"
+        widget: "markdown"
+        hint: "支持 Markdown 格式；连续 ≥2 张图自动拼成横向 gallery"
+      - label: "中文标题（可选）"
+        name: "title_zh"
+        widget: "string"
+        required: false
+        hint: "不填则由 AI 自动翻译；填了直接用，不再调用 AI"
+      - label: "中文正文（可选）"
+        name: "body_zh"
+        widget: "markdown"
+        required: false
+        hint: "不填则由 AI 自动翻译；填了直接用，不再调用 AI"
+
+  - name: "manual"
+    label: "📘 手册 | MANUALS"
+    label_singular: "手册"
+    folder: "manual"
+    create: true
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    preview_path: "manual/{{slug}}"
+    media_folder: "../images/uploads/{{slug}}"
+    public_folder: "/images/uploads/{{slug}}"
+    summary: "{{title}}"
+    sortable_fields:
+      fields: ["date", "title"]
+      default:
+        field: "date"
+        direction: "descending"
+    fields:
+      - { label: "标题", name: "title", widget: "string", hint: "手册名称" }
+      - label: "日期"
+        name: "date"
+        widget: "datetime"
+        format: "YYYY-MM-DD"
+        date_format: "YYYY-MM-DD"
+        time_format: false
+      - label: "标签"
+        name: "tags"
+        widget: "list"
+        allow_add: true
+        required: false
         hint: "用回车添加标签"
       - label: "草稿"
         name: "draft"

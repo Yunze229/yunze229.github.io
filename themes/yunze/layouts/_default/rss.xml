@@ -1,4 +1,4 @@
-{{- $pages := where .Site.RegularPages "Section" "posts" -}}
+{{- $pages := where .Site.RegularPages "Section" "in" (slice "posts" "projects" "manual") -}}
 {{- $pages = where $pages "Params.private" "ne" true -}}
 {{- $pages = where $pages "Params.draft" "ne" true -}}
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">

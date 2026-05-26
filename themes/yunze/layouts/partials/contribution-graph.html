@@ -127,7 +127,7 @@
 (function() {
   function initGraph() {
     const data = [
-      {{ range (where .Site.RegularPages "Section" "in" (slice "posts" "logbook")) }}
+      {{ range (where .Site.RegularPages "Section" "in" (slice "posts" "logbook" "projects" "manual")) }}
       "{{ .Date.Format "2006-01-02" }}",
       {{ end }}
     ];

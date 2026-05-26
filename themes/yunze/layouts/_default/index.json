@@ -6,7 +6,7 @@
        them (revealed: true). Unrevealed letters stay private even after
        auto-transfer writes them to content/capsule/.
 */}}
-{{- $posts   := where .Site.RegularPages "Section" "posts" -}}
+{{- $posts   := where .Site.RegularPages "Section" "in" (slice "posts" "projects" "manual") -}}
 {{- $posts    = where $posts "Params.private" "ne" true -}}
 {{- $capsule := where .Site.RegularPages "Section" "capsule" -}}
 {{- $capsule  = where $capsule "Params.revealed" true -}}

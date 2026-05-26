@@ -17,7 +17,7 @@
     {{ $trans = dict "title" .Title "content" .Params.body_zh }}
   {{ end }}
 {{ end }}
-<article{{ if in (.Params.categories | default slice) "作品" }} class="is-project"{{ end }}>
+<article{{ if eq .Section "projects" }} class="is-project"{{ end }}>
   <header class="article-header">
     <h1 class="article-title">
       {{ if $trans }}
