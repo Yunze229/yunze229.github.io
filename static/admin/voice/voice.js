@@ -136,6 +136,7 @@
   let recordedChunks = [];
   let recordingStart = 0;
   let timerInterval  = null;
+  let lastAudioKey   = null;  // R2 key returned by /voice/transcribe; propagated to /voice/publish so the .md frontmatter records voice_audio_key
 
   function fmtTime(sec) {
     const m = String(Math.floor(sec / 60)).padStart(2, '0');
@@ -236,14 +237,17 @@
     document.getElementById('processing-text').textContent = '转写中... / Transcribing...';
 
     const token = getStoredToken();
+    lastAudioKey = null;
     let transcript;
     try {
       const r = await fetch(WORKER_BASE + '/voice/transcribe', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body:    JSON.stringify({ audio_base64 }),
+        body:    JSON.stringify({ audio_base64, mime_type: blob.type || 'audio/webm' }),
       });
       const data = await r.json();
+      // Worker stores audio in R2 BEFORE transcribing; capture key regardless of transcribe outcome.
+      if (data && data.audio_key) lastAudioKey = data.audio_key;
       if (!r.ok) throw new Error(data.error || 'transcribe ' + r.status);
       transcript = data.transcript || '';
       if (!transcript.trim()) throw new Error('转写结果为空 / Empty transcript');
@@ -397,6 +401,7 @@
       learning_notes: currentNotes
         .filter(n => (n.phrase || '').trim() && (n.correction || '').trim()),
       private:  !!isPrivate,
+      audio_key: lastAudioKey,
     };
     if (!payload.title_en || !payload.body_en) {
       showAlert('英文标题和正文必填 / English title + body required');

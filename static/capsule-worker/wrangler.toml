@@ -11,5 +11,9 @@ custom_domain = true
 binding = "RATE_LIMIT"
 id = "e7b601c5751b41d4afe7e2bab4360f17"
 
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "yunze-media"
+
 [ai]
 binding = "AI"

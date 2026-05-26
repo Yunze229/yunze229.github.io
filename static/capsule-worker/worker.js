@@ -222,7 +222,7 @@ async function polishWithClaude(apiKey, transcript) {
 //   true  → content/posts/<slug>/   (public, no encryption)
 //   false → content/private/<slug>/ (staticrypt-encrypted)
 // (Hugo reserves `published` as a date field, so we use `make_public` instead.)
-function buildPostMarkdown({ title_en, title_zh, slug, tags, body_en, body_zh, date, isPrivate }) {
+function buildPostMarkdown({ title_en, title_zh, slug, tags, body_en, body_zh, date, isPrivate, audio_key }) {
   const yamlEscape = s => String(s).replace(/"/g, '\\"');
   const tagsLine = Array.isArray(tags) && tags.length
     ? `[${tags.map(t => `"${yamlEscape(t)}"`).join(', ')}]`
@@ -236,13 +236,16 @@ function buildPostMarkdown({ title_en, title_zh, slug, tags, body_en, body_zh, d
     `categories: ["日记"]`,
     `tags: ${tagsLine}`,
     `voice: true`,
+  ];
+  if (audio_key) lines.push(`voice_audio_key: "${yamlEscape(audio_key)}"`);
+  lines.push(
     'body_zh: |-',
     ...String(body_zh || '').split('\n').map(l => `  ${l}`),
     '---',
     '',
     body_en || '',
     '',
-  ];
+  );
   return lines.join('\n');
 }
 
@@ -1061,6 +1064,7 @@ async function handleRequest(request, env, ctx, origin) {
           return Response.json({ error: '请求格式错误 / Bad request' }, { status: 400, headers: corsHeaders(origin) });
         }
         const b64 = payload?.audio_base64 || '';
+        const mimeType = String(payload?.mime_type || 'audio/webm').slice(0, 64);
         if (!b64) {
           return Response.json({ error: '缺少音频数据 / Missing audio' }, { status: 400, headers: corsHeaders(origin) });
         }
@@ -1072,12 +1076,77 @@ async function handleRequest(request, env, ctx, origin) {
         } catch {
           return Response.json({ error: '音频解码失败 / Audio decode failed' }, { status: 400, headers: corsHeaders(origin) });
         }
+
+        // ── Persist raw audio to R2 BEFORE attempting transcription ────
+        // The 2026-05-25 transcribe failure lost the raw recording entirely.
+        // Now: store first, transcribe second. Even if Whisper fails, the
+        // audio is recoverable via /voice/audio?key=.
+        let audioKey = null;
+        if (env.MEDIA_BUCKET) {
+          try {
+            const ext = mimeType.includes('mp4') ? 'mp4'
+                      : mimeType.includes('ogg') ? 'ogg'
+                      : 'webm';
+            const now = new Date();
+            const ym  = now.toISOString().slice(0, 7);          // 2026-05
+            const ts  = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            const rand = crypto.randomUUID().slice(0, 8);
+            audioKey = `voice-diary/${ym}/${ts}-${auth.login}-${rand}.${ext}`;
+            await env.MEDIA_BUCKET.put(audioKey, buf, {
+              httpMetadata: { contentType: mimeType },
+              customMetadata: {
+                login: auth.login,
+                recorded_at: now.toISOString(),
+                size_bytes: String(buf.byteLength),
+              },
+            });
+          } catch (e) {
+            // Don't fail the request — log and continue. Transcription path
+            // still runs; user keeps the rescue-download fallback.
+            console.error('R2 put failed:', e?.message || e);
+            audioKey = null;
+          }
+        }
+
         const r = await transcribeAudio(env.AI, buf.buffer);
         if (r.error) {
           console.error('Whisper error:', r.error);
-          return Response.json({ error: `转写失败 / Transcription failed: ${r.error}` }, { status: 500, headers: corsHeaders(origin) });
+          // audio_key still returned so the client knows the raw audio is safe.
+          return Response.json({
+            error: `转写失败 / Transcription failed: ${r.error}`,
+            audio_key: audioKey,
+          }, { status: 500, headers: corsHeaders(origin) });
         }
-        return Response.json({ transcript: r.text, language: r.language, login: auth.login }, { headers: corsHeaders(origin) });
+        return Response.json({
+          transcript: r.text,
+          language:   r.language,
+          login:      auth.login,
+          audio_key:  audioKey,
+        }, { headers: corsHeaders(origin) });
+      }
+
+      if (pathname === '/voice/audio' && request.method === 'GET') {
+        const key = new URL(request.url).searchParams.get('key') || '';
+        if (!key || !key.startsWith('voice-diary/')) {
+          return Response.json({ error: '缺少或非法的 key' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        if (!env.MEDIA_BUCKET) {
+          return Response.json({ error: 'R2 binding not configured' }, { status: 500, headers: corsHeaders(origin) });
+        }
+        // Only Yunze (and mom, for admin support) can play back raw audio.
+        // OAuth verification already happened in the /voice/* gate above.
+        if (auth.login !== 'Yunze229' && auth.login !== 'hxz49') {
+          return Response.json({ error: 'Forbidden / 仅 Yunze 自己可听' }, { status: 403, headers: corsHeaders(origin) });
+        }
+        const obj = await env.MEDIA_BUCKET.get(key);
+        if (!obj) {
+          return Response.json({ error: '录音不存在 / Not found' }, { status: 404, headers: corsHeaders(origin) });
+        }
+        const h = new Headers(corsHeaders(origin));
+        h.set('Content-Type', obj.httpMetadata?.contentType || 'audio/webm');
+        h.set('Content-Length', String(obj.size));
+        h.set('Cache-Control', 'private, no-store');
+        return new Response(obj.body, { headers: h });
       }
 
       if (pathname === '/voice/polish' && request.method === 'POST') {
@@ -1116,7 +1185,7 @@ async function handleRequest(request, env, ctx, origin) {
         }
         const {
           title_en, title_zh, slug: rawSlug, tags, body_en, body_zh,
-          learning_notes, private: isPrivate,
+          learning_notes, private: isPrivate, audio_key,
         } = payload || {};
 
         if (!title_en || !body_en) {
@@ -1136,7 +1205,7 @@ async function handleRequest(request, env, ctx, origin) {
         const urlPrefix = privateFlag ? '/private' : '/posts';
 
         const postMd = buildPostMarkdown({
-          title_en, title_zh, slug, tags, body_en, body_zh, date, isPrivate: privateFlag,
+          title_en, title_zh, slug, tags, body_en, body_zh, date, isPrivate: privateFlag, audio_key,
         });
 
         const commitPrefix = privateFlag ? 'voice (private)' : 'voice';
