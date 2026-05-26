@@ -19,6 +19,10 @@ content/learning/*.md
 !content/learning/_index.md
 content/capsule/*.md
 !content/capsule/_index.md
+content/projects/*.md
+!content/projects/_index.md
+content/manual/*.md
+!content/manual/_index.md
 # AI translations also live in the private repo.
 data/translations/*.yaml
 # Data yaml managed via CMS, in the private repo.
