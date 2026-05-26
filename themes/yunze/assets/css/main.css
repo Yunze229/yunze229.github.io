@@ -824,6 +824,44 @@ a:hover {
 /* ── Letter submission form ── */
 .ct-wrap { margin-top: 2.5rem; }
 
+/* Sign-in prompt — shown when user isn't signed in. Matches ct-toggle's
+   dashed-border style so it reads as the same "entry point" element. */
+.ct-signin-prompt {
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  padding: 18px 20px;
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  line-height: 1.6;
+}
+.ct-signin-prompt p { margin: 0 0 10px; }
+.ct-signin-prompt .ct-signin-foot { font-size: 0.78rem; color: var(--fg-faint); margin: 10px 0 0; }
+.ct-signin-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.ct-signin-link:hover { border-color: var(--fg); background: var(--tag-bg); }
+
+/* Signed-in user's name shown in place of the old `From` input. */
+.ct-sender-display {
+  padding: 6px 0;
+  font-size: 0.95rem;
+  color: var(--fg);
+}
+.ct-sender-display:empty::before {
+  content: '—';
+  color: var(--fg-faint);
+}
+
 .ct-toggle {
   display: inline-flex;
   align-items: center;

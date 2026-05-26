@@ -129,7 +129,24 @@ document.querySelectorAll('.capsule-item.capsule-locked, .capsule-item.capsule-p
 
 <!-- Letter submission form -->
 <div class="ct-wrap" id="ct-wrap" data-api="{{ .Site.Params.capsule_api }}">
-  <button class="ct-toggle" id="ct-toggle" onclick="ctToggle()" aria-expanded="false">
+
+  <!-- Sign-in prompt — visible when user is not logged in. -->
+  <div class="ct-signin-prompt" id="ct-signin-prompt" hidden>
+    <p>
+      <span class="lang-zh">✉ 写信给未来的 Yunze 需要先登录</span>
+      <span class="lang-en">✉ Sign in to write a letter to future Yunze</span>
+    </p>
+    <a class="ct-signin-link" id="ct-signin-link" href="https://auth.duyunze.com/login">
+      <span class="lang-zh">登录 / Sign in</span>
+      <span class="lang-en">Sign in</span>
+    </a>
+    <p class="ct-signin-foot">
+      <span class="lang-zh">只有家人名单里的成员能登录写信。不在名单？发邮件给妈妈 hxz49@hotmail.com</span>
+      <span class="lang-en">Only family members on the allowlist can sign in. Not on it? Email mom: hxz49@hotmail.com</span>
+    </p>
+  </div>
+
+  <button class="ct-toggle" id="ct-toggle" onclick="ctToggle()" aria-expanded="false" hidden>
     <span class="lang-zh">✉ 写一封信给未来的 Yunze</span>
     <span class="lang-en">✉ Write a Letter to Future Yunze</span>
   </button>
@@ -158,13 +175,13 @@ document.querySelectorAll('.capsule-item.capsule-locked, .capsule-item.capsule-p
       </div>
 
       <div class="ct-field">
-        <label class="ct-label" for="ct-sender">
+        <label class="ct-label">
           <span class="lang-zh">来自</span>
           <span class="lang-en">From</span>
         </label>
-        <input class="ct-input" type="text" id="ct-sender"
-          placeholder-zh="例：妈妈、爷爷、Yunze……"
-          placeholder-en="e.g. Mom, Grandpa, Yunze…">
+        <div class="ct-sender-display" id="ct-sender-display" aria-live="polite">
+          <!-- populated from session.name after /me resolves -->
+        </div>
       </div>
 
       <div class="ct-field">
@@ -297,9 +314,10 @@ document.querySelectorAll('.capsule-item.capsule-locked, .capsule-item.capsule-p
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
+  // Sender identity is taken from the session cookie server-side — no
+  // sender field in the submit payload.
   window.ctSubmit = function() {
     const btn    = document.getElementById('ct-submit');
-    const sender = document.getElementById('ct-sender').value.trim();
     const title  = document.getElementById('ct-title').value.trim();
     const body   = document.getElementById('ct-body').value.trim();
     const unlock = ctModeVal === 'age'
@@ -310,7 +328,6 @@ document.querySelectorAll('.capsule-item.capsule-locked, .capsule-item.capsule-p
     document.getElementById('ct-msg').className = 'ct-msg';
     document.getElementById('ct-msg').innerHTML = '';
 
-    if (!sender) return showMsg('err', '请填写你是谁', 'Please enter your name');
     if (!title)  return showMsg('err', '请填写信的标题', 'Please enter a letter title');
     if (!body)   return showMsg('err', '请写一些内容', 'Please write something');
     if (!unlock) return showMsg('err', '请选择开封日期', 'Please select an unlock date');
@@ -319,21 +336,25 @@ document.querySelectorAll('.capsule-item.capsule-locked, .capsule-item.capsule-p
 
     if (_widgetId !== null) {
       // Turnstile ready — execute challenge, doSubmit called from onToken callback
-      _pendingArgs = { sender, title, body, unlock, lang };
+      _pendingArgs = { title, body, unlock, lang };
       turnstile.execute(_widgetId);
     } else {
       // Turnstile not available (script blocked, key not set) — submit without token
-      doSubmit(sender, title, body, unlock, lang, '');
+      doSubmit(title, body, unlock, lang, '');
     }
   };
 
-  async function doSubmit(sender, title, body, unlock, lang, turnstileToken) {
+  async function doSubmit(title, body, unlock, lang, turnstileToken) {
     const btn = document.getElementById('ct-submit');
     try {
+      // credentials:'include' is required so the yunze_session cookie
+      // (set on .duyunze.com by auth.duyunze.com) is sent on this
+      // cross-subdomain fetch.
       const res = await fetch(API + '/submit', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ sender, title, unlock_date: unlock, body, lang, turnstile_token: turnstileToken }),
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ title, unlock_date: unlock, body, lang, turnstile_token: turnstileToken }),
       });
       let data;
       try { data = await res.json(); } catch { data = {}; }
@@ -342,7 +363,6 @@ document.querySelectorAll('.capsule-item.capsule-locked, .capsule-item.capsule-p
         const toggle = document.getElementById('ct-toggle');
         panel.hidden = true;
         toggle.setAttribute('aria-expanded', 'false');
-        document.getElementById('ct-sender').value = '';
         document.getElementById('ct-title').value  = '';
         document.getElementById('ct-body').value   = '';
         const msg = document.getElementById('ct-msg');
@@ -353,6 +373,14 @@ document.querySelectorAll('.capsule-item.capsule-locked, .capsule-item.capsule-p
         msg.hidden = false;
         msg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         if (_widgetId !== null) turnstile.reset(_widgetId);
+      } else if (res.status === 401) {
+        // Session expired mid-write or user signed out in another tab.
+        const link = (data && data.login_url) || 'https://auth.duyunze.com/login';
+        const next = encodeURIComponent(location.href);
+        showMsg('err',
+          '会话过期了，<a href="' + link + '?next=' + next + '">重新登录</a>再寄。',
+          'Session expired. <a href="' + link + '?next=' + next + '">Sign in again</a> to send.'
+        );
       } else {
         showMsg('err', data.error || '提交失败，请稍后再试', data.error || 'Submission failed, please try again');
         if (_widgetId !== null) turnstile.reset(_widgetId);
@@ -365,6 +393,37 @@ document.querySelectorAll('.capsule-item.capsule-locked, .capsule-item.capsule-p
     }
     btn.disabled = false;
   }
+
+  // ── Auth gate: show form only when signed in ─────────────────────────────
+  (function() {
+    const prompt = document.getElementById('ct-signin-prompt');
+    const toggle = document.getElementById('ct-toggle');
+    const link   = document.getElementById('ct-signin-link');
+    const sndDisp = document.getElementById('ct-sender-display');
+    const next   = encodeURIComponent(location.href);
+    if (link) link.href = 'https://auth.duyunze.com/login?next=' + next;
+
+    fetch('https://auth.duyunze.com/me', { credentials: 'include' })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(user) {
+        if (user) {
+          // Signed in — hide prompt, show toggle, fill sender display.
+          prompt.hidden = true;
+          toggle.hidden = false;
+          if (sndDisp) sndDisp.textContent = user.name;
+        } else {
+          // Not signed in — show prompt, keep toggle hidden.
+          prompt.hidden = false;
+          toggle.hidden = true;
+        }
+      })
+      .catch(function() {
+        // Network failure — fail open by showing the prompt (safer than
+        // showing the form to someone who isn't actually signed in).
+        prompt.hidden = false;
+        toggle.hidden = true;
+      });
+  })();
 
   // ── Init ──────────────────────────────────────────────────────────────────
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);

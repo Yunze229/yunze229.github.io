@@ -291,6 +291,25 @@ function slugifyAscii(s) {
     .slice(0, 50) || 'diary';
 }
 
+// Verify the yunze_session cookie issued by yunze-cms-auth (auth.duyunze.com).
+// Returns the session record {provider, id, name, email, role} on success,
+// or null on missing/expired/corrupt. Shares the RATE_LIMIT KV namespace
+// (key prefix `session:<uuid>`).
+async function verifySession(request, env) {
+  const header = request.headers.get('Cookie') || '';
+  const m = header.match(/(?:^|;\s*)yunze_session=([^;]+)/);
+  if (!m) return null;
+  const raw = await env.RATE_LIMIT.get('session:' + m[1]);
+  if (!raw) return null;
+  try {
+    const sess = JSON.parse(raw);
+    if (sess.exp && sess.exp < Math.floor(Date.now() / 1000)) return null;
+    return sess;
+  } catch {
+    return null;
+  }
+}
+
 // Rate limit: max 5 requests per IP per 60-second window.
 async function checkRateLimit(kv, ip) {
   const key    = `rl:${ip}`;
@@ -608,7 +627,19 @@ async function handleRequest(request, env, ctx, origin) {
     }
 
     if (pathname === '/submit' && request.method === 'POST') {
-      // Rate limiting
+      // Auth gate: must be signed in and on the family allowlist. Sender
+      // identity is taken from the session — the form's `sender` field (if
+      // any) is ignored. This closes grill C1 (sender-forgery vector).
+      const session = await verifySession(request, env);
+      if (!session) {
+        return Response.json(
+          { error: '请先登录后再写信 / Please sign in first', login_url: 'https://auth.duyunze.com/login' },
+          { status: 401, headers: corsHeaders(origin) }
+        );
+      }
+
+      // Rate limiting (per IP — kept as a second layer in case session is
+      // shared/compromised).
       const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
       const rl = await checkRateLimit(env.RATE_LIMIT, ip);
       if (!rl.allowed) {
@@ -623,7 +654,8 @@ async function handleRequest(request, env, ctx, origin) {
         return Response.json({ error: '请求格式错误 / Bad request' }, { status: 400, headers: corsHeaders(origin) });
       }
 
-      const { sender, title, unlock_date, body: letter, lang, turnstile_token } = body;
+      // Deliberately do NOT destructure `sender` from body — use session.name.
+      const { title, unlock_date, body: letter, lang, turnstile_token } = body;
 
       // Verify Turnstile (skip if TURNSTILE_SECRET not configured)
       const turnstileOk = await verifyTurnstile(env.TURNSTILE_SECRET, turnstile_token, ip);
@@ -634,7 +666,7 @@ async function handleRequest(request, env, ctx, origin) {
         );
       }
 
-      if (!sender || !title || !unlock_date || !letter) {
+      if (!title || !unlock_date || !letter) {
         return Response.json(
           { error: '请填写所有必填项 / All fields are required' },
           { status: 400, headers: corsHeaders(origin) }
@@ -644,13 +676,32 @@ async function handleRequest(request, env, ctx, origin) {
         return Response.json({ error: '日期格式错误 / Invalid date' }, { status: 400, headers: corsHeaders(origin) });
       }
 
+      // Length caps (grill H4) — protect GitHub PUT + downstream processing.
+      if (title.length > 200) {
+        return Response.json({ error: '标题最多 200 字符 / Title max 200 chars' }, { status: 400, headers: corsHeaders(origin) });
+      }
+      if (letter.length > 16384) {
+        return Response.json({ error: '正文最多 16384 字符 / Body max 16384 chars' }, { status: 400, headers: corsHeaders(origin) });
+      }
+
+      // Must be at least 7 days in the future to prevent same-day forgery.
+      const minDate = new Date(Date.now() + 7 * 86400 * 1000).toISOString().slice(0, 10);
+      if (unlock_date < minDate) {
+        return Response.json(
+          { error: `开封日至少要在 7 天之后（${minDate} 之后）/ Unlock date must be ≥ ${minDate}` },
+          { status: 400, headers: corsHeaders(origin) }
+        );
+      }
+
       const writingZh = lang !== 'en';
 
-      // Translate title, body, and sender name to the other language
-      const [titleOther, bodyOther, senderOther] = await Promise.all([
+      // Translate title and body. Sender name comes straight from the session
+      // (with an optional `name_en` override in the allowlist entry) — no
+      // AI translation of the name, so "妈妈" stays "妈妈" instead of randomly
+      // being rendered as "Mama" / "Mommy" / "Mom" between drafts.
+      const [titleOther, bodyOther] = await Promise.all([
         translate(env.AI, title,  writingZh ? 'zh' : 'en', writingZh ? 'en' : 'zh'),
         translate(env.AI, letter, writingZh ? 'zh' : 'en', writingZh ? 'en' : 'zh'),
-        translate(env.AI, sender, writingZh ? 'zh' : 'en', writingZh ? 'en' : 'zh'),
       ]);
 
       // Always store: .Content (markdown body) = Chinese, body_en frontmatter = English
@@ -658,12 +709,12 @@ async function handleRequest(request, env, ctx, origin) {
       const titleEn  = writingZh ? (titleOther  || title)  : title;
       const bodyZh   = writingZh ? letter : (bodyOther   || letter);
       const bodyEn   = writingZh ? (bodyOther   || letter) : letter;
-      const fromZh   = writingZh ? sender : (senderOther || sender);
-      const fromEn   = writingZh ? (senderOther || sender) : sender;
+      const fromZh   = session.name;
+      const fromEn   = session.name_en || session.name;
 
       const today      = new Date().toISOString().slice(0, 10);
       const titleSlug  = slugify(titleZh);
-      const senderSlug = slugify(fromZh) || slugify(sender) || 'sender';
+      const senderSlug = slugify(fromZh) || slugifyAscii(session.id) || 'sender';
       const filename   = `letters/${senderSlug}-${unlock_date}-${titleSlug}.md`;
 
       const frontmatter = [
