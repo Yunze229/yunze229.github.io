@@ -34,10 +34,248 @@
         font-size: 13px;
       }
     }
+
+    /* Upload-progress overlay — fed by the fetch-wrapper script below. */
+    :root {
+      --up-card:    #ffffff;
+      --up-fg:      #2a2a2a;
+      --up-faint:   #999999;
+      --up-line:    #ece8df;
+      --up-accent:  #d97757;
+      --up-ok:      #2e8b57;
+      --up-danger:  #c0392b;
+      --up-pad:     12px;
+      --up-gap:     8px;
+      --up-radius:  8px;
+      --up-bar-h:   4px;
+      --up-bar-r:   6px;
+      --up-bottom:  48px;
+      --up-left:    24px;
+    }
+    #upload-progress-stack {
+      position: fixed;
+      bottom: var(--up-bottom);
+      left: var(--up-left);
+      z-index: 99997;
+      display: flex;
+      flex-direction: column;
+      gap: var(--up-gap);
+      pointer-events: none;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+    }
+    .upload-card {
+      background: var(--up-card);
+      color: var(--up-fg);
+      border-radius: var(--up-radius);
+      padding: var(--up-pad);
+      pointer-events: auto;
+    }
+    .upload-card__top {
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: var(--up-gap);
+    }
+    .upload-card__meta {
+      color: var(--up-faint);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: var(--up-gap);
+    }
+    .upload-card__bar-wrap {
+      height: var(--up-bar-h);
+      background: var(--up-line);
+      border-radius: var(--up-bar-r);
+      overflow: hidden;
+    }
+    .upload-card__bar {
+      height: 100%;
+      width: 0;
+      background: var(--up-accent);
+      transition: width .15s linear;
+    }
+    .upload-card.is-ok  .upload-card__bar { background: var(--up-ok); }
+    .upload-card.is-err .upload-card__bar { background: var(--up-danger); }
   </style>
 </head>
 <body>
   <a id="voice-fab" href="/admin/voice/" target="_blank" rel="noopener" title="录音→AI润色→一键发布">🎙️ 语音日记</a>
+
+  <script>
+  // Wrap window.fetch to surface real upload progress for GitHub media commits.
+  // Must run before sveltia-cms.js so its fetch calls go through our wrapper.
+  (function() {
+    var CONTENTS_RE = /api\.github\.com\/repos\/[^/]+\/[^/]+\/contents\/images\/uploads\//;
+    var BLOBS_RE    = /api\.github\.com\/repos\/[^/]+\/[^/]+\/git\/blobs(\?|$)/;
+    var _fetch = window.fetch.bind(window);
+
+    var stackEl = null;
+    function getStack() {
+      if (stackEl && document.body.contains(stackEl)) return stackEl;
+      stackEl = document.createElement('div');
+      stackEl.id = 'upload-progress-stack';
+      document.body.appendChild(stackEl);
+      return stackEl;
+    }
+
+    function fmtSize(n) {
+      if (!n) return '';
+      if (n < 1024) return n + ' B';
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+      return (n / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    function nameFromUrl(url, fallback) {
+      try {
+        var path = new URL(url).pathname;
+        var last = path.split('/').pop();
+        return last ? decodeURIComponent(last) : fallback;
+      } catch (e) { return fallback; }
+    }
+
+    function sizeFromBody(body) {
+      if (typeof body !== 'string') return 0;
+      var m = body.match(/"content"\s*:\s*"([^"]*)"/);
+      if (!m) return 0;
+      return Math.floor(m[1].length * 3 / 4);
+    }
+
+    function makeCard(label, sizeBytes) {
+      var card = document.createElement('div');
+      card.className = 'upload-card';
+      var top = document.createElement('div');
+      top.className = 'upload-card__top';
+      top.textContent = label;
+      var meta = document.createElement('div');
+      meta.className = 'upload-card__meta';
+      var pct = document.createElement('span'); pct.textContent = '0%';
+      var sz  = document.createElement('span'); sz.textContent = fmtSize(sizeBytes);
+      meta.appendChild(pct); meta.appendChild(sz);
+      var wrap = document.createElement('div');
+      wrap.className = 'upload-card__bar-wrap';
+      var bar = document.createElement('div');
+      bar.className = 'upload-card__bar';
+      wrap.appendChild(bar);
+      card.appendChild(top); card.appendChild(meta); card.appendChild(wrap);
+      getStack().appendChild(card);
+      return { card: card, bar: bar, pct: pct };
+    }
+
+    function copyHeaders(xhr, hdrs) {
+      if (!hdrs) return;
+      try {
+        if (typeof Headers !== 'undefined' && hdrs instanceof Headers) {
+          hdrs.forEach(function(v, k) { xhr.setRequestHeader(k, v); });
+        } else if (Array.isArray(hdrs)) {
+          hdrs.forEach(function(p) { xhr.setRequestHeader(p[0], p[1]); });
+        } else {
+          Object.keys(hdrs).forEach(function(k) { xhr.setRequestHeader(k, hdrs[k]); });
+        }
+      } catch (e) {}
+    }
+
+    function parseRespHeaders(raw) {
+      var h = new Headers();
+      (raw || '').split(/\r?\n/).forEach(function(line) {
+        var i = line.indexOf(':');
+        if (i > 0) {
+          try { h.append(line.slice(0, i).trim(), line.slice(i + 1).trim()); } catch (e) {}
+        }
+      });
+      return h;
+    }
+
+    var blobCounter = 0;
+
+    window.fetch = function(input, init) {
+      var url    = typeof input === 'string' ? input : (input && input.url) || '';
+      var method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+
+      var isContents = method === 'PUT'  && CONTENTS_RE.test(url);
+      var isBlob     = method === 'POST' && BLOBS_RE.test(url);
+      if (!isContents && !isBlob) return _fetch(input, init);
+
+      var body = init && init.body;
+      if (typeof body !== 'string') return _fetch(input, init);
+
+      var size = sizeFromBody(body);
+      if (size < 50 * 1024) return _fetch(input, init);
+
+      var label = isContents
+        ? '📤 ' + nameFromUrl(url, '上传中')
+        : '📤 图片 ' + (++blobCounter);
+
+      var ui = makeCard(label, size);
+      function fade(ms) {
+        setTimeout(function() {
+          if (ui.card.parentNode) ui.card.parentNode.removeChild(ui.card);
+        }, ms);
+      }
+
+      return new Promise(function(resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        xhr.open(method, url);
+        copyHeaders(xhr, (init && init.headers) || (input && input.headers));
+
+        xhr.upload.onprogress = function(e) {
+          if (!e.lengthComputable) return;
+          var p = Math.min(1, e.loaded / e.total);
+          ui.bar.style.width = (p * 100).toFixed(1) + '%';
+          ui.pct.textContent = Math.round(p * 100) + '%';
+        };
+        xhr.upload.onload = function() {
+          ui.bar.style.width = '100%';
+          ui.pct.textContent = '处理中…';
+        };
+
+        xhr.onload = function() {
+          var ok = xhr.status >= 200 && xhr.status < 300;
+          if (ok) {
+            ui.card.classList.add('is-ok');
+            ui.pct.textContent = '✓ 完成';
+            fade(900);
+          } else {
+            ui.card.classList.add('is-err');
+            ui.pct.textContent = '✗ ' + xhr.status;
+            fade(5000);
+          }
+          resolve(new Response(xhr.responseText, {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            headers: parseRespHeaders(xhr.getAllResponseHeaders())
+          }));
+        };
+        xhr.onerror = function() {
+          ui.card.classList.add('is-err');
+          ui.pct.textContent = '✗ 网络错误';
+          fade(5000);
+          reject(new TypeError('Network request failed'));
+        };
+
+        var signal = init && init.signal;
+        if (signal) {
+          if (signal.aborted) {
+            xhr.abort();
+            ui.card.classList.add('is-err');
+            ui.pct.textContent = '已取消';
+            fade(2000);
+            return reject(new DOMException('Aborted', 'AbortError'));
+          }
+          signal.addEventListener('abort', function() {
+            xhr.abort();
+            ui.card.classList.add('is-err');
+            ui.pct.textContent = '已取消';
+            fade(2000);
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        }
+
+        xhr.send(body);
+      });
+    };
+  })();
+  </script>
 
   <script src="https://unpkg.com/@sveltia/cms/dist/sveltia-cms.js"></script>
   <script>
