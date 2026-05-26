@@ -1640,7 +1640,7 @@ async function handleRequest(request, env, ctx, origin) {
     // ===== Comments endpoints (Phase E.1) =====
     if (pathname === '/comments') {
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
-      if (request.method === 'GET')     return handleGetComments(url, env, origin);
+      if (request.method === 'GET')     return handleGetComments(new URL(request.url), env, origin);
       if (request.method === 'POST')    return handlePostComment(request, env, origin);
       return new Response('Method Not Allowed', { status: 405, headers: corsHeaders(origin) });
     }
