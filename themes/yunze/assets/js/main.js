@@ -37,13 +37,6 @@ function setLang(l) {
   langBtns.forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === l);
   });
-  const giscusFrame = document.querySelector('iframe.giscus-frame');
-  if (giscusFrame) {
-    giscusFrame.contentWindow.postMessage(
-      { giscus: { setConfig: { lang: l === 'zh' ? 'zh-CN' : 'en' } } },
-      'https://giscus.app'
-    );
-  }
 }
 
 if (langRoot) setLang(getLang());
@@ -51,31 +44,6 @@ if (langRoot) setLang(getLang());
 langBtns.forEach(btn => {
   btn.addEventListener('click', () => setLang(btn.dataset.lang));
 });
-
-// Share buttons
-const copyBtn = document.getElementById('share-copy');
-const twitterBtn = document.getElementById('share-twitter');
-
-if (twitterBtn) {
-  const url = encodeURIComponent(window.location.href);
-  const text = encodeURIComponent(document.title);
-  twitterBtn.href = `https://twitter.com/intent/tweet?url=${url}&text=${text}`;
-}
-
-if (copyBtn) {
-  copyBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(window.location.href).then(() => {
-      copyBtn.classList.add('copied');
-      const label = copyBtn.querySelector('.lang-zh-inline, .lang-en-inline:not([style*="none"])');
-      const origText = copyBtn.innerHTML;
-      copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ✓ Copied`;
-      setTimeout(() => {
-        copyBtn.innerHTML = origText;
-        copyBtn.classList.remove('copied');
-      }, 2000);
-    });
-  });
-}
 
 // Image gallery (project posts)
 function buildGalleries(container) {

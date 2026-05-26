@@ -86,29 +86,4 @@
   {{ end }}
 </article>
 
-{{ if not .Params.private }}
-<div class="share-bar">
-  <span class="share-label">
-    <span class="lang-zh-inline">分享</span>
-    <span class="lang-en-inline">Share</span>
-  </span>
-  <button class="share-btn" id="share-copy">
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-    <span class="lang-zh-inline">复制链接</span>
-    <span class="lang-en-inline">Copy Link</span>
-  </button>
-  <a class="share-btn" id="share-twitter" href="#" target="_blank" rel="noopener">
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.738l7.726-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-    X / Twitter
-  </a>
-</div>
-
-<div class="article-comments">
-  <div class="comments-title">
-    <span class="lang-zh">评论</span>
-    <span class="lang-en">Comments</span>
-  </div>
-  {{ partial "giscus.html" . }}
-</div>
-{{ end }}
 {{ end }}

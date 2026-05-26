@@ -502,20 +502,6 @@ a:hover {
   border: none;
 }
 
-/* Comments */
-.article-comments {
-  margin-top: 56px;
-  padding-top: 32px;
-  border-top: 1px solid var(--border);
-}
-
-.comments-title {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 24px;
-  color: var(--fg-muted);
-}
-
 /* About */
 .about-content {
   font-size: 1rem;
@@ -980,48 +966,6 @@ a:hover {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-/* Share bar */
-.share-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin: 2.5rem 0 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
-}
-
-.share-label {
-  font-size: 0.82rem;
-  color: var(--fg-faint);
-  margin-right: 0.2rem;
-}
-
-.share-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  font-size: 0.8rem;
-  color: var(--fg-muted);
-  background: transparent;
-  cursor: pointer;
-  text-decoration: none;
-  transition: border-color 0.15s, color 0.15s;
-  font-family: inherit;
-}
-
-.share-btn:hover {
-  border-color: var(--fg-muted);
-  color: var(--fg);
-}
-
-.share-btn.copied {
-  color: #2a9d2a;
-  border-color: #2a9d2a;
 }
 
 /* ── Gear / GEARS page ─────────────────────────────────── */
