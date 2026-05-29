@@ -231,27 +231,56 @@ async function polishWithClaude(apiKey, transcript) {
   return parsed;
 }
 
+// Escape a string for safe use inside a double-quoted YAML scalar on ONE line.
+// Escapes backslashes and quotes, and collapses newlines/tabs/control chars to
+// spaces — so a crafted title, tag, or sender name can't inject extra YAML
+// fields or break the front matter. (Block-scalar bodies use `|-` indentation
+// and don't go through this.)
+function yamlString(s) {
+  return String(s == null ? '' : s)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/[\x00-\x1f]+/g, ' ')
+    .trim();
+}
+
+// Shared HMAC-SHA256 → base64url. Used by every magic-link / unsubscribe token
+// (capsule reveal, newsletter unsubscribe, one-click comment delete). The Svix
+// webhook verifier uses a different (raw-base64) scheme and is intentionally
+// not folded in here.
+async function hmacBase64Url(secret, message) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
+  return btoa(String.fromCharCode(...new Uint8Array(sig)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 // Build the front matter + body for a posts/<slug>.md file in yunze-private.
 // `make_public` controls deploy-time fan-out:
 //   true  → content/posts/<slug>/   (public, no encryption)
 //   false → content/private/<slug>/ (staticrypt-encrypted)
 // (Hugo reserves `published` as a date field, so we use `make_public` instead.)
 function buildPostMarkdown({ title_en, title_zh, slug, tags, body_en, body_zh, date, isPrivate, audio_key }) {
-  const yamlEscape = s => String(s).replace(/"/g, '\\"');
   const tagsLine = Array.isArray(tags) && tags.length
-    ? `[${tags.map(t => `"${yamlEscape(t)}"`).join(', ')}]`
+    ? `[${tags.map(t => `"${yamlString(t)}"`).join(', ')}]`
     : '[]';
   const lines = [
     '---',
-    `title: "${yamlEscape(title_en)}"`,
-    `title_zh: "${yamlEscape(title_zh)}"`,
+    `title: "${yamlString(title_en)}"`,
+    `title_zh: "${yamlString(title_zh)}"`,
     `date: ${date}`,
     `make_public: ${!isPrivate}`,
     `categories: ["日记"]`,
     `tags: ${tagsLine}`,
     `voice: true`,
   ];
-  if (audio_key) lines.push(`voice_audio_key: "${yamlEscape(audio_key)}"`);
+  if (audio_key) lines.push(`voice_audio_key: "${yamlString(audio_key)}"`);
   lines.push(
     'body_zh: |-',
     ...String(body_zh || '').split('\n').map(l => `  ${l}`),
@@ -266,7 +295,6 @@ function buildPostMarkdown({ title_en, title_zh, slug, tags, body_en, body_zh, d
 // Build the front matter + body for a learning/<slug>.md file.
 // Always draft:true so production Hugo skips it; only visible via Sveltia CMS.
 function buildLearningMarkdown({ source_slug, source_title, learning_notes, date }) {
-  const yamlEscape = s => String(s).replace(/"/g, '\\"');
   const bodyLines = [];
   if (!Array.isArray(learning_notes) || learning_notes.length === 0) {
     bodyLines.push('_今天没有挑出需要学习的英文。 / Nothing flagged today._', '');
@@ -288,8 +316,8 @@ function buildLearningMarkdown({ source_slug, source_title, learning_notes, date
     `title: "学习笔记 — ${date}"`,
     `date: ${date}`,
     'draft: true',
-    `source_slug: "${yamlEscape(source_slug)}"`,
-    `source_title: "${yamlEscape(source_title)}"`,
+    `source_slug: "${yamlString(source_slug)}"`,
+    `source_title: "${yamlString(source_title)}"`,
     '---',
     '',
     ...bodyLines,
@@ -325,6 +353,12 @@ async function verifySession(request, env) {
 }
 
 // Rate limit: max 5 requests per IP per 60-second window.
+// NOTE (accepted limitation): this is a non-atomic KV read-modify-write, so a
+// burst of truly-concurrent requests from one IP can each read the same count
+// and slip a few extra through. At family-blog traffic this is negligible; a
+// strictly-atomic limiter would need a Durable Object or Cloudflare's native
+// rate-limiting binding — deliberately not adopted here. Same caveat applies to
+// the per-user comment limiter and the newsletter `sent:<slug>` dedupe.
 async function checkRateLimit(kv, ip) {
   const key    = `rl:${ip}`;
   const now    = Math.floor(Date.now() / 1000);
@@ -421,37 +455,15 @@ function escapeHtml(s) {
 }
 
 // Stateless HMAC-SHA256 unsubscribe token (deterministic from email + secret).
-async function unsubToken(email, secret) {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const sig = await crypto.subtle.sign(
-    'HMAC', key, new TextEncoder().encode(email.toLowerCase())
-  );
-  return btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function unsubToken(email, secret) {
+  return hmacBase64Url(secret, email.toLowerCase());
 }
 
 // HMAC-SHA256 token for capsule reveal/keep magic links.
 // Signs "<slug>|<action>" with REVEAL_ACTION_SECRET. Same scheme as Python side
 // in capsule-unlock.yml so emailed link tokens match what the Worker computes.
-async function revealActionToken(slug, action, secret) {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const sig = await crypto.subtle.sign(
-    'HMAC', key, new TextEncoder().encode(`${slug}|${action}`)
-  );
-  return btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function revealActionToken(slug, action, secret) {
+  return hmacBase64Url(secret, `${slug}|${action}`);
 }
 
 // Verify a Svix-format webhook signature (Resend uses Svix). The signed payload
@@ -643,8 +655,11 @@ const COMMENT_RATE_PER_USER_PER_HOUR = 20;
 const ADMIN_GITHUB_LOGINS = new Set(['yunze229', 'hxz49']); // lowercased
 
 function isAdminSession(session) {
-  return !!session
-    && session.provider === 'github'
+  if (!session) return false;
+  // Prefer the allowlist-issued role; fall back to the hardcoded GitHub set so
+  // admin keeps working for sessions issued before role was populated in KV.
+  if (session.role === 'admin') return true;
+  return session.provider === 'github'
     && ADMIN_GITHUB_LOGINS.has(String(session.id).toLowerCase());
 }
 
@@ -925,19 +940,8 @@ const NC = {
 // HMAC token for the one-click delete link mom clicks from her email.
 // Signs `delete:<id>:<expires>` with REVEAL_ACTION_SECRET (reused — different
 // payload prefix so there's no collision with capsule reveal tokens).
-async function commentDeleteToken(secret, id, expiresUnix) {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const sig = await crypto.subtle.sign(
-    'HMAC', key, new TextEncoder().encode(`delete:${id}:${expiresUnix}`)
-  );
-  return btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function commentDeleteToken(secret, id, expiresUnix) {
+  return hmacBase64Url(secret, `delete:${id}:${expiresUnix}`);
 }
 
 // Render an email to mom whenever a new comment lands. Skip self-notifies
@@ -953,6 +957,7 @@ async function notifyMomNewComment(env, slug, comment, commenterProvider, commen
   const token = await commentDeleteToken(env.REVEAL_ACTION_SECRET, comment.id, exp);
   const deleteUrl = `https://capsule.duyunze.com/comments/${comment.id}/delete?exp=${exp}&t=${encodeURIComponent(token)}`;
   const postUrl = SITE_URL + slug;
+  const safePostUrl = escapeHtml(postUrl);   // slug is user-controlled — escape before use in href
 
   const safeName = escapeHtml(comment.user.name || '?');
   const safeBody = comment.body_html || '<p><em>(empty)</em></p>';   // already server-sanitized
@@ -960,12 +965,12 @@ async function notifyMomNewComment(env, slug, comment, commenterProvider, commen
   const subject = `💬 ${comment.user.name} 在博客留言`;
   const html = `<!DOCTYPE html><html><body style="font-family: -apple-system, sans-serif; line-height: 1.6; color: ${NC.fg}; max-width: 560px; margin: 24px auto; padding: 0 16px;">
     <h2 style="font-size: 18px; margin: 0 0 12px;">新评论</h2>
-    <p style="margin: 0 0 16px;"><strong>${safeName}</strong> 在 <a href="${postUrl}" style="color: ${NC.fg};">${safeSlug}</a> 留言：</p>
+    <p style="margin: 0 0 16px;"><strong>${safeName}</strong> 在 <a href="${safePostUrl}" style="color: ${NC.fg};">${safeSlug}</a> 留言：</p>
     <blockquote style="border-left: 3px solid ${NC.border}; padding: 8px 14px; margin: 0 0 20px; color: ${NC.fgMuted}; background: ${NC.warmBg};">
       ${safeBody}
     </blockquote>
     <p style="margin: 0 0 20px;">
-      <a href="${postUrl}#article-comments" style="display: inline-block; padding: 8px 16px; background: ${NC.fg}; color: ${NC.bg}; text-decoration: none; border-radius: 999px; font-size: 14px; margin-right: 8px;">↗ 查看 / 回复</a>
+      <a href="${safePostUrl}#article-comments" style="display: inline-block; padding: 8px 16px; background: ${NC.fg}; color: ${NC.bg}; text-decoration: none; border-radius: 999px; font-size: 14px; margin-right: 8px;">↗ 查看 / 回复</a>
       <a href="${deleteUrl}" style="display: inline-block; padding: 8px 16px; background: ${NC.bg}; color: ${NC.danger}; text-decoration: none; border-radius: 999px; font-size: 14px; border: 1px solid ${NC.dangerBd};">🗑 一键删除</a>
     </p>
     <p style="margin: 0; color: ${NC.fgFaint}; font-size: 12px;">一键删除链接 30 天后失效。删除是软删，数据库还保留记录。</p>
@@ -982,7 +987,7 @@ async function notifyMomNewComment(env, slug, comment, commenterProvider, commen
 // One-click soft-delete from mom's email. No session needed — HMAC IS the
 // auth. Returns a tiny HTML confirmation page (not JSON; this is clicked
 // from an email so user sees a webpage).
-async function handleCommentDeleteAction(idStr, url, env, origin) {
+async function handleCommentDeleteAction(idStr, url, env) {
   const id = parseInt(idStr, 10);
   const exp = parseInt(url.searchParams.get('exp') || '', 10);
   const token = url.searchParams.get('t') || '';
@@ -1172,12 +1177,12 @@ async function handleRequest(request, env, ctx, origin) {
 
       const frontmatter = [
         '---',
-        `title: "${titleZh.replace(/"/g, '\\"')}"`,
-        `title_en: "${titleEn.replace(/"/g, '\\"')}"`,
+        `title: "${yamlString(titleZh)}"`,
+        `title_en: "${yamlString(titleEn)}"`,
         `date: ${today}`,
         `unlock_date: "${unlock_date}"`,
-        `from: "${fromZh.replace(/"/g, '\\"')}"`,
-        `from_en: "${fromEn.replace(/"/g, '\\"')}"`,
+        `from: "${yamlString(fromZh)}"`,
+        `from_en: "${yamlString(fromEn)}"`,
         `body_en: |-`,
         ...bodyEn.split('\n').map(l => `  ${l}`),
         `revealed: false`,
@@ -1207,8 +1212,8 @@ async function handleRequest(request, env, ctx, origin) {
           env.RESEND_API_KEY,
           NOTIFY_EMAIL,
           `📬 收到一封新信:${fromZh} → ${unlock_date}`,
-          `<p><strong>${fromZh}</strong> 写了一封信，将于 <strong>${unlock_date}</strong> 开封。</p>
-           <p>标题：${titleZh}</p><p>文件：<code>${filename}</code></p>`
+          `<p><strong>${escapeHtml(fromZh)}</strong> 写了一封信，将于 <strong>${unlock_date}</strong> 开封。</p>
+           <p>标题：${escapeHtml(titleZh)}</p><p>文件：<code>${escapeHtml(filename)}</code></p>`
         ).catch(e => console.error('Mom email error:', e))
       );
 
@@ -1361,9 +1366,15 @@ async function handleRequest(request, env, ctx, origin) {
         }
       }
 
-      // Mark slug as sent even if some recipients failed — we don't want to retry the
-      // whole batch on every redeploy. Failures are logged for manual follow-up.
-      await env.RATE_LIMIT.put(sentKey, new Date().toISOString());
+      // Mark slug as sent as long as at least one recipient succeeded — we don't
+      // want to retry the whole batch on every redeploy. But if EVERY send failed
+      // (e.g. Resend outage / bad API key), do NOT mark sent, so the next deploy
+      // retries instead of permanently suppressing this post.
+      if (okCount > 0) {
+        await env.RATE_LIMIT.put(sentKey, new Date().toISOString());
+      } else {
+        console.error('Broadcast: all sends failed, NOT marking sent (will retry next deploy)');
+      }
       if (errors.length) console.error('Broadcast partial failures:', errors);
 
       return Response.json({ message: 'broadcast complete', slug, sent: okCount, failed: failCount });
@@ -1574,6 +1585,16 @@ async function handleRequest(request, env, ctx, origin) {
         if (!b64) {
           return Response.json({ error: '缺少音频数据 / Missing audio' }, { status: 400, headers: corsHeaders(origin) });
         }
+        // Size cap BEFORE decode / R2 write / Whisper call. base64 is ~4/3 the
+        // decoded size, so ~40MB of base64 ≈ ~30MB of audio — plenty for a kid's
+        // voice diary, and it stops an oversized upload from burning R2 writes
+        // and paid AI calls.
+        if (b64.length > 40 * 1024 * 1024) {
+          return Response.json(
+            { error: '录音太大（上限约 30MB）/ Audio too large (max ~30MB)' },
+            { status: 413, headers: corsHeaders(origin) }
+          );
+        }
         let buf;
         try {
           const bin = atob(b64);
@@ -1664,6 +1685,14 @@ async function handleRequest(request, env, ctx, origin) {
         if (!transcript) {
           return Response.json({ error: '缺少转写文本 / Missing transcript' }, { status: 400, headers: corsHeaders(origin) });
         }
+        // Cap transcript length before the paid Anthropic call. 20k chars is far
+        // beyond any realistic spoken diary; anything larger is junk or abuse.
+        if (transcript.length > 20000) {
+          return Response.json(
+            { error: '转写文本太长（上限 20000 字）/ Transcript too long (max 20000 chars)' },
+            { status: 413, headers: corsHeaders(origin) }
+          );
+        }
         if (!env.ANTHROPIC_API_KEY) {
           return Response.json({ error: 'Claude API key not configured / ANTHROPIC_API_KEY 未配置' }, { status: 500, headers: corsHeaders(origin) });
         }
@@ -1696,6 +1725,27 @@ async function handleRequest(request, env, ctx, origin) {
 
         if (!title_en || !body_en) {
           return Response.json({ error: '标题和正文必填 / title_en + body_en required' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        // Shape + length guards before writing to GitHub. The polish step is
+        // usually the source, but /voice/publish is callable directly so don't
+        // trust the payload.
+        if (String(title_en).length > 200 || String(title_zh || '').length > 200) {
+          return Response.json({ error: '标题太长（上限 200 字）/ Title too long (max 200)' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        if (String(body_en).length > 50000 || String(body_zh || '').length > 50000) {
+          return Response.json({ error: '正文太长（上限 50000 字）/ Body too long (max 50000)' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        if (tags != null && !Array.isArray(tags)) {
+          return Response.json({ error: 'tags 必须是数组 / tags must be an array' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        if (Array.isArray(tags) && tags.length > 20) {
+          return Response.json({ error: 'tags 太多（上限 20）/ too many tags (max 20)' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        if (learning_notes != null && !Array.isArray(learning_notes)) {
+          return Response.json({ error: 'learning_notes 必须是数组 / learning_notes must be an array' }, { status: 400, headers: corsHeaders(origin) });
+        }
+        if (Array.isArray(learning_notes) && learning_notes.length > 50) {
+          return Response.json({ error: 'learning_notes 太多（上限 50）/ too many learning_notes (max 50)' }, { status: 400, headers: corsHeaders(origin) });
         }
         if (!env.PRIVATE_REPO_WRITE_TOKEN) {
           return Response.json({ error: 'PRIVATE_REPO_WRITE_TOKEN 未配置' }, { status: 500, headers: corsHeaders(origin) });
@@ -1778,7 +1828,7 @@ async function handleRequest(request, env, ctx, origin) {
     // E.3: mom's one-click delete link from email — no auth, HMAC IS the auth.
     const caMatch = pathname.match(/^\/comments\/(\d+)\/delete$/);
     if (caMatch && request.method === 'GET') {
-      return handleCommentDeleteAction(caMatch[1], new URL(request.url), env, origin);
+      return handleCommentDeleteAction(caMatch[1], new URL(request.url), env);
     }
 
     return new Response('Not Found', { status: 404 });

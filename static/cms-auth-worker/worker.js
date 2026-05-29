@@ -115,6 +115,8 @@ function cmsAuth(url) {
 
 async function cmsCallback(url, env) {
   const code = url.searchParams.get('code');
+  if (!code) return cmsErrorPage('Missing OAuth code');
+
   const res = await fetch('https://github.com/login/oauth/access_token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -124,13 +126,31 @@ async function cmsCallback(url, env) {
       code,
     }),
   });
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   const token = data.access_token;
+  if (!res.ok || !token) {
+    console.error('CMS token exchange failed:', res.status, data);
+    return cmsErrorPage('Token exchange failed');
+  }
   // Sveltia (and Decap/Netlify CMS before it) expects a postMessage in this
   // exact format. Do not reformat.
   const html = `<!DOCTYPE html><html><body><script>
     window.opener.postMessage(
       'authorization:github:success:${JSON.stringify({ token, provider: 'github' })}',
+      '${ALLOWED_ORIGIN}'
+    );
+    window.close();
+  <\/script></body></html>`;
+  return new Response(html, { headers: { 'Content-Type': 'text/html' } });
+}
+
+// Error counterpart of the CMS success postMessage. Netlify/Decap/Sveltia parse
+// the "authorization:github:error:<message>" form and surface it in the popup.
+function cmsErrorPage(message) {
+  const safe = String(message).replace(/['"\\]/g, '');
+  const html = `<!DOCTYPE html><html><body><script>
+    window.opener && window.opener.postMessage(
+      'authorization:github:error:${safe}',
       '${ALLOWED_ORIGIN}'
     );
     window.close();
@@ -157,7 +177,7 @@ function loginChooser(url) {
   return htmlResponse(loginPageHtml(q, errBanner));
 }
 
-async function siteLoginStart(url, provider) {
+function siteLoginStart(url, provider) {
   const next  = safeNext(url.searchParams.get('next')) || 'https://duyunze.com/';
   const state = crypto.randomUUID();
 
@@ -287,13 +307,21 @@ async function siteCallbackGoogle(request, url, env) {
     return redirectToLogin('oauth_failed');
   }
 
-  // Decode the ID token (JWT) middle segment. Skip signature verification —
-  // the token came from googleapis.com over verified TLS, so MITM is not
-  // a realistic threat here. (For paranoid mode, fetch
-  // https://www.googleapis.com/oauth2/v3/certs and verify RS256 sig.)
+  // Decode the ID token (JWT) middle segment. We skip RS256 *signature*
+  // verification because this is the authorization-code flow — the token was
+  // fetched directly from oauth2.googleapis.com over verified TLS, not relayed
+  // by an untrusted client, so there's nothing to forge over the wire. (For
+  // paranoid mode, fetch https://www.googleapis.com/oauth2/v3/certs and verify
+  // RS256.) We DO validate audience, issuer, expiry, and verified-email — these
+  // are cheap, need no network call, and catch token-substitution / stale-token
+  // bugs that "came over TLS" alone wouldn't.
   const claims = decodeJwtClaims(tokData.id_token);
-  if (!claims || !claims.email || !claims.email_verified) {
-    console.error('Google claims missing or unverified:', claims);
+  const nowSec  = Math.floor(Date.now() / 1000);
+  const audOk   = !!claims && claims.aud === GOOGLE_CLIENT_ID;
+  const issOk   = !!claims && (claims.iss === 'accounts.google.com' || claims.iss === 'https://accounts.google.com');
+  const freshOk = !!claims && typeof claims.exp === 'number' && claims.exp > nowSec;
+  if (!claims || !claims.email || !claims.email_verified || !audOk || !issOk || !freshOk) {
+    console.error('Google claims invalid:', { hasClaims: !!claims, audOk, issOk, freshOk });
     return redirectToLogin('oauth_failed');
   }
 
@@ -415,7 +443,9 @@ function safeNext(next) {
   if (!next) return null;
   try {
     const u = new URL(next);
-    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    // Require https: — every ALLOWED_HOST is a production https origin, so an
+    // http: next would only ever be a downgrade. (No localhost in the list.)
+    if (u.protocol !== 'https:') return null;
     if (!ALLOWED_HOSTS.includes(u.hostname)) return null;
     return u.toString();
   } catch {
