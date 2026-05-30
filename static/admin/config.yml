@@ -230,6 +230,40 @@ collections:
       - { label: "审查时间", name: "date", widget: "datetime", readonly: true }
       - { label: "AI 审稿内容", name: "body", widget: "markdown", readonly: true }
 
+  # 时光胶囊 — 信件真身在 hxz49/yunze-letters；这里浏览/操作的是同步到
+  # yunze-private/capsule/ 的副本（未到期=stub 无正文，到期=全文）。
+  # 只有「公开到博客」开关可改；删除一封 = 撤下展示（触发 suppress，源信不动）。
+  # create:false —— 信件只能从胶囊表单提交，后台不能凭空新建。
+  - name: "capsule"
+    label: "🕰️ 时光胶囊"
+    label_singular: "信件"
+    folder: "capsule"
+    create: false
+    delete: true
+    extension: "md"
+    identifier_field: "title"
+    summary: "{{from}} → {{title}}（开封 {{unlock_date}}）"
+    sortable_fields:
+      fields: ["unlock_date", "date", "title"]
+      default:
+        field: "unlock_date"
+        direction: "descending"
+    fields:
+      - label: "🌐 公开到博客（开 = 信件正文在 /capsule/ 公开显示）"
+        name: "revealed"
+        widget: "boolean"
+        default: false
+      - { label: "标题", name: "title", widget: "string", readonly: true }
+      - { label: "英文标题", name: "title_en", widget: "string", required: false, readonly: true }
+      - { label: "发信人", name: "from", widget: "string", readonly: true }
+      - { label: "发信人（英文）", name: "from_en", widget: "string", required: false, readonly: true }
+      - { label: "写信日期", name: "date", widget: "string", readonly: true }
+      - { label: "开封日期", name: "unlock_date", widget: "string", readonly: true }
+      - { label: "标签", name: "tags", widget: "list", required: false, readonly: true }
+      - { label: "管理员已读", name: "read_by_admin", widget: "boolean", required: false, default: false }
+      - { label: "英文正文", name: "body_en", widget: "text", required: false, readonly: true }
+      - { label: "中文正文", name: "body", widget: "markdown", required: false, readonly: true }
+
   - name: "settings"
     label: "网站设置"
     files:

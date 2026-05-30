@@ -16,9 +16,10 @@ jobs:
 
       - name: Transfer due letters and notify
         env:
-          LETTERS_PAT:          ${{ secrets.LETTERS_PAT }}
-          RESEND_API_KEY:       ${{ secrets.RESEND_API_KEY_2 }}
-          REVEAL_ACTION_SECRET: ${{ secrets.REVEAL_ACTION_SECRET }}
+          LETTERS_PAT:              ${{ secrets.LETTERS_PAT }}
+          RESEND_API_KEY:           ${{ secrets.RESEND_API_KEY_2 }}
+          REVEAL_ACTION_SECRET:     ${{ secrets.REVEAL_ACTION_SECRET }}
+          PRIVATE_REPO_WRITE_TOKEN: ${{ secrets.PRIVATE_REPO_WRITE_TOKEN }}
         run: |
           python3 << 'PYEOF'
           import os, json, re, urllib.request, urllib.parse, base64, hmac, hashlib
@@ -27,18 +28,20 @@ jobs:
           LETTERS_PAT   = os.environ['LETTERS_PAT']
           RESEND_KEY    = os.environ['RESEND_API_KEY']
           REVEAL_SECRET = os.environ.get('REVEAL_ACTION_SECRET', '')
-          PRIVATE_REPO  = 'hxz49/yunze-letters'
+          DEST_TOKEN    = os.environ['PRIVATE_REPO_WRITE_TOKEN']
+          PRIVATE_REPO  = 'hxz49/yunze-letters'      # letters source of truth (read)
+          DEST_REPO     = 'Yunze229/yunze-private'   # CMS-backed content repo (write)
+          DEST_DIR      = 'capsule'                  # path inside yunze-private
           TODAY         = date.today().isoformat()
-          CAPSULE_DIR   = 'content/capsule'
           MOM_EMAIL     = 'hxz49@hotmail.com'
           YUNZE_EMAIL   = 'dyz229@outlook.com'
           FROM_EMAIL    = 'Yunze 的时光胶囊 <capsule@duyunze.com>'
           REPLY_TO      = 'hxz49@hotmail.com'
           REVEAL_URL    = 'https://capsule.duyunze.com/reveal-action'
 
-          def gh_api(url, method='GET', payload=None):
+          def gh_api(url, method='GET', payload=None, token=None):
             headers = {
-              'Authorization': 'Bearer ' + LETTERS_PAT,
+              'Authorization': 'Bearer ' + (token or LETTERS_PAT),
               'User-Agent': 'yunze-capsule-unlock',
               'Accept': 'application/vnd.github.v3+json',
             }
@@ -223,9 +226,14 @@ jobs:
 
             print('[UNLOCK] ' + file_info['name'] + '  (' + from_zh + ' -> ' + unlock_date + ')')
 
-            pub_path = CAPSULE_DIR + '/' + file_info['name']
-            if os.path.exists(pub_path):
-              print('  File already in public repo, skipping write')
+            dest_path = DEST_DIR + '/' + file_info['name']
+            dest_url  = ('https://api.github.com/repos/' + DEST_REPO +
+                         '/contents/' + dest_path)
+            _, dest_status = gh_api(dest_url, token=DEST_TOKEN)
+            if dest_status == 200:
+              # Already synced (by auto-transfer or a prior run). Leave it as-is so
+              # any reveal toggle made via CMS / email magic-link is preserved.
+              print('  Already in yunze-private/capsule, skipping write')
             else:
               def q(s):
                 return s.replace('"', '\\"')
@@ -246,10 +254,18 @@ jobs:
               if body_zh:
                 pub_content += '\n\n' + body_zh
               pub_content += '\n'
-              os.makedirs(CAPSULE_DIR, exist_ok=True)
-              with open(pub_path, 'w', encoding='utf-8') as f:
-                f.write(pub_content)
-              print('  Wrote ' + pub_path)
+              put_b64 = base64.b64encode(pub_content.encode('utf-8')).decode()
+              _, w_status = gh_api(
+                dest_url, method='PUT', token=DEST_TOKEN,
+                payload={
+                  'message': 'capsule: unlock ' + from_zh + ' -> ' + unlock_date,
+                  'content': put_b64,
+                }
+              )
+              if w_status in (200, 201):
+                print('  Wrote ' + DEST_REPO + '/' + dest_path)
+              else:
+                print('  ERROR writing to private repo (HTTP ' + str(w_status) + ')')
 
             slug = file_info['name'][:-3]  # strip .md
             send_unlock_emails(
@@ -284,16 +300,6 @@ jobs:
 
           print('Done: ' + str(count) + ' letter(s) unlocked on ' + TODAY)
           PYEOF
-
-      - name: Commit new capsule stubs
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add content/capsule/
-          if git diff --staged --quiet; then
-            echo "Nothing new to commit"
-          else
-            git commit -m "capsule: auto-unlock letters for $(date +%Y-%m-%d)"
-            git pull --rebase
-            git push
-          fi
+          # Full text + stub are written directly to yunze-private/capsule/ via the
+          # GitHub API above; that push triggers notify-main.yml → main-repo deploy.
+          # No local commit to the public repo any more.

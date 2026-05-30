@@ -6,8 +6,8 @@
 //
 // Secrets (Cloudflare dashboard → Settings → Variables → Secrets):
 //   GITHUB_TOKEN              – PAT with write access to hxz49/yunze-letters (capsule submit)
-//   MAIN_REPO_TOKEN           – PAT with contents:write on Yunze229/yunze229.github.io (reveal-action only)
-//   PRIVATE_REPO_WRITE_TOKEN  – PAT with contents:write on Yunze229/yunze-private (voice publish)
+//   PRIVATE_REPO_WRITE_TOKEN  – PAT with contents:write on Yunze229/yunze-private (voice publish + capsule reveal-action)
+//   MAIN_REPO_TOKEN           – deprecated 2026-05-29; reveal-action now writes yunze-private. Secret unused, can be deleted.
 //   RESEND_API_KEY        – Resend API key (dyz229 account, capsule + newsletter)
 //   TURNSTILE_SECRET      – Cloudflare Turnstile server-side secret
 //   BROADCAST_SECRET      – shared secret guarding /broadcast; also HMAC key for /unsubscribe
@@ -16,8 +16,7 @@
 //   ANTHROPIC_API_KEY     – Claude API key for /voice/polish (transcript → polished bilingual draft)
 
 const PRIVATE_REPO         = 'hxz49/yunze-letters';   // mom's capsule letter store
-const MAIN_REPO            = 'Yunze229/yunze229.github.io';
-const PRIVATE_CONTENT_REPO = 'Yunze229/yunze-private'; // Yunze's posts + diaries
+const PRIVATE_CONTENT_REPO = 'Yunze229/yunze-private'; // Yunze's posts + diaries + capsule letters
 const NOTIFY_EMAIL    = 'hxz49@hotmail.com';
 const YUNZE_EMAIL     = 'dyz229@outlook.com';
 const REPLY_TO_EMAIL  = 'hxz49@hotmail.com';
@@ -1410,7 +1409,8 @@ async function handleRequest(request, env, ctx, origin) {
     }
 
     // /reveal-action?slug=...&action=reveal|keep&token=...
-    // Magic-link from capsule unlock email — flips `revealed:` in main repo capsule file.
+    // Magic-link from capsule unlock email — flips `revealed:` in the yunze-private
+    // capsule file (same file the CMS edits; the push triggers a main-repo redeploy).
     // Idempotent: same link clicked twice is a no-op the second time.
     if (pathname === '/reveal-action' && request.method === 'GET') {
       const url    = new URL(request.url);
@@ -1433,12 +1433,12 @@ async function handleRequest(request, env, ctx, origin) {
         });
       }
 
-      // Fetch capsule file from main repo
-      const filePath = `content/capsule/${slug}.md`;
-      const apiUrl   = `https://api.github.com/repos/${MAIN_REPO}/contents/${encodeURIComponent(filePath).replace(/%2F/g, '/')}`;
+      // Fetch capsule file from the private content repo
+      const filePath = `capsule/${slug}.md`;
+      const apiUrl   = `https://api.github.com/repos/${PRIVATE_CONTENT_REPO}/contents/${encodeURIComponent(filePath).replace(/%2F/g, '/')}`;
       const fileRes  = await fetch(apiUrl, {
         headers: {
-          Authorization: `Bearer ${env.MAIN_REPO_TOKEN}`,
+          Authorization: `Bearer ${env.PRIVATE_REPO_WRITE_TOKEN}`,
           'User-Agent':  'yunze-capsule-reveal',
           Accept:        'application/vnd.github.v3+json',
         },
@@ -1472,13 +1472,13 @@ async function handleRequest(request, env, ctx, origin) {
         });
       }
 
-      // Commit back to main repo
+      // Commit back to the private content repo
       const utf8Bytes = new TextEncoder().encode(updated);
       const b64       = btoa(Array.from(utf8Bytes, b => String.fromCharCode(b)).join(''));
       const putRes    = await fetch(apiUrl, {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${env.MAIN_REPO_TOKEN}`,
+          Authorization: `Bearer ${env.PRIVATE_REPO_WRITE_TOKEN}`,
           'Content-Type': 'application/json',
           'User-Agent':   'yunze-capsule-reveal',
         },
