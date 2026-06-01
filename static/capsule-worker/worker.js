@@ -391,15 +391,28 @@ async function translate(ai, text, sourceLang, targetLang) {
 }
 
 async function verifyTurnstile(secret, token, ip) {
-  if (!secret) return true;   // not configured — allow through
+  // Fail CLOSED: a missing secret is a misconfiguration, not a reason to drop
+  // the bot gate. Allowing through here would silently disable Turnstile on
+  // /submit and /subscribe after a key-rotation typo (grill-report H8).
+  if (!secret) {
+    console.error('[ALERT] verifyTurnstile: TURNSTILE_SECRET is unset — rejecting request (fail-closed)');
+    return false;
+  }
   if (!token)  return false;
-  const res  = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ secret, response: token, remoteip: ip }),
-  });
-  const data = await res.json();
-  return data.success === true;
+  try {
+    const res  = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ secret, response: token, remoteip: ip }),
+    });
+    const data = await res.json();
+    return data.success === true;
+  } catch (err) {
+    // Network/parse failure reaching siteverify — reject rather than let an
+    // unhandled throw 500 the route or accidentally pass.
+    console.error('[ALERT] verifyTurnstile: siteverify call failed —', err && err.message);
+    return false;
+  }
 }
 
 function slugify(str) {
@@ -1114,7 +1127,7 @@ async function handleRequest(request, env, ctx, origin) {
       // Deliberately do NOT destructure `sender` from body — use session.name.
       const { title, unlock_date, body: letter, lang, turnstile_token } = body;
 
-      // Verify Turnstile (skip if TURNSTILE_SECRET not configured)
+      // Verify Turnstile (fail-closed if TURNSTILE_SECRET is missing — see verifyTurnstile)
       const turnstileOk = await verifyTurnstile(env.TURNSTILE_SECRET, turnstile_token, ip);
       if (!turnstileOk) {
         return Response.json(
