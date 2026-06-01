@@ -1,0 +1,15 @@
+[command]
+name = "deploy"
+description = "Push the current main branch to GitHub as Yunze229"
+help = """
+Switches to the Yunze229 GitHub account and pushes to origin main.
+Useful for triggering the GitHub Actions deploy workflow.
+"""
+
+[[steps]]
+command = "gh auth switch --user Yunze229"
+description = "Switching to Yunze229 account..."
+
+[[steps]]
+command = "git push origin main"
+description = "Pushing to origin main..."
