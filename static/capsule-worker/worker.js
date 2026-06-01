@@ -1154,11 +1154,13 @@ async function handleRequest(request, env, ctx, origin) {
         return Response.json({ error: '正文最多 16384 字符 / Body max 16384 chars' }, { status: 400, headers: corsHeaders(origin) });
       }
 
-      // Must be at least 7 days in the future to prevent same-day forgery.
-      const minDate = new Date(Date.now() + 7 * 86400 * 1000).toISOString().slice(0, 10);
+      // Must be a future date (at least tomorrow). The only real threat is a
+      // past/same-day date, which would unlock at the very next 09:00 UTC cron
+      // run — there is no product reason for a larger buffer.
+      const minDate = new Date(Date.now() + 86400 * 1000).toISOString().slice(0, 10);
       if (unlock_date < minDate) {
         return Response.json(
-          { error: `开封日至少要在 7 天之后（${minDate} 之后）/ Unlock date must be ≥ ${minDate}` },
+          { error: `开封日必须是未来日期（最早 ${minDate}）/ Unlock date must be in the future (≥ ${minDate})` },
           { status: 400, headers: corsHeaders(origin) }
         );
       }
