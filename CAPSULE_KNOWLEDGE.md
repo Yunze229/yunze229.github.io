@@ -217,6 +217,13 @@ TITLE: [翻译后的标题]
 根因：subscribe/list.html 中的 newsletter 表单向 `{capsule_api}/subscribe` 发 POST，但 Worker 只有 `/submit`，返回 404
 修正：Worker 加 /subscribe POST 端点，邮箱存 RATE_LIMIT KV（key=sub:{email}，永久），重复订阅返回"已订阅"，新订阅发邮件通知 NOTIFY_EMAIL（commit b334cf2，2026-05-20 wrangler deploy 生效）
 
+### E21：投信表单 Turnstile token 错位 + 后端最少开封日被审计误改成 7 天（2026-06-01）
+**Bug A — 投信全部报"人机验证未通过"**：`list.html` 的 `onToken` 仍按旧签名调 `doSubmit(args.sender, ...)`，而移除 sender 字段后 `doSubmit`/`_pendingArgs` 只剩 5 个参数。参数错位一格，`turnstile_token` 实际发出的是语言串 `"zh"`/`"en"`，被 siteverify 判为无效 → 所有投信 400。修正：去掉多余的 `args.sender`（commit df9a8b9）。
+**Bug B — 最少开封日规则脱节**：**最少开封日 = 明天（今天+1），这是 2026-05-18 建表单（commit 802a461）时就定的既定设计**，对应前端日期选择器 `list.html` 的 `min = tomorrow`，符合"写给未来的 Yunze"原意。后端原先**无任何未来校验**（grill C1 发现可填过去日期立即开封）；5-29 审计修复（commit 549808c）补校验时**随手取了"7 天"这个无业务依据的 buffer**，与前端"明天"脱节——用户选 3 天后的日期会被前端放行却被后端拒。修正：后端下限改回"明天"，与前端对齐，并统一中英文案为"必须是未来日期（最早 <date>）"（commit d4def35）。
+> ⚠️ 给未来审计的提醒：**最少开封日就是明天，不要再改成 7 天或更长**。真正要防的只是过去/当天日期在下一个 09:00 UTC cron 立即开封，"明天"已足够。
+**H8 顺带修复**：`verifyTurnstile` 在 `TURNSTILE_SECRET` 缺失时原先 `return true`（fail-open，密钥轮换打错会静默关闭人机验证）→ 改为 `return false` + `[ALERT]` 日志（fail-closed），siteverify fetch 加 try/catch（commit d7c285d）。
+（Bug B 与 H8 均为 worker.js 改动，2026-06-01 `wrangler deploy` 生效）
+
 ---
 
 ## 五、关键配置
