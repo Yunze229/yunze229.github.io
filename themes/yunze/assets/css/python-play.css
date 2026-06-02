@@ -1,0 +1,101 @@
+/* python-play.css — styles for the in-browser Python game widget.
+ * Uses the theme's CSS variables so it tracks light/dark automatically. */
+
+.pyplay {
+  margin: 2rem 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.pyplay-panel { padding: 1.25rem; }
+
+.pyplay-prompt {
+  font-size: 0.95rem;
+  color: var(--fg-muted);
+  margin-bottom: 0.85rem;
+}
+
+.pyplay-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.pyplay-move {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 3.4rem;
+  padding: 0.55rem 0.7rem;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  background: var(--code-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: transform 0.08s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.pyplay-move:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--fg-faint); }
+.pyplay-move:active:not(:disabled) { transform: translateY(0); }
+.pyplay-move:disabled { opacity: 0.5; cursor: progress; }
+
+.pyplay-move-label {
+  font-size: 0.7rem;
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.pyplay-status {
+  min-height: 1.2em;
+  font-size: 0.85rem;
+  color: var(--fg-faint);
+  margin-bottom: 0.5rem;
+}
+
+.pyplay-output {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  min-height: 2.5em;
+  background: var(--code-bg);
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--fg);
+}
+
+.pyplay.is-win .pyplay-output { box-shadow: inset 3px 0 0 0 #2ea043; }
+.pyplay.is-lose .pyplay-output { box-shadow: inset 3px 0 0 0 #d0691f; }
+
+.pyplay-code { border-top: 1px solid var(--border); background: var(--code-bg); }
+
+.pyplay-code > summary {
+  cursor: pointer;
+  padding: 0.7rem 1.25rem;
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  user-select: none;
+  list-style: none;
+}
+.pyplay-code > summary::-webkit-details-marker { display: none; }
+.pyplay-code > summary:hover { color: var(--fg); }
+
+.pyplay-source {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--fg);
+  border-top: 1px solid var(--border);
+}
+.pyplay-source code { background: none; padding: 0; white-space: pre; }

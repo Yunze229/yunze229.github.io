@@ -72,6 +72,13 @@
     {{ end }}
   </div>
 
+  {{/* Interactive Python game — rendered here (not as a body shortcode) so it
+       lives outside the post-en/post-zh duplication and works in both langs.
+       Opt in per page with `python_demo: <file>.py` (file under assets/python/). */}}
+  {{ with .Params.python_demo }}
+    {{ partial "python-play.html" (dict "ctx" $ "src" .) }}
+  {{ end }}
+
   {{ with .Params.tags }}
   {{ $tagEn := dict "日记" "Journal" "作品" "Projects" "技能笔记" "Skills" "学习笔记" "Study Notes" "旅行" "Travel" "读书" "Reading" "手册" "Manual" "随想" "Thoughts" "成长" "Growth" "编程" "Coding" "学习" "Study" "书单" "Reading List" "生活" "Life" "记录" "Notes" }}
   <div class="article-tags">

@@ -1,0 +1,50 @@
+{{/* python-play.html — in-browser player for a kid's console Python game.
+
+     Rendered at the TEMPLATE level (not via a body shortcode) on purpose:
+     the bilingual body is duplicated into .post-en / .post-zh, and the .post-zh
+     side is markdownify'd from the AI-translation yaml, which does NOT execute
+     shortcodes. Rendering here keeps the interactive widget outside that
+     duplication so it appears exactly once, in both language modes.
+
+     Call: {{ partial "python-play.html" (dict "ctx" . "src" "rps.py") }}
+       ctx — the page (for resources.Get scope)
+       src — filename under themes/yunze/assets/python/
+
+     Reusable: drop a new <name>.py into assets/python/, set
+     `python_demo: <name>.py` in a project's front matter, done.
+*/}}
+{{ $src := resources.Get (printf "python/%s" .src) }}
+{{ if not $src }}
+  {{ warnf "python-play: source not found: python/%s" .src }}
+{{ else }}
+{{ $runner := resources.Get "js/pyodide-runner.js" | js.Build (dict "minify" hugo.IsProduction "target" "es2018" "format" "iife") | fingerprint }}
+{{ $css := resources.Get "css/python-play.css" | fingerprint }}
+<link rel="stylesheet" href="{{ $css.RelPermalink }}">
+
+<section class="pyplay" data-pyplay>
+  <div class="pyplay-panel">
+    <p class="pyplay-prompt">
+      <span class="lang-zh">选一个手势，电脑随机出一个：</span>
+      <span class="lang-en">Pick a move — the computer plays one at random:</span>
+    </p>
+    <div class="pyplay-controls" role="group" aria-label="moves">
+      <button class="pyplay-move" data-move="1" type="button" title="Rock / 石头">✊<span class="pyplay-move-label">1</span></button>
+      <button class="pyplay-move" data-move="2" type="button" title="Paper / 布">✋<span class="pyplay-move-label">2</span></button>
+      <button class="pyplay-move" data-move="3" type="button" title="Scissors / 剪刀">✌️<span class="pyplay-move-label">3</span></button>
+      <button class="pyplay-move" data-move="4" type="button" title="Lizard / 蜥蜴">🦎<span class="pyplay-move-label">4</span></button>
+      <button class="pyplay-move" data-move="5" type="button" title="Spock / 史波克">🖖<span class="pyplay-move-label">5</span></button>
+    </div>
+    <div class="pyplay-status" data-pyplay-status aria-live="polite"></div>
+    <pre class="pyplay-output" data-pyplay-output aria-live="polite"></pre>
+  </div>
+  <details class="pyplay-code">
+    <summary>
+      <span class="lang-zh-inline">👁 看代码</span>
+      <span class="lang-en-inline">👁 View the code</span>
+    </summary>
+    <pre class="pyplay-source"><code data-pyplay-src>{{ $src.Content | strings.TrimSpace }}</code></pre>
+  </details>
+</section>
+
+<script src="{{ $runner.RelPermalink }}" defer></script>
+{{ end }}
