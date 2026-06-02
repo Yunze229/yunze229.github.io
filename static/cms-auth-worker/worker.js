@@ -356,6 +356,7 @@ async function finishSignIn(request, env, { provider, id, googleId, name, email 
     provider,
     id,
     name:    displayName,
+    name_en: entry.name_en || undefined,  // English sender name for capsule from_en
     email,
     role:    entry.role || 'family',
     exp:     Math.floor(Date.now() / 1000) + SESSION_TTL_SEC,

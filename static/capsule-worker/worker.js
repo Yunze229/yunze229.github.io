@@ -20,6 +20,10 @@ const PRIVATE_CONTENT_REPO = 'Yunze229/yunze-private'; // Yunze's posts + diarie
 const NOTIFY_EMAIL    = 'hxz49@hotmail.com';
 const YUNZE_EMAIL     = 'dyz229@outlook.com';
 const REPLY_TO_EMAIL  = 'hxz49@hotmail.com';
+// Stable English forms for family sender names. Used by /submit to fill
+// `from_en` without AI-translating the name (which would drift between drafts).
+// An allowlist `name_en` override takes precedence; this is the fallback.
+const NAME_EN = { '妈妈': 'Mom', '爸爸': 'Dad', '爷爷': 'Grandpa', '奶奶': 'Grandma', '外公': 'Grandpa', '外婆': 'Grandma' };
 const FROM_EMAIL      = 'Yunze 的时光胶囊 <capsule@duyunze.com>';
 const NEWSLETTER_FROM = 'Yunze <news@duyunze.com>';
 const SITE_URL       = 'https://duyunze.com';
@@ -1165,12 +1169,22 @@ async function handleRequest(request, env, ctx, origin) {
         );
       }
 
-      const writingZh = lang !== 'en';
+      // Detect the language the letter is actually WRITTEN in — not the UI
+      // toggle. The form sends `lang = currentLang()`, the site's display
+      // language, which is wrong when someone writes a Chinese letter while
+      // the UI is in English mode (or vice versa): it swaps source/target and
+      // stores the original verbatim in the wrong field while a bogus reverse
+      // translation corrupts the other. Trust the actual characters: any CJK
+      // in the title or body means it's a Chinese letter.
+      const hasCjk    = /[㐀-鿿]/.test(`${title}\n${letter}`);
+      const writingZh = hasCjk || lang !== 'en';
 
-      // Translate title and body. Sender name comes straight from the session
-      // (with an optional `name_en` override in the allowlist entry) — no
-      // AI translation of the name, so "妈妈" stays "妈妈" instead of randomly
-      // being rendered as "Mama" / "Mommy" / "Mom" between drafts.
+      // Translate title and body. Sender name is NOT AI-translated (so "妈妈"
+      // doesn't randomly become "Mama" / "Mommy" between drafts) — instead the
+      // English form comes from an explicit, stable source: the allowlist's
+      // `name_en` override if present, else a fixed family-name dictionary
+      // (NAME_EN below). Only if neither matches does it fall back to the
+      // Chinese name. This keeps the English page from showing "妈妈".
       const [titleOther, bodyOther] = await Promise.all([
         translate(env.AI, title,  writingZh ? 'zh' : 'en', writingZh ? 'en' : 'zh'),
         translate(env.AI, letter, writingZh ? 'zh' : 'en', writingZh ? 'en' : 'zh'),
@@ -1182,7 +1196,7 @@ async function handleRequest(request, env, ctx, origin) {
       const bodyZh   = writingZh ? letter : (bodyOther   || letter);
       const bodyEn   = writingZh ? (bodyOther   || letter) : letter;
       const fromZh   = session.name;
-      const fromEn   = session.name_en || session.name;
+      const fromEn   = session.name_en || NAME_EN[session.name] || session.name;
 
       const today      = new Date().toISOString().slice(0, 10);
       const titleSlug  = slugify(titleZh);
