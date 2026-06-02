@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # Keep GitHub Actions up to date — catches Node-runtime deprecations
+  # (e.g. node20 → node24) by bumping action majors when GitHub releases them.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
