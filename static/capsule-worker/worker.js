@@ -578,7 +578,7 @@ const EMAIL_COLORS = JSON.parse(atob(
   'eyJiZyI6IiNmYWY4ZjMiLCJmZyI6IiMyYTJhMmEiLCJjYXJkIjoiI2ZmZmZmZiIsImxpbmUiOiIjZWNlOGRmIiwibXV0ZWQiOiIjNTU1NTU1IiwiZmFpbnQiOiIjOTk5OTk5In0='
 ));
 
-function newsletterHtml(post, unsubLink) {
+function newsletterHtml(post, unsubLink, isCapsule) {
   const c = EMAIL_COLORS;
   const title   = escapeHtml(post.title);
   const link    = escapeHtml(post.permalink);
@@ -591,12 +591,12 @@ function newsletterHtml(post, unsubLink) {
     : '';
   return `<!DOCTYPE html><html><body style="margin:0;padding:24px;background:${c.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:${c.fg};">
   <div style="max-width:600px;margin:0 auto;background:${c.card};border:1px solid ${c.line};border-radius:8px;padding:28px 32px;">
-    <p style="color:${c.faint};font-size:0.82em;margin:0 0 6px;letter-spacing:0.04em;text-transform:uppercase;">Yunze 写了新文章 · New post from Yunze</p>
+    <p style="color:${c.faint};font-size:0.82em;margin:0 0 6px;letter-spacing:0.04em;text-transform:uppercase;">${isCapsule ? 'Yunze 公开了一封写给他的信 · Yunze made a letter public' : 'Yunze 写了新文章 · New post from Yunze'}</p>
     <h2 style="margin:4px 0 18px;font-size:1.45em;line-height:1.3;color:${c.fg};">${title}</h2>
     ${coverBlock}
     <p style="line-height:1.75;color:${c.muted};white-space:pre-wrap;">${summary}</p>
     <p style="margin:28px 0 8px;">
-      <a href="${link}" style="background:${c.fg};color:${c.card};text-decoration:none;padding:11px 22px;border-radius:6px;display:inline-block;font-size:0.95em;">阅读全文 · Read full post →</a>
+      <a href="${link}" style="background:${c.fg};color:${c.card};text-decoration:none;padding:11px 22px;border-radius:6px;display:inline-block;font-size:0.95em;">${isCapsule ? '读这封信 · Read the letter →' : '阅读全文 · Read full post →'}</a>
     </p>
     <hr style="border:none;border-top:1px solid ${c.line};margin:28px 0 14px;">
     <p style="font-size:0.76em;color:${c.faint};line-height:1.7;margin:0;">
@@ -607,17 +607,19 @@ function newsletterHtml(post, unsubLink) {
 </body></html>`;
 }
 
-function newsletterText(post, unsubLink) {
+function newsletterText(post, unsubLink, isCapsule) {
   const raw = (post.content || '').trim();
   const summary = raw.length > 320 ? raw.slice(0, 320).trim() + '…' : raw;
   return [
-    'Yunze 写了新文章 · New post from Yunze',
+    isCapsule ? 'Yunze 公开了一封写给他的信 · Yunze made a letter public'
+              : 'Yunze 写了新文章 · New post from Yunze',
     '',
     post.title,
     '',
     summary,
     '',
-    `阅读全文 · Read full post: ${post.permalink}`,
+    isCapsule ? `读这封信 · Read the letter: ${post.permalink}`
+              : `阅读全文 · Read full post: ${post.permalink}`,
     '',
     '——',
     '你订阅了 Yunze 的博客邮件通知 · You subscribed to Yunze\'s blog.',
@@ -625,7 +627,16 @@ function newsletterText(post, unsubLink) {
   ].join('\n');
 }
 
-async function sendNewsletterEmail(apiKey, to, post, unsubLink) {
+function newsletterSubject(post, isCapsule) {
+  if (isCapsule) {
+    return post.title_zh
+      ? `📜 一封公开的时光胶囊：${post.title_zh}${post.title ? ` · ${post.title}` : ''}`
+      : `📜 一封公开的时光胶囊${post.title ? `：${post.title}` : ''}`;
+  }
+  return post.title_zh ? `📝 ${post.title_zh} · ${post.title}` : `📝 ${post.title}`;
+}
+
+async function sendNewsletterEmail(apiKey, to, post, unsubLink, isCapsule) {
   return fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -633,17 +644,53 @@ async function sendNewsletterEmail(apiKey, to, post, unsubLink) {
       from:    NEWSLETTER_FROM,
       to,
       reply_to: REPLY_TO_EMAIL,
-      subject: post.title_zh
-        ? `📝 ${post.title_zh} · ${post.title}`
-        : `📝 ${post.title}`,
-      html:    newsletterHtml(post, unsubLink),
-      text:    newsletterText(post, unsubLink),
+      subject: newsletterSubject(post, isCapsule),
+      html:    newsletterHtml(post, unsubLink, isCapsule),
+      text:    newsletterText(post, unsubLink, isCapsule),
       headers: {
         'List-Unsubscribe':      `<${unsubLink}>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
       },
     }),
   });
+}
+
+// Broadcast a freshly-revealed time-capsule letter to newsletter subscribers.
+// Fired from /reveal-action on a real false→true flip — NOT from /broadcast,
+// whose "newest post" mechanism can't surface a capsule: the stub's `date` is
+// the original write date (often years old), so a revealed letter never sorts
+// to the top of the feed and posts[0] would never be it. Deduped by
+// `sent:capsule:<slug>` so a keep→reveal toggle doesn't re-email. Fire-and-forget.
+async function broadcastCapsuleReveal(env, slug, fileText) {
+  if (!env.RESEND_API_KEY || !env.BROADCAST_SECRET) return;
+  const sentKey = `sent:capsule:${slug}`;
+  if (await env.RATE_LIMIT.get(sentKey)) return;
+
+  const unq     = (s) => (s || '').replace(/\\"/g, '"').trim();
+  const titleZh = unq((fileText.match(/^title:\s*"?(.*?)"?\s*$/m)    || [])[1]);
+  const titleEn = unq((fileText.match(/^title_en:\s*"?(.*?)"?\s*$/m) || [])[1]);
+  const bodyZh  = ((fileText.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?([\s\S]*)$/) || [])[1] || '').trim();
+
+  const post = {
+    title:     titleEn || titleZh || '一封时光胶囊',
+    title_zh:  titleZh,
+    permalink: `${SITE_URL}/capsule/${slug}/`,
+    cover:     '',
+    content:   bodyZh,
+    summary:   bodyZh,
+  };
+
+  const subs = await listSubscribers(env.RATE_LIMIT);
+  for (const email of subs) {
+    const token     = await unsubToken(email, env.BROADCAST_SECRET);
+    const unsubLink = `${WORKER_URL}/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
+    try {
+      await sendNewsletterEmail(env.RESEND_API_KEY, email, post, unsubLink, true);
+    } catch (e) {
+      console.error('capsule newsletter send failed', email, e.message);
+    }
+  }
+  await env.RATE_LIMIT.put(sentKey, new Date().toISOString());
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -1523,6 +1570,14 @@ async function handleRequest(request, env, ctx, origin) {
           status: 500,
           headers: { 'Content-Type': 'text/plain; charset=utf-8' },
         });
+      }
+
+      // Reaching here means the flip actually happened (the equal case returned
+      // above). On a real reveal (false→true), notify subscribers — capsules
+      // can't ride the /broadcast "newest post" path, so this is their only
+      // notification hook. Fire-and-forget so the confirmation page is instant.
+      if (action === 'reveal') {
+        ctx.waitUntil(broadcastCapsuleReveal(env, slug, updated));
       }
 
       return new Response(revealConfirmationHtml(action), {
