@@ -20,7 +20,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Check private repo token
         id: check_token
@@ -36,7 +36,7 @@ jobs:
 
       - name: Checkout private content
         if: steps.check_token.outputs.available == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: Yunze229/yunze-private
           token: ${{ secrets.PRIVATE_REPO_TOKEN }}
@@ -149,7 +149,7 @@ jobs:
           echo "Staged: $POSTS_PUB published posts, $POSTS_PRIV private posts, $PROJECTS_COUNT projects, $MANUAL_COUNT manuals, $CAPSULE_COUNT capsule letters, $LEARNING_COUNT learning notes, $TIMELINE_COUNT timeline milestones, $IMAGE_DIRS image dirs, $TRANS_COUNT translations, $DATA_COUNT data files."
 
       - name: Setup Node (for Hugo js.Build → esbuild → Tiptap)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
@@ -206,7 +206,7 @@ jobs:
           echo "Done. $ENCRYPTED private posts encrypted."
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ./public
 
@@ -219,7 +219,7 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
       - name: Trigger Newsletter Broadcast
         run: |
