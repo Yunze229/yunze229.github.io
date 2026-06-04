@@ -47,7 +47,7 @@ jobs:
         run: |
           # Ensure all target dirs exist (the public repo may have only _index.md
           # checked in, so the directories may be missing on a fresh checkout).
-          mkdir -p content/posts content/private content/learning content/projects content/manual content/capsule
+          mkdir -p content/posts content/private content/learning content/projects content/manual content/capsule content/timeline
           mkdir -p data/translations
           mkdir -p static/images/uploads
 
@@ -58,6 +58,7 @@ jobs:
           PROJECTS_COUNT=0
           MANUAL_COUNT=0
           CAPSULE_COUNT=0
+          TIMELINE_COUNT=0
           IMAGE_DIRS=0
           TRANS_COUNT=0
           DATA_COUNT=0
@@ -106,6 +107,14 @@ jobs:
             LEARNING_COUNT=$((LEARNING_COUNT+1))
           done
 
+          # Growth-timeline milestones — always public, dedicated section so the
+          # /timeline/ layout can merge them with auto-pulled projects + flagged posts.
+          # content/timeline/_index.md (the section shell) stays in the public repo.
+          for f in .private-src/timeline/*.md; do
+            cp "$f" content/timeline/
+            TIMELINE_COUNT=$((TIMELINE_COUNT+1))
+          done
+
           # Image uploads — copy whole tree so {{slug}} subdirs preserved.
           if [ -d .private-src/images/uploads ]; then
             mkdir -p static/images/uploads
@@ -137,7 +146,7 @@ jobs:
           # them anyway (data/ only accepts json/yaml/toml).
 
           shopt -u nullglob
-          echo "Staged: $POSTS_PUB published posts, $POSTS_PRIV private posts, $PROJECTS_COUNT projects, $MANUAL_COUNT manuals, $CAPSULE_COUNT capsule letters, $LEARNING_COUNT learning notes, $IMAGE_DIRS image dirs, $TRANS_COUNT translations, $DATA_COUNT data files."
+          echo "Staged: $POSTS_PUB published posts, $POSTS_PRIV private posts, $PROJECTS_COUNT projects, $MANUAL_COUNT manuals, $CAPSULE_COUNT capsule letters, $LEARNING_COUNT learning notes, $TIMELINE_COUNT timeline milestones, $IMAGE_DIRS image dirs, $TRANS_COUNT translations, $DATA_COUNT data files."
 
       - name: Setup Node (for Hugo js.Build → esbuild → Tiptap)
         uses: actions/setup-node@v4

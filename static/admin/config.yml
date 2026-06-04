@@ -40,6 +40,12 @@ collections:
         widget: "boolean"
         default: false
         hint: "开 → 部署到 /posts/<slug>/ 公开；关 → /private/<slug>/ 用密码访问。Hugo 保留了 published 这个字段名，所以我们用 make_public"
+      - label: "🌱 在成长时间轴显示"
+        name: "timeline"
+        widget: "boolean"
+        default: false
+        required: false
+        hint: "开 → 这篇文章会作为一个节点出现在 /timeline/ 成长时间轴上（仅公开文章生效）。默认关，避免日记刷屏"
       - label: "日期"
         name: "date"
         widget: "datetime"
@@ -210,6 +216,59 @@ collections:
       - { label: "对应日记 slug（可选）", name: "source_slug", widget: "string", required: false }
       - { label: "对应日记标题（可选）", name: "source_title", widget: "string", required: false }
       - { label: "笔记内容", name: "body", widget: "markdown" }
+
+  - name: "timeline"
+    label: "🌱 成长时间轴 | TIMELINE"
+    label_singular: "里程碑"
+    folder: "timeline"
+    create: true
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    media_folder: "../images/uploads/{{slug}}"
+    public_folder: "/images/uploads/{{slug}}"
+    thumbnail: "cover"
+    summary: "{{emoji}} {{title}}（{{date}}）"
+    sortable_fields:
+      fields: ["date", "title"]
+      default:
+        field: "date"
+        direction: "descending"
+    fields:
+      - { label: "标题", name: "title", widget: "string", hint: "里程碑名称，如「学会骑自行车」" }
+      - label: "日期"
+        name: "date"
+        widget: "datetime"
+        format: "YYYY-MM-DD"
+        date_format: "YYYY-MM-DD"
+        time_format: false
+      - label: "图标 Emoji"
+        name: "emoji"
+        widget: "string"
+        required: false
+        hint: "卡片主视觉，如 🍼🎨🚲🐍。没传封面图时显示它"
+      - label: "封面图片（可选）"
+        name: "cover"
+        widget: "image"
+        required: false
+        hint: "传了就用图当卡片主视觉，没传则用上面的 emoji"
+      - label: "草稿"
+        name: "draft"
+        widget: "boolean"
+        default: false
+      - label: "一句话描述（可选）"
+        name: "body"
+        widget: "markdown"
+        required: false
+        hint: "卡片上的一行小字，可留空"
+      - label: "中文标题（可选）"
+        name: "title_zh"
+        widget: "string"
+        required: false
+        hint: "不填则由 AI 自动翻译；填了直接用，不再调用 AI"
+      - label: "中文描述（可选）"
+        name: "body_zh"
+        widget: "markdown"
+        required: false
+        hint: "不填则由 AI 自动翻译；填了直接用，不再调用 AI"
 
   - name: "reviews"
     label: "📋 审查记录（AI 审稿）"

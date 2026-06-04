@@ -1,0 +1,131 @@
+{{ define "main" }}
+<div class="section-header">
+  <h1 class="section-title">
+    <span class="lang-zh">成长</span>
+    <span class="lang-en">Timeline</span>
+  </h1>
+  {{ partial "section-tagline.html" . }}
+</div>
+
+{{/*
+  Growth timeline — merges three sources into one chronological track:
+    1. manual milestones   (content/timeline/, authored via CMS)
+    2. projects            (content/projects/, auto-pulled)
+    3. flagged posts       (content/posts/ with `timeline: true`)
+  Sorted ascending (oldest → newest, left → right). Year chips separate groups.
+*/}}
+
+{{ $events := slice }}
+
+{{/* 1. Manual milestones */}}
+{{ range where site.RegularPages "Section" "timeline" }}
+  {{ $slug := .File.ContentBaseName }}
+  {{ $trans := index hugo.Data.translations $slug }}
+  {{ with .Params.title_zh }}
+    {{ if $trans }}{{ $trans = merge $trans (dict "title" .) }}{{ else }}{{ $trans = dict "title" . }}{{ end }}
+  {{ end }}
+  {{ $tz := .Title }}{{ with $trans }}{{ $tz = .title }}{{ end }}
+  {{ $events = $events | append (dict
+      "date" .Date
+      "titleEN" .Title
+      "titleZH" $tz
+      "emoji" (.Params.emoji | default "🌱")
+      "cover" .Params.cover
+      "url" ""
+      "type" "milestone") }}
+{{ end }}
+
+{{/* 2. Projects (always public) */}}
+{{ range where (where site.RegularPages "Section" "projects") ".Params.private" "ne" true }}
+  {{ $slug := .File.ContentBaseName }}
+  {{ $trans := index hugo.Data.translations $slug }}
+  {{ with .Params.title_zh }}
+    {{ if $trans }}{{ $trans = merge $trans (dict "title" .) }}{{ else }}{{ $trans = dict "title" . }}{{ end }}
+  {{ end }}
+  {{ $tz := .Title }}{{ with $trans }}{{ $tz = .title }}{{ end }}
+  {{ $events = $events | append (dict
+      "date" .Date
+      "titleEN" .Title
+      "titleZH" $tz
+      "emoji" (.Params.emoji | default "🎨")
+      "cover" .Params.cover
+      "url" .RelPermalink
+      "type" "project") }}
+{{ end }}
+
+{{/* 3. Posts explicitly flagged for the timeline */}}
+{{ range where (where (where site.RegularPages "Section" "posts") ".Params.timeline" true) ".Params.private" "ne" true }}
+  {{ $slug := .File.ContentBaseName }}
+  {{ $trans := index hugo.Data.translations $slug }}
+  {{ with .Params.title_zh }}
+    {{ if $trans }}{{ $trans = merge $trans (dict "title" .) }}{{ else }}{{ $trans = dict "title" . }}{{ end }}
+  {{ end }}
+  {{ $tz := .Title }}{{ with $trans }}{{ $tz = .title }}{{ end }}
+  {{ $events = $events | append (dict
+      "date" .Date
+      "titleEN" .Title
+      "titleZH" $tz
+      "emoji" (.Params.emoji | default "✍️")
+      "cover" .Params.cover
+      "url" .RelPermalink
+      "type" "post") }}
+{{ end }}
+
+{{ $events = sort $events "date" "asc" }}
+
+{{ $badges := dict
+    "milestone" (dict "zh" "里程碑" "en" "Milestone")
+    "project"   (dict "zh" "作品"   "en" "Project")
+    "post"      (dict "zh" "文章"   "en" "Post") }}
+
+{{ if $events }}
+<p class="timeline-hint">
+  <span class="lang-zh">← 左右滑动，看时光流动 →</span>
+  <span class="lang-en">← swipe to travel through time →</span>
+</p>
+
+<div class="timeline-track">
+  {{ $lastYear := "" }}
+  {{ range $e := $events }}
+    {{ $y := $e.date.Format "2006" }}
+    {{ if ne $y $lastYear }}
+      <div class="timeline-year-chip" aria-hidden="true"><span>{{ $y }}</span></div>
+      {{ $lastYear = $y }}
+    {{ end }}
+
+    {{ $badge := index $badges $e.type }}
+    {{ $inner := printf `
+      %s
+      <time class="timeline-card-date">
+        <span class="lang-zh-inline">%s</span>
+        <span class="lang-en-inline">%s</span>
+      </time>
+      <div class="timeline-card-title">
+        <span class="lang-zh-inline">%s</span>
+        <span class="lang-en-inline">%s</span>
+      </div>
+      <span class="timeline-card-badge timeline-card-badge--%s">
+        <span class="lang-zh-inline">%s</span>
+        <span class="lang-en-inline">%s</span>
+      </span>`
+      (cond (ne (string $e.cover) "")
+        (printf `<div class="timeline-card-cover"><img src="%s" alt="" loading="lazy"></div>` $e.cover)
+        (printf `<div class="timeline-card-visual">%s</div>` $e.emoji))
+      ($e.date.Format "2006年01月02日") ($e.date.Format "Jan 2, 2006")
+      $e.titleZH $e.titleEN
+      $e.type $badge.zh $badge.en }}
+
+    {{ if ne $e.url "" }}
+      <a class="timeline-card timeline-card--{{ $e.type }}" href="{{ $e.url }}">{{ $inner | safeHTML }}</a>
+    {{ else }}
+      <div class="timeline-card timeline-card--{{ $e.type }}">{{ $inner | safeHTML }}</div>
+    {{ end }}
+  {{ end }}
+</div>
+{{ else }}
+<p class="section-empty">
+  <span class="lang-zh">成长时间轴还在搭建中，敬请期待。</span>
+  <span class="lang-en">The growth timeline is still being built. Stay tuned!</span>
+</p>
+{{ end }}
+{{ end }}
